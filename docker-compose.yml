@@ -1,0 +1,28 @@
+services:
+  postgres:
+    image: postgis/postgis:18-3.6
+    container_name: omilos_db
+    platform: linux/amd64
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${OMILOS_DB_DATABASE}
+      POSTGRES_USER: ${OMILOS_DB_USERNAME}
+      POSTGRES_PASSWORD: ${OMILOS_DB_PASSWORD}
+    ports:
+      - "${OMILOS_DB_PORT}:5432"
+    volumes:
+      - psql_volume:/var/lib/postgresql
+      - ./omilos-backend/sql/init:/docker-entrypoint-initdb.d
+
+  sqlfluff:
+    image: sqlfluff/sqlfluff:latest
+    container_name: sqlfluff_linter
+    volumes:
+      - .:/omilos-backend/sql
+    working_dir: /sql
+    command: lint --dialect postgres .
+    depends_on:
+      - postgres
+
+volumes:
+  psql_volume:
