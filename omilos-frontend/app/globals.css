@@ -3,13 +3,39 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f8f8f8;
+  --color-border-primary: #e8e8e8;
+
+  --color-text-primary: #000000;
+  --color-text-secondary: #737373;
+  --color-text-disabled: rgb(0 0 0 / 20%);
+
+  --color-danger: #ff3737;
+  --color-info: #0662db;
+  --color-warning: #ffcb20;
+  --color-success: #ace92a;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-outfit);
   --font-mono: var(--font-geist-mono);
+
+  --color-bg-primary: var(--color-bg-primary);
+  --color-bg-secondary: var(--color-bg-secondary);
+  --color-border-primary: var(--color-border-primary);
+
+  --color-text-primary: var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-text-disabled: var(--color-text-disabled);
+
+  --color-danger: var(--color-danger);
+  --color-info: var(--color-info);
+  --color-warning: var(--color-warning);
+  --color-success: var(--color-success);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,5 +48,5 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
