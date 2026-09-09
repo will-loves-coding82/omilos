@@ -14,6 +14,35 @@ services:
       - psql_volume:/var/lib/postgresql
       - ./omilos-backend/sql/init:/docker-entrypoint-initdb.d
 
+  frontend:
+    build:
+      context: ./omilos-frontend
+      dockerfile: Dockerfile
+    container_name: omilos_frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT}:3000"
+    depends_on:
+      - postgres
+
+  backend:
+    build:
+      context: ./omilos-backend
+      dockerfile: Dockerfile
+    container_name: omilos_backend
+    restart: unless-stopped
+    environment:
+      PORT: ${BACKEND_PORT:-8080}
+      OMILOS_DB_HOST: postgres
+      OMILOS_DB_PORT: 5432
+      OMILOS_DB_DATABASE: ${OMILOS_DB_DATABASE}
+      OMILOS_DB_USERNAME: ${OMILOS_DB_USERNAME}
+      OMILOS_DB_PASSWORD: ${OMILOS_DB_PASSWORD}
+    ports:
+      - "${OMILOS_DB_PORT}:3001"
+    depends_on:
+      - postgres
+
   sqlfluff:
     image: sqlfluff/sqlfluff:latest
     container_name: sqlfluff_linter
