@@ -9,7 +9,7 @@ const sizeClasses: Record<SkeletonSize, string> = {
 export default function Skeleton({ size }: { size: SkeletonSize }) {
   return (
     <div
-      className={`w-full animate-pulse rounded-md bg-skeleton ${sizeClasses[size]}`}
+      className={`w-full animate-pulse rounded-md bg-skeleton/50 ${sizeClasses[size]}`}
     />
   );
 }

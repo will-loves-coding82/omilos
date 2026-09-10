@@ -6,6 +6,7 @@
 
   --color-bg-primary: #ffffff;
   --color-bg-secondary: #f6f6f6;
+  --color-bg-success: #ace92a;
   --color-border-primary: #e8e8e8;
 
   --color-text-primary: #000000;
@@ -29,6 +30,7 @@
 
   --color-bg-primary: var(--color-bg-primary);
   --color-bg-secondary: var(--color-bg-secondary);
+  --color-bg-success: var(--color-bg-success);
   --color-border-primary: var(--color-border-primary);
 
   --color-text-primary: var(--color-text-primary);
@@ -48,6 +50,15 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+
+    --color-bg-primary: #0a0a0a;
+    --color-bg-secondary: #171717;
+    --color-border-primary: #2e2e2e;
+
+    --color-text-primary: #ededed;
+    --color-text-secondary: #a3a3a3;
+    --color-text-disabled: rgb(255 255 255 / 20%);
+    --color-text-inverse: #000000;
 
     --color-skeleton: #2e2e2e;
   }
