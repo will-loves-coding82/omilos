@@ -2,12 +2,14 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
+  clerk_id TEXT NOT NULL UNIQUE,
   first_name TEXT NOT NULL,
   last_name TEXT NOT NULL,
-  email TEXT NOT NULL, 
+  email TEXT UNIQUE NOT NULL, 
   is_guest BOOLEAN NOT NULL,
-  s3_profile_url TEXT,
-  created_at TIMESTAMPTZ NOT NULL
+  image_url TEXT,
+  created_at TIMESTAMPTZ NOT NULL,
+  updated_at TIMESTAMPTZ
 );
 
 CREATE TABLE events (
