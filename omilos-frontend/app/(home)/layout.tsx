@@ -1,10 +1,9 @@
-import Navbar from "../components/Navbar";
-import Image from "next/image";
+import NavbarClient from "../components/NavbarClient";
 
 export default function HomeLayout({ children }: LayoutProps<"/">) {
   return (
     <>
-      <Navbar/>
+      <NavbarClient/>
       {children}
     </>
 

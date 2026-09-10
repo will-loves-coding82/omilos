@@ -3,7 +3,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Outfit, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Navbar from "../app/components/Navbar";
+import Navbar from "../app/components/NavbarClient";
 
 const outfit = Outfit({
   variable: "--font-outfit",

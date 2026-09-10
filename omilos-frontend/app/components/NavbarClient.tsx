@@ -8,7 +8,7 @@ import Skeleton from "./Skeleton";
 
 const NAV_HEIGHT = 64;
 
-export default function Navbar() {
+export default function NavbarClient() {
   const [onDark, setOnDark] = useState(true);
 
   useEffect(() => {
@@ -35,7 +35,7 @@ export default function Navbar() {
 
   return (
     <nav
-      className={`bg-bg-secondary/30 backdrop-blur-md h-[64px] m-2 rounded-xl w-[calc(100%-2rem)] max-w-7xl mx-auto fixed top-0 left-0 right-0 z-100 transition-colors ${
+      className={`bg-bg-secondary/30 backdrop-blur-md h-[64px] m-4 rounded-xl w-[calc(100%-2rem)] max-w-7xl mx-auto fixed top-0 left-0 right-0 z-100 transition-colors ${
         onDark ? "text-white" : "text-text-primary"
       }`}
     >
@@ -62,7 +62,7 @@ function AuthGroup() {
       {isSignedIn ? 
         <section id="auth" className="flex gap-4">
           <UserButton/>
-          <Link href="/dashboard">Dashboard</Link>
+          <Link href="/dashboard/hangouts">Dashboard</Link>
         </section>
         :
         <section id="auth" className="flex gap-8">

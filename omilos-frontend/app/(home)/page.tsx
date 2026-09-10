@@ -1,10 +1,9 @@
 import Image from "next/image";
-import Navbar from "../components/Navbar";
 
 export default function Home() {
   return (
     <>
-      <section id="hero" data-nav-theme="dark" className="flex flex-col items-start justify-center bg-bg-success h-180">
+      <section id="hero" data-nav-theme="dark" className="flex flex-col items-start justify-center bg-bg-success h-[72vh]">
           <header className="flex flex-col justify-center gap-8 mx-auto text-center ">
             <h1 className="text-8xl text-white">Move <br /> Together</h1>
             <p className="max-w-lg mx-auto text-2xl text-white">Omilos lets you plan and visualize your group hangouts easily.</p>
