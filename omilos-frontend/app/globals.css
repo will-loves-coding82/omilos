@@ -5,17 +5,20 @@
   --foreground: #171717;
 
   --color-bg-primary: #ffffff;
-  --color-bg-secondary: #f8f8f8;
+  --color-bg-secondary: #f6f6f6;
   --color-border-primary: #e8e8e8;
 
   --color-text-primary: #000000;
   --color-text-secondary: #737373;
   --color-text-disabled: rgb(0 0 0 / 20%);
+  --color-text-inverse: #ffffff;
 
   --color-danger: #ff3737;
   --color-info: #0662db;
   --color-warning: #ffcb20;
   --color-success: #ace92a;
+
+  --color-skeleton: #e8e8e8;
 }
 
 @theme inline {
@@ -31,17 +34,22 @@
   --color-text-primary: var(--color-text-primary);
   --color-text-secondary: var(--color-text-secondary);
   --color-text-disabled: var(--color-text-disabled);
+  --color-text-inverse: var(--color-text-inverse);
 
   --color-danger: var(--color-danger);
   --color-info: var(--color-info);
   --color-warning: var(--color-warning);
   --color-success: var(--color-success);
+
+  --color-skeleton: var(--color-skeleton);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+
+    --color-skeleton: #2e2e2e;
   }
 }
 
