@@ -1,5 +1,12 @@
-export default function HangoutsPage() {
+"use server";
+
+import { Suspense } from "react";
+import { HangoutsServer } from "./components/hangoutsServer";
+
+export default async function HangoutsPage() {
   return (
-    <div>Hangouts</div>
+    <Suspense fallback={<p>Loading...</p>}>
+        <HangoutsServer/>
+    </Suspense>
   )
 }

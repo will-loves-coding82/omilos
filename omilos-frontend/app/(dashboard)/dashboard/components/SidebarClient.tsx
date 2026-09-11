@@ -1,6 +1,7 @@
 "use client";
 
-import { Calendar, MapPinPlusInside, PanelLeft } from "lucide-react";
+
+import { Calendar, User, PanelLeft, Bell } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -10,9 +11,9 @@ export default function SidebarClient() {
   const [isOpen, setIsOpen] = useState(true);
 
   return (
-    <nav className={`flex flex-col h-full ${isOpen ? "w-[216px]": "w-[80px]"} border-r-1 border-1 border-border-primary transition-all duration-300`}>
-      <section className={`flex items-center m-4 h-[40px] ${isOpen ? "justify-between" : "justify-center"}`}>
-          {isOpen ? <Link href="/" className="text-lg font-medium stext-text-primary">Omilos</Link> : null}
+    <nav className={`flex flex-col h-full ${isOpen ? "min-w-[224px]": "min-w-[80px]"} shadow-md transition-all duration-300`}>
+      <section className={`h-[64px] flex items-center p-4 ${isOpen ? "justify-between" : "justify-center"}`}>
+          {isOpen ? <Link href="/" className="flex items-center gap-3 font-medium text-text-primary"><p className="text-3xl">O</p><p className="text-md">Omilos</p></Link> : null}
           <button 
             className="text-text-primary hover:cursor-pointer"
             onClick={(e) => {
@@ -20,13 +21,14 @@ export default function SidebarClient() {
               setIsOpen(!isOpen)
             }}
             >
-            <PanelLeft size={20}/>
+            <PanelLeft size={20} className="text-text-secondary"/>
           </button>
         </section>
 
         <section className="flex flex-col m-4 gap-2">
           <SidebarLink pathname={pathname} title={"Hangouts"} isOpen={isOpen} icon={<Calendar size={20}/>} />
-          <SidebarLink pathname={pathname} title={"Create"} isOpen={isOpen} icon={<MapPinPlusInside size={20}/>}/>
+          <SidebarLink pathname={pathname} title={"Invitations"} isOpen={isOpen} icon={<Bell size={20}/>} />
+          <SidebarLink pathname={pathname} title={"Profile"} isOpen={isOpen} icon={<User size={20}/>} />
         </section>
     </nav>
   )
@@ -45,10 +47,11 @@ function SidebarLink({pathname, title, isOpen, icon}: SidebarLinkProps) {
   return (
     <Link 
       href={`/dashboard/${title.toLocaleLowerCase()}`}
-      className={`${isActive ? "bg-bg-success" : "bg-bg-primary"} bg transition-all duration-200 hover:cursor-pointer px-3 py-2 rounded-lg w-full text-text-primary`}
+      className={`h-[40px] flex items-center ${isActive ? "bg-bg-secondary" : "bg-bg-primary"} bg transition-all duration-200 hover:cursor-pointer px-3 py-2 rounded-lg w-full text-text-primary`}
     >
-      <div className={`${isActive ? "text-text-inverse" : "text-text-primary"}`}>
-        {isOpen ? title : icon}
+      <div className={`flex items-center w-full gap-2 ${isActive ? "text-text-primary" : "text-text-secondary"}`}>
+        <span className="shrink-0">{icon}</span>
+        {isOpen ? <span>{title}</span> : null}
       </div>
     </Link>
   )
