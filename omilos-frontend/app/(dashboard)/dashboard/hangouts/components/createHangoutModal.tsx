@@ -4,10 +4,10 @@ import { AnimatePresence, motion } from "motion/react";
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createNewHangout, ActionResponse, searchUsers } from "../actions";
-import { hangoutDetailsSchema } from "../schemas";
 import { OmilosUser, OmilosEvent } from "@/app/types";
 import DatePicker from "@/app/components/DatePicker";
 import Image from "next/image";
+import { hangoutDetailsSchema } from "../schemas";
 
 type CreateHangoutModalProps = {
   isOpen: boolean,
@@ -208,7 +208,6 @@ export function CreateHangoutModal({ isOpen, onClose }: CreateHangoutModalProps)
                       >
                         Continue
                       </button>
-
                     </motion.div>
                   }
 

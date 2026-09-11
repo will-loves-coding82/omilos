@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"omilos-backend/internal/database"
 	"omilos-backend/internal/slug"
@@ -9,12 +10,15 @@ import (
 )
 
 type Event struct {
+	Id          int64   `json:"id" db:"id"`
 	Title       string  `json:"title" db:"title"` // omitted if empty string
 	Description string  `json:"description" db:"description"`
 	Slug        string  `json:"slug" db:"slug"`
 	Date        string  `json:"date" db:"date"`
 	HostId      string  `json:"host_id" db:"host_id"`
-	Members     []int64 `json:"members"`
+	ImageURL    string  `json:"image_url,omitempty" db:"image_url"`
+	MemberIds   []int64 `json:"member_ids,omitempty"` // invitee ids, used only when creating an event
+	Members     []User  `json:"members,omitempty"`    // enriched attendees, populated only when reading an event
 }
 
 type EventClient struct {
@@ -30,21 +34,40 @@ func NewEventClient(database database.Service, userClient *UserClient) *EventCli
 }
 
 const getEventsForUserQuery = `
-	SELECT slug, name AS title, description, date, host_id
-	FROM events
-	WHERE host_id = $1
-	OR id IN (SELECT event_id FROM event_members WHERE user_id = $1);
+	SELECT
+		e.id, e.slug, e.name AS title, e.description, e.date, e.host_id,
+		COALESCE(
+			(
+				SELECT json_agg(json_build_object(
+					'id', u.id,
+					'clerk_id', u.clerk_id,
+					'first_name', u.first_name,
+					'last_name', u.last_name,
+					'email', u.email,
+					'image_url', u.image_url
+				))
+				FROM users u
+				WHERE u.id = e.host_id
+				OR u.id IN (SELECT user_id FROM event_members WHERE event_id = e.id)
+			),
+			'[]'
+		) AS members
+	FROM events e
+	WHERE e.host_id = $1
+	OR e.id IN (SELECT event_id FROM event_members WHERE user_id = $1);
 `
 
 // eventRow mirrors the events table's actual column shape, since Event's
 // db tags describe the API/insert shape (host_id as a Clerk string id,
 // title vs the name column) rather than what a plain SELECT returns.
 type eventRow struct {
-	Slug        string    `db:"slug"`
-	Title       string    `db:"title"`
-	Description *string   `db:"description"`
-	Date        time.Time `db:"date"`
-	HostId      int64     `db:"host_id"`
+	Id          int64           `db:"id"`
+	Slug        string          `db:"slug"`
+	Title       string          `db:"title"`
+	Description *string         `db:"description"`
+	Date        time.Time       `db:"date"`
+	HostId      int64           `db:"host_id"`
+	Members     json.RawMessage `db:"members"`
 }
 
 func (e *EventClient) GetEventsForUser(clerkId string) ([]Event, error) {
@@ -61,6 +84,7 @@ func (e *EventClient) GetEventsForUser(clerkId string) ([]Event, error) {
 	events := make([]Event, 0, len(rows))
 	for _, r := range rows {
 		event := Event{
+			Id:    r.Id,
 			Slug:  r.Slug,
 			Title: r.Title,
 			Date:  r.Date.Format("2006-01-02"),
@@ -68,6 +92,13 @@ func (e *EventClient) GetEventsForUser(clerkId string) ([]Event, error) {
 		if r.Description != nil {
 			event.Description = *r.Description
 		}
+
+		var members []User
+		if err := json.Unmarshal(r.Members, &members); err != nil {
+			return nil, fmt.Errorf("GetEventsForUser: %v", err)
+		}
+		event.Members = members
+
 		events = append(events, event)
 	}
 
@@ -113,7 +144,7 @@ func (e *EventClient) CreateNewEventTx(ctx context.Context, event Event) (string
 	}
 
 	// Add event members. Each one has a pending rsvp_status by default
-	for _, memberId := range event.Members {
+	for _, memberId := range event.MemberIds {
 		_, err = tx.Exec(`INSERT INTO event_members(user_id, event_id) VALUES($1, $2);`, memberId, eventId)
 		if err != nil {
 			return fail(err)

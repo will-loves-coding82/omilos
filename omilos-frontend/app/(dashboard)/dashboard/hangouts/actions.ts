@@ -3,8 +3,9 @@
 import { OmilosUser, OmilosEvent } from "@/app/types";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
-import { hangoutDetailsSchema } from "./schemas";
+
 import { BASE_URL, EVENTS_ENDPOINT, USERS_ENDPOINT } from "@/app/constants";
+import { hangoutDetailsSchema } from "./schemas";
 
 export type ActionResponse<T> = {
   success: boolean,
@@ -51,7 +52,7 @@ export async function createNewHangout(prevState: ActionResponse<Partial<OmilosE
         description: parsed.data.description,
         host_id: userId,
         date: parsed.data.date,
-        members: memberIds,
+        member_ids: memberIds,
       })
     })
 
