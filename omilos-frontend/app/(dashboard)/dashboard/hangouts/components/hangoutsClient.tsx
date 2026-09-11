@@ -1,11 +1,11 @@
 "use client";
 
-import { Hangout } from "@/app/types";
+import { OmilosEvent } from "@/app/types";
 import { CreateHangoutModal } from "./createHangoutModal";
 import { useState } from "react";
 
 export type HangoutsClientProps = {
-  data: Hangout[]
+  data: OmilosEvent[]
 }
 
 export function HangoutsClient({data}: HangoutsClientProps) {
@@ -41,7 +41,7 @@ export function HangoutsClient({data}: HangoutsClientProps) {
 }
 
 
-function HangoutPreviewCard(hangout: Hangout) {
+function HangoutPreviewCard(hangout: OmilosEvent) {
   return (
     <div key={hangout.id} className="h-[200px] w-full p-4 bg-bg-primary border-1 border-border-primary shadow-md rounded-lg">
       {hangout.title}

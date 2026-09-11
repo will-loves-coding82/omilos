@@ -17,7 +17,10 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 	r.Use(middleware.Logger)
 
 	userClient := app.NewUserClient(database)
+	eventClient := app.NewEventClient(database, userClient)
+
 	userHandler := NewUserHandler(userClient)
+	eventHandler := NewEventHandler(eventClient)
 
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"https://*", "http://*"},
@@ -31,6 +34,9 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 	r.Get("/health", s.healthHandler)
 
 	r.Post("/users", userHandler.CreateNewUser)
+	r.Get("/users", userHandler.SearchUsers)
+	r.Post("/events", eventHandler.CreateNewEvent)
+	r.Get("/events", eventHandler.GetEventsForUser)
 
 	return r
 }

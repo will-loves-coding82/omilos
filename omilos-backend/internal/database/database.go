@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log"
 	"os"
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jmoiron/sqlx"
 	_ "github.com/joho/godotenv/autoload"
 )
 
@@ -20,7 +20,7 @@ type Service interface {
 	Health() map[string]string
 
 	// Connects to the database
-	Conn() *sql.DB
+	Conn() *sqlx.DB
 
 	// Close terminates the database connection.
 	// It returns an error if the connection cannot be closed.
@@ -29,7 +29,7 @@ type Service interface {
 
 // Implements the Service interface
 type service struct {
-	db *sql.DB
+	db *sqlx.DB
 }
 
 var (
@@ -48,7 +48,7 @@ func New() Service {
 		return dbInstance
 	}
 	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable&search_path=%s", username, password, host, port, database, schema)
-	db, err := sql.Open("pgx", connStr)
+	db, err := sqlx.Open("pgx", connStr)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func New() Service {
 	return dbInstance
 }
 
-func (s *service) Conn() *sql.DB {
+func (s *service) Conn() *sqlx.DB {
 	return s.db
 }
 

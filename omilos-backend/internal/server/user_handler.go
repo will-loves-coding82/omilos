@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"omilos-backend/internal/app"
@@ -24,6 +25,7 @@ type ClerkUserPayload struct {
 	Id             string `json:"id"`
 	FirstName      string `json:"first_name"`
 	LastName       string `json:"last_name"`
+	ImageUrl       string `json:"image_url"`
 	EmailAddresses []struct {
 		EmailAddress string `json:"email_address"`
 	} `json:"email_addresses"`
@@ -50,13 +52,35 @@ func (h *UserHandler) CreateNewUser(w http.ResponseWriter, r *http.Request) {
 		FirstName: payload.FirstName,
 		LastName:  payload.LastName,
 		Email:     payload.PrimaryEmail(),
+		ImageUrl:  payload.ImageUrl,
 	}
 
 	err = h.client.CreateNewUser(user)
 	if err != nil {
+		fmt.Print(err)
 		httpio.InternalError(w, r, err)
 		return
 	}
 
 	httpio.NoContent(w, r, http.StatusOK)
+}
+
+type SearchUsersPayload struct {
+	Users []app.User `json:"users"`
+}
+
+func (h *UserHandler) SearchUsers(w http.ResponseWriter, r *http.Request) {
+	searchQuery := r.URL.Query().Get("search")
+	if len(searchQuery) == 0 {
+		httpio.BadRequest(w, r, errors.New("Search query cannot be empty"))
+		return
+	}
+
+	users, err := h.client.SearchUsers(searchQuery)
+	if err != nil {
+		httpio.InternalError(w, r, err)
+		return
+	}
+
+	httpio.JSON(w, r, http.StatusOK, SearchUsersPayload{Users: users})
 }

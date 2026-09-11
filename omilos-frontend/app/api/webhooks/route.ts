@@ -21,26 +21,27 @@ export async function POST(req: NextRequest) {
     switch (eventType) {
       case "user.created": {
         // call create user endpoint
-        let res: Response
         try {
-          res = await fetch(BASE_URL + USERS_ENDPOINT, {
+          const res = await fetch(BASE_URL + USERS_ENDPOINT, {
             method: "POST",
             headers: {
               "Content-Type": "application/json"
             },
             body: JSON.stringify(evt.data)
           })
+          
+          if (res.status !== 200) {
+            console.log("error syncing user")
+            return new Response('Error syncing user', { status: res.status})
+          }
+
         } catch (err) {
           console.error('Error reaching backend to sync user:', err)
           // backend unreachable - retryable, let Clerk retry the webhook
           return new Response('Error syncing user', { status: 502 })
         }
 
-        if (res.status !== 200) {
-          console.log("error syncing user")
-          return new Response('Error syncing user', { status: res.status})
-        }
-
+    
         return new Response('User successfully synced', {status: 200})
       }
 

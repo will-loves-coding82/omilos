@@ -1,9 +1,10 @@
 "use server";
 
-import { Hangout } from "@/app/types";
+import { OmilosUser, OmilosEvent } from "@/app/types";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { hangoutDetailsSchema } from "./schemas";
+import { BASE_URL, EVENTS_ENDPOINT, USERS_ENDPOINT } from "@/app/constants";
 
 export type ActionResponse<T> = {
   success: boolean,
@@ -15,7 +16,7 @@ export type ActionResponse<T> = {
 export type SortOption = "newest" | "oldest"
 export type FilterOption = "all" | "host" | "participant"
 
-export async function createNewHangout(prevState: ActionResponse<Hangout>,formData: FormData) : Promise<ActionResponse<Hangout>> {
+export async function createNewHangout(prevState: ActionResponse<Partial<OmilosEvent>>,formData: FormData) : Promise<ActionResponse<Partial<OmilosEvent>>> {
   const { userId } = await auth();
 
   if (!userId) {
@@ -28,6 +29,8 @@ export async function createNewHangout(prevState: ActionResponse<Hangout>,formDa
     date: formData.get("date"),
   });
 
+  const memberIds = formData.getAll("inviteeIds").map(Number).filter(id => !Number.isNaN(id));
+
   if (!parsed.success) {
     return {
       success: false,
@@ -37,16 +40,115 @@ export async function createNewHangout(prevState: ActionResponse<Hangout>,formDa
     };
   }
 
-  return {
-    success: true,
-    data: {
-      id: 0,
-      title: parsed.data.title,
-      description: parsed.data.description,
-    },
-  };
+  try {
+    const res = await fetch(BASE_URL + EVENTS_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        title: parsed.data.title,
+        description: parsed.data.description,
+        host_id: userId,
+        date: parsed.data.date,
+        members: memberIds,
+      })
+    })
+
+    if (!res.ok) {
+      return {
+        success: false,
+        data: prevState.data,
+        message: "Failed to create hangout",
+      };
+    }
+
+    const { data } = await res.json()
+
+    return {
+      success: true,
+      data: {
+        title: parsed.data.title,
+        description: parsed.data.description,
+        slug: data.slug,
+      },
+    };
+  }
+  catch(err) {
+    console.error("Error fetching hangouts:", err)
+    return {
+      success: false,
+      data: prevState.data,
+      message: err instanceof Error ? err.message : "An unknown error occurred",
+    };
+  }
 }
 
-export async function getHangoutsForUser(userId: string | null) : Promise<ActionResponse<Hangout[]>> {
-  return {success: true, data: [{title: "example 1", id: 1}, {title: "example 2", id: 2}, {title: "example 3", id: 3}, {title: "example 4", id: 4}]}
+export async function getHangoutsForUser(userId: string | null) : Promise<ActionResponse<OmilosEvent[]>> {
+  if (!userId) {
+    return { success: false, data: [], message: "Not authenticated" };
+  }
+
+  try {
+    const params = new URLSearchParams({ userId })
+    const res = await fetch(BASE_URL + EVENTS_ENDPOINT + "?" + params.toString())
+
+    if (!res.ok) {
+      return {
+        success: false,
+        message: "Failed to fetch hangouts",
+        data: []
+      }
+    }
+
+    const { data } = await res.json()
+    return {
+      success: true,
+      data: data.events ?? []
+    }
+  } catch (err) {
+    console.error("Error fetching hangouts:", err)
+    return {
+      success: false,
+      message: "Failed to fetch hangouts",
+      data: []
+    }
+  }
+}
+
+
+export async function searchUsers(searchQuery: string) : Promise <ActionResponse<OmilosUser[]>> {
+  if (searchQuery.length === 0) {
+    return {
+      success: false,
+      message: "Search query cannot be empty",
+      data: []
+    }
+  }
+
+  try {
+    const params = new URLSearchParams({ search: searchQuery })
+    const res = await fetch(BASE_URL + USERS_ENDPOINT + "?" + params.toString())
+
+    if (!res.ok) {
+      return {
+        success: false,
+        message: "Failed to search users",
+        data: []
+      }
+    }
+
+    const { data } = await res.json()
+    return {
+      success: true,
+      data: data.users ?? []
+    }
+  } catch (err) {
+    console.error("Error searching users:", err)
+    return {
+      success: false,
+      message: "Failed to search users",
+      data: []
+    }
+  }
 }

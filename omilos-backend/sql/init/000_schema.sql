@@ -6,6 +6,7 @@ CREATE TABLE users (
   first_name TEXT NOT NULL,
   last_name TEXT NOT NULL,
   email TEXT UNIQUE NOT NULL,
+  image_url TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ
 );
@@ -14,6 +15,7 @@ CREATE TABLE events (
   id SERIAL PRIMARY KEY,
   slug VARCHAR(255) NOT NULL,
   host_id INTEGER NOT NULL,
+  image_url TEXT,
   name TEXT NOT NULL,
   description TEXT,
   date DATE NOT NULL, 

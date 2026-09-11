@@ -1,22 +1,25 @@
 "use client";
-import { CircleX } from "lucide-react";
+import { CircleX, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useActionState, useState } from "react";
-import { createNewHangout, ActionResponse } from "../actions";
+import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createNewHangout, ActionResponse, searchUsers } from "../actions";
 import { hangoutDetailsSchema } from "../schemas";
-import { Hangout } from "@/app/types";
+import { OmilosUser, OmilosEvent } from "@/app/types";
 import DatePicker from "@/app/components/DatePicker";
+import Image from "next/image";
 
 type CreateHangoutModalProps = {
   isOpen: boolean,
   onClose: () => void
 }
 
-export function CreateHangoutModal({isOpen, onClose}: CreateHangoutModalProps) {
+export function CreateHangoutModal({ isOpen, onClose }: CreateHangoutModalProps) {
+  const router = useRouter();
 
-  const initialState: ActionResponse<Hangout> = {
+  const initialState: ActionResponse<Partial<OmilosEvent>> = {
     success: false,
-    data: { id: 0, title: '' },
+    data: {},
   }
   const [formState, formAction, pending] = useActionState(createNewHangout, initialState);
   const [step, setStep] = useState(1);
@@ -24,13 +27,23 @@ export function CreateHangoutModal({isOpen, onClose}: CreateHangoutModalProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState<Date | undefined>(undefined);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<OmilosUser[]>([]);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState<OmilosUser[]>([]);
 
+  // Tracks avatars that fail to load at runtime (expired/rotated CDN URLs, transient
+  // network issues) so we can hide them instead of retrying or crashing. Kept even
+  // though real Clerk image_urls are always well-formed, since a valid URL can still
+  // fail to load; isValidImageUrl only screens out malformed/fake values up front.
+  const [brokenImageIds, setBrokenImageIds] = useState<Set<number>>(new Set());
   const detailsResult = hangoutDetailsSchema.safeParse({ title, description, date });
   const isStep1Valid = detailsResult.success;
 
   const steps = [
-    {id: 1, title: "Give your hangout some details"},
-    {id: 2, title: "Who do you want to invite?"}
+    { id: 1, title: "Give your hangout some details" },
+    { id: 2, title: "Who do you want to invite?" }
   ]
 
   function nextStep() {
@@ -41,6 +54,75 @@ export function CreateHangoutModal({isOpen, onClose}: CreateHangoutModalProps) {
   function prevStep() {
     setDirection(-1)
     setStep(prev => Math.max(1, prev - 1))
+  }
+
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery)
+    }, 500)
+    return () => { clearTimeout(timer) }
+  }, [searchQuery])
+
+  useEffect(() => {
+    if (!debouncedSearchQuery.trim()) {
+      setSearchResults([])
+      return
+    }
+
+    async function findUsers() {
+      console.log("finding users that match: " + searchQuery)
+      try {
+        const res = await searchUsers(searchQuery)
+        if (!res.success) {
+          console.log("Failed to search users")
+        }
+        console.log("results: " + res.data)
+        setSearchResults(res.data)
+        setIsDropdownOpen(true)
+      }
+      catch (err) {
+        console.log("Error searching users: " + err)
+      }
+    }
+
+    findUsers();
+  }, [debouncedSearchQuery])
+
+  useEffect(() => {
+    if (formState.success && formState.data.slug) {
+      onClose()
+      router.push(`/dashboard/hangouts/${formState.data.slug}`)
+    }
+  }, [formState])
+
+  function selectUser(user: OmilosUser) {
+    setSelectedUsers(prev => prev.some(u => u.id === user.id) ? prev : [...prev, user])
+    setSearchQuery("")
+    setDebouncedSearchQuery("")
+    setSearchResults([])
+    setIsDropdownOpen(false)
+  }
+
+  function removeUser(userId: number) {
+    setSelectedUsers(prev => prev.filter(u => u.id !== userId))
+  }
+
+  function displayName(user: OmilosUser) {
+    const name = [user.first_name, user.last_name].filter(Boolean).join(" ")
+    return name || user.email || "Unknown user"
+  }
+
+  // Guards against fake/malformed image_url values (e.g. test/seed data) that
+  // would otherwise reach next/image and throw. Real Clerk users always have
+  // a valid img.clerk.com URL, so this mainly matters for non-production data.
+  function isValidImageUrl(url: string | undefined): url is string {
+    if (!url) return false
+    try {
+      return new URL(url).hostname === "img.clerk.com"
+    } catch {
+      return false
+    }
   }
 
   const stepVariants = {
@@ -65,7 +147,7 @@ export function CreateHangoutModal({isOpen, onClose}: CreateHangoutModalProps) {
 
           {/* Modal box */}
           <motion.div
-            className="h-[540px] w-full max-w-[600px] bg-bg-primary fixed top-1/2 left-1/2 rounded-2xl shadow-lg z-50 overflow-hidden"
+            className="h-[540px] w-full max-w-[540px] bg-bg-primary border-1 border-border-primary fixed top-1/2 left-1/2 rounded-2xl shadow-lg z-50 overflow-hidden"
             initial={{ opacity: 0, scale: 0.95, x: "-50%", y: "-50%" }}
             animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
             exit={{ opacity: 0, scale: 0.95, x: "-50%", y: "-50%" }}
@@ -74,7 +156,7 @@ export function CreateHangoutModal({isOpen, onClose}: CreateHangoutModalProps) {
             <div className="h-full flex flex-col overflow-y-auto pl-8 p-4 [scrollbar-gutter:stable]">
               {/* Dismiss modal button */}
               <section className="flex justify-end w-full">
-                <button onClick={() => onClose()}><CircleX className="text-text-secondary"/></button>
+                <button onClick={() => onClose()}><CircleX className="text-text-secondary" /></button>
               </section>
 
               {/* Multistep Form */}
@@ -89,8 +171,8 @@ export function CreateHangoutModal({isOpen, onClose}: CreateHangoutModalProps) {
                       initial="enter"
                       animate="center"
                       exit="exit"
-                      transition={{ duration: 0.1, ease: "easeOut"}}
-                      className="flex flex-col gap-8 h-full w-full max-w-md justify-between mx-auto"
+                      transition={{ duration: 0.1, ease: "easeOut" }}
+                      className="flex flex-col gap-8 h-full w-full justify-between mx-auto"
                     >
                       <h2 className="text-2xl text-left font-medium">{steps[step - 1].title}</h2>
                       <section className="flex flex-col gap-4">
@@ -103,7 +185,7 @@ export function CreateHangoutModal({isOpen, onClose}: CreateHangoutModalProps) {
                         />
                         <textarea
                           name="description"
-                          placeholder="Description"
+                          placeholder="Description (optional)"
                           maxLength={600}
                           value={description}
                           onChange={(e) => setDescription(e.target.value)}
@@ -118,15 +200,15 @@ export function CreateHangoutModal({isOpen, onClose}: CreateHangoutModalProps) {
                       </section>
 
 
-                        <button
-                            type="button"
-                            onClick={nextStep}
-                            disabled={!isStep1Valid}
-                            className="bg-black text-white px-4 py-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          Continue
-                        </button>
-                      
+                      <button
+                        type="button"
+                        onClick={nextStep}
+                        disabled={!isStep1Valid}
+                        className="bg-text-primary text-text-inverse px-4 py-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Continue
+                      </button>
+
                     </motion.div>
                   }
 
@@ -139,27 +221,99 @@ export function CreateHangoutModal({isOpen, onClose}: CreateHangoutModalProps) {
                       initial="enter"
                       animate="center"
                       exit="exit"
-                      transition={{ duration: 0.1, ease: "easeOut"}}
-                      className="flex flex-col gap-12 w-full max-w-md justify-center mx-auto"
+                      transition={{ duration: 0.1, ease: "easeOut" }}
+                      className="flex flex-col gap-12 w-full justify-center mx-auto"
                     >
                       <h2 className="text-2xl text-center font-medium">{steps[step - 1].title}</h2>
                       <section className="flex flex-col gap-4">
-                        <input name="title" placeholder="Search users" className="bg-bg-secondary w-full rounded-md p-2"/>
+                        {/* Step 1's fields unmount when this step is shown; mirror them
+                            here so they're still present in FormData on submit. */}
+                        <input type="hidden" name="title" value={title} />
+                        <input type="hidden" name="description" value={description} />
+                        <input type="hidden" name="date" value={date ? date.toISOString() : ""} />
+
+                        <div className="relative">
+                          <input
+                            placeholder="Search users"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onFocus={() => searchResults.length > 0 && setIsDropdownOpen(true)}
+                            onBlur={() => setTimeout(() => setIsDropdownOpen(false), 150)}
+                            className="bg-bg-secondary w-full rounded-md p-2"
+                            autoComplete="off"
+                          />
+
+                          {isDropdownOpen && searchResults.length > 0 && (
+                            <ul className="absolute top-full left-0 right-0 mt-1 bg-bg-primary border border-border-primary rounded-md shadow-lg max-h-48 overflow-y-auto z-10">
+                              {searchResults.map(u => (
+                                <li key={u.id}>
+                                  <button
+                                    type="button"
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={() => selectUser(u)}
+                                    className="w-full text-left px-3 py-2 text-text-primary hover:bg-bg-secondary"
+                                  >
+                                    {displayName(u)}
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+
+                        {selectedUsers.map(u => (
+                          <input key={u.id} type="hidden" name="inviteeIds" value={u.id} />
+                        ))}
+
+                        {/* Selected user pill list */}
+                        <section className="flex flex-wrap gap-2">
+                          <AnimatePresence initial={false}>
+                            {selectedUsers.map(u => (
+                              <motion.div
+                                key={u.id}
+                                layout
+                                initial={{ opacity: 0, scale: 0.5 }}
+                                animate={{ opacity: 1, scale: 1, transition: { type: "spring", stiffness: 500, damping: 15, duration: 0.1 } }}
+                                exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.1 } }}
+                                className="flex items-center gap-1 bg-bg-secondary text-text-primary text-sm rounded-full py-1 pl-3 pr-2"
+                              >
+                                {isValidImageUrl(u.image_url) && !brokenImageIds.has(u.id) && (
+                                  <Image
+                                    width={16}
+                                    height={16}
+                                    className="rounded-full"
+                                    alt="user profile"
+                                    src={u.image_url}
+                                    onError={() => setBrokenImageIds(prev => new Set(prev).add(u.id))}
+                                  />
+                                )}
+                                {displayName(u)}
+                                <button
+                                  type="button"
+                                  onClick={() => removeUser(u.id)}
+                                  className="text-text-secondary hover:text-text-primary hover:cursor-pointer"
+                                >
+                                  <X size={14} />
+                                </button>
+                              </motion.div>
+                            ))}
+                          </AnimatePresence>
+                        </section>
                         <button
-                            type="submit"
-                            disabled={!isStep1Valid}
-                            className="bg-black text-white p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed mt-12"
-                          >
-                            Submit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={prevStep}
-                            disabled={!isStep1Valid}
-                            className="bg-bg-secondary text-text-primary p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
-                          >
-                            Back
-                          </button>
+                          type="submit"
+                          disabled={!isStep1Valid}
+                          className="bg-text-primary text-text-inverse p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed mt-12"
+                        >
+                          {pending ? "...Submitting" : "Submit"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={prevStep}
+                          disabled={!isStep1Valid}
+                          className="bg-bg-secondary text-text-primary p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          Back
+                        </button>
                       </section>
                     </motion.div>
                   }
