@@ -49,7 +49,7 @@ function SidebarLink({pathname, title, isOpen, icon}: SidebarLinkProps) {
       href={`/dashboard/${title.toLocaleLowerCase()}`}
       className={`h-[40px] flex items-center ${isActive ? "bg-bg-secondary" : "bg-bg-primary"} bg transition-all duration-200 hover:cursor-pointer px-3 py-2 rounded-lg w-full text-text-primary`}
     >
-      <div className={`flex items-center w-full gap-2 ${isActive ? "text-text-primary" : "text-text-secondary"}`}>
+      <div className={`flex items-center w-full gap-2 ${isActive ? "text-text-primary font-medium" : "text-text-secondary"}`}>
         <span className="shrink-0">{icon}</span>
         {isOpen ? <span>{title}</span> : null}
       </div>

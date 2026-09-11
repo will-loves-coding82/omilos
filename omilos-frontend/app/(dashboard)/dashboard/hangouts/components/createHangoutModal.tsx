@@ -20,6 +20,7 @@ export function CreateHangoutModal({isOpen, onClose}: CreateHangoutModalProps) {
   }
   const [formState, formAction, pending] = useActionState(createNewHangout, initialState);
   const [step, setStep] = useState(1);
+  const [direction, setDirection] = useState(1);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState<Date | undefined>(undefined);
@@ -33,11 +34,19 @@ export function CreateHangoutModal({isOpen, onClose}: CreateHangoutModalProps) {
   ]
 
   function nextStep() {
+    setDirection(1)
     setStep(prev => Math.min(2, prev + 1))
   }
 
   function prevStep() {
+    setDirection(-1)
     setStep(prev => Math.max(1, prev - 1))
+  }
+
+  const stepVariants = {
+    enter: (dir: number) => ({ x: dir > 0 ? 40 : -40, opacity: 0 }),
+    center: { x: 0, opacity: 1 },
+    exit: (dir: number) => ({ x: dir > 0 ? -40 : 40, opacity: 0 }),
   }
 
   return (
@@ -56,81 +65,105 @@ export function CreateHangoutModal({isOpen, onClose}: CreateHangoutModalProps) {
 
           {/* Modal box */}
           <motion.div
-            className="h-[70vh] w-full max-w-[600px] bg-bg-primary fixed top-1/2 left-1/2 rounded-lg shadow-lg z-50 overflow-hidden"
+            className="h-[540px] w-full max-w-[600px] bg-bg-primary fixed top-1/2 left-1/2 rounded-2xl shadow-lg z-50 overflow-hidden"
             initial={{ opacity: 0, scale: 0.95, x: "-50%", y: "-50%" }}
             animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
             exit={{ opacity: 0, scale: 0.95, x: "-50%", y: "-50%" }}
             transition={{ duration: 0.15 }}
           >
-            <div className="h-full overflow-y-auto p-4 [scrollbar-gutter:stable]">
+            <div className="h-full flex flex-col overflow-y-auto pl-8 p-4 [scrollbar-gutter:stable]">
+              {/* Dismiss modal button */}
               <section className="flex justify-end w-full">
                 <button onClick={() => onClose()}><CircleX className="text-text-secondary"/></button>
               </section>
 
               {/* Multistep Form */}
               <form action={formAction}>
-                {
-                  step === 1 &&
-                  <div className="flex flex-col gap-12 w-full max-w-md justify-center mx-auto">
-                    <h2 className="text-2xl text-center font-medium">{steps[step - 1].title}</h2>
-                    <section className="flex flex-col gap-4">
-                      <input
-                        name="title"
-                        placeholder="Title"
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        className="bg-bg-secondary w-full rounded-md p-2"
-                      />
-                      <textarea
-                        name="description"
-                        placeholder="Description"
-                        maxLength={600}
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        className="bg-bg-secondary w-full rounded-md p-2 min-h-48 resize-none overflow-y-auto"
-                      />
-                      <DatePicker
-                        value={date}
-                        onChange={setDate}
-                        className="bg-bg-secondary w-full rounded-md p-2 flex items-center justify-between gap-3 text-sm text-text-primary hover:bg-bg-secondary/70"
-                      />
-                      <input type="hidden" name="date" value={date ? date.toISOString() : ""} />
-                      <button
-                        type="button"
-                        onClick={nextStep}
-                        disabled={!isStep1Valid}
-                        className="bg-black text-white p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        Continue
-                      </button>
-                    </section>
-                  </div>
-                }
+                <AnimatePresence mode="wait" custom={direction} initial={false}>
+                  {
+                    step === 1 &&
+                    <motion.div
+                      key="step-1"
+                      custom={direction}
+                      variants={stepVariants}
+                      initial="enter"
+                      animate="center"
+                      exit="exit"
+                      transition={{ duration: 0.1, ease: "easeOut"}}
+                      className="flex flex-col gap-8 h-full w-full max-w-md justify-between mx-auto"
+                    >
+                      <h2 className="text-2xl text-left font-medium">{steps[step - 1].title}</h2>
+                      <section className="flex flex-col gap-4">
+                        <input
+                          name="title"
+                          placeholder="Title"
+                          value={title}
+                          onChange={(e) => setTitle(e.target.value)}
+                          className="bg-bg-secondary w-full rounded-md py-2 px-4"
+                        />
+                        <textarea
+                          name="description"
+                          placeholder="Description"
+                          maxLength={600}
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                          className="bg-bg-secondary w-full rounded-md py-2 px-4 min-h-48 resize-none overflow-y-auto"
+                        />
+                        <DatePicker
+                          value={date}
+                          onChange={setDate}
+                          className="bg-bg-secondary w-full rounded-md py-2 px-4 flex items-center justify-between gap-3 text-sm text-text-primary hover:bg-bg-secondary/70"
+                        />
+                        <input type="hidden" name="date" value={date ? date.toISOString() : ""} />
+                      </section>
 
-                {
-                  step === 2 &&
-                   <div className="flex flex-col gap-12 w-full max-w-md justify-center mx-auto">
-                    <h2 className="text-2xl text-center font-medium">{steps[step - 1].title}</h2>
-                    <section className="flex flex-col gap-4">
-                      <input name="title" placeholder="Search users" className="bg-bg-secondary w-full rounded-md p-2"/>
-                      <button
-                          type="submit"
-                          disabled={!isStep1Valid}
-                          className="bg-black text-white p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed mt-12"
-                        >
-                          Submit
-                        </button>
+
                         <button
-                          type="button"
-                          onClick={prevStep}
-                          disabled={!isStep1Valid}
-                          className="bg-bg-secondary text-text-primary p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
+                            type="button"
+                            onClick={nextStep}
+                            disabled={!isStep1Valid}
+                            className="bg-black text-white px-4 py-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
                         >
-                          Back
+                          Continue
                         </button>
-                    </section>
-                  </div>
-                }
+                      
+                    </motion.div>
+                  }
+
+                  {
+                    step === 2 &&
+                    <motion.div
+                      key="step-2"
+                      custom={direction}
+                      variants={stepVariants}
+                      initial="enter"
+                      animate="center"
+                      exit="exit"
+                      transition={{ duration: 0.1, ease: "easeOut"}}
+                      className="flex flex-col gap-12 w-full max-w-md justify-center mx-auto"
+                    >
+                      <h2 className="text-2xl text-center font-medium">{steps[step - 1].title}</h2>
+                      <section className="flex flex-col gap-4">
+                        <input name="title" placeholder="Search users" className="bg-bg-secondary w-full rounded-md p-2"/>
+                        <button
+                            type="submit"
+                            disabled={!isStep1Valid}
+                            className="bg-black text-white p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed mt-12"
+                          >
+                            Submit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={prevStep}
+                            disabled={!isStep1Valid}
+                            className="bg-bg-secondary text-text-primary p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            Back
+                          </button>
+                      </section>
+                    </motion.div>
+                  }
+                </AnimatePresence>
               </form>
             </div>
           </motion.div>

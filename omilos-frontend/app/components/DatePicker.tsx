@@ -1,7 +1,8 @@
 "use client";
 
 import { Calendar } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/style.css";
 
@@ -25,24 +26,51 @@ export default function DatePicker({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
+
+    const updateCoords = () => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect) {
+        setCoords({ top: rect.bottom + 8, left: rect.left });
+      }
+    };
+    updateCoords();
+
     const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        containerRef.current && !containerRef.current.contains(target) &&
+        popoverRef.current && !popoverRef.current.contains(target)
+      ) {
         setOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    window.addEventListener("scroll", updateCoords, true);
+    window.addEventListener("resize", updateCoords);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", updateCoords, true);
+      window.removeEventListener("resize", updateCoords);
+    };
   }, [open]);
 
   return (
     <div ref={containerRef} className="relative w-fit">
       <button
         type="button"
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={() => {
+          const rect = containerRef.current?.getBoundingClientRect();
+          if (rect) {
+            setCoords({ top: rect.bottom + 8, left: rect.left });
+          }
+          setOpen((prev) => !prev);
+        }}
         className={
           className ??
           "flex items-center justify-between gap-3 rounded-lg border border-border-primary bg-bg-primary px-3 py-2 text-sm text-text-primary hover:bg-bg-secondary"
@@ -54,8 +82,12 @@ export default function DatePicker({
         <Calendar size={16} className="text-text-secondary" />
       </button>
 
-      {open && (
-        <div className="absolute top-full left-0 z-50 mt-2 rounded-xl border border-border-primary bg-bg-primary p-4 shadow-lg">
+      {open && createPortal(
+        <div
+          ref={popoverRef}
+          className="fixed z-[100] rounded-xl border border-border-primary bg-bg-primary p-4 shadow-lg"
+          style={{ top: coords.top, left: coords.left }}
+        >
           <DayPicker
             mode="single"
             selected={value}
@@ -88,7 +120,8 @@ export default function DatePicker({
               disabled: "text-text-disabled",
             }}
           />
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
