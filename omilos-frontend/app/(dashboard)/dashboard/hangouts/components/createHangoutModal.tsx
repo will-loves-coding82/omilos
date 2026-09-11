@@ -92,7 +92,7 @@ export function CreateHangoutModal({ isOpen, onClose }: CreateHangoutModalProps)
   useEffect(() => {
     if (formState.success && formState.data.slug) {
       onClose()
-      router.push(`/dashboard/hangouts/${formState.data.slug}`)
+      router.refresh()
     }
   }, [formState])
 
