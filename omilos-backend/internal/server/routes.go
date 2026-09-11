@@ -12,7 +12,7 @@ import (
 	"github.com/go-chi/cors"
 )
 
-func (s *Server) RegisterRoutes(database *database.Service) http.Handler {
+func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 

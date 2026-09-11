@@ -2,24 +2,22 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
-  clerk_id TEXT NOT NULL UNIQUE,
+  clerk_id VARCHAR(255) NOT NULL UNIQUE,
   first_name TEXT NOT NULL,
   last_name TEXT NOT NULL,
   email TEXT UNIQUE NOT NULL, 
-  is_guest BOOLEAN NOT NULL,
-  image_url TEXT,
   created_at TIMESTAMPTZ NOT NULL,
   updated_at TIMESTAMPTZ
 );
 
 CREATE TABLE events (
   id SERIAL PRIMARY KEY,
+  slug VARCHAR(255) NOT NULL,
   host_id INTEGER NOT NULL,
-  slug TEXT NOT NULL,
   name TEXT NOT NULL,
   description TEXT,
   date DATE NOT NULL, 
-  created_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT fk_host_id FOREIGN KEY(host_id) REFERENCES users(id)
 );
 
@@ -60,3 +58,12 @@ CREATE TABLE stop_member_status (
   CONSTRAINT fk_stop_id FOREIGN KEY(stop_id) REFERENCES event_stops(id)
 );
 
+create table event_notifications (
+  id bigserial PRIMARY KEY,
+  event_id BIGINT REFERENCES events(id),
+  stop_id INTEGER REFERENCES event_stops(id),
+  actor_id INTEGER references users(id) NOT NULL,
+  type TEXT NOT NULL,
+  new_status e_stop_status NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

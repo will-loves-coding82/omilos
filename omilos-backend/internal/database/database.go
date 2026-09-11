@@ -19,11 +19,15 @@ type Service interface {
 	// The keys and values in the map are service-specific.
 	Health() map[string]string
 
+	// Connects to the database
+	Conn() *sql.DB
+
 	// Close terminates the database connection.
 	// It returns an error if the connection cannot be closed.
 	Close() error
 }
 
+// Implements the Service interface
 type service struct {
 	db *sql.DB
 }
@@ -51,7 +55,12 @@ func New() Service {
 	dbInstance = &service{
 		db: db,
 	}
+
 	return dbInstance
+}
+
+func (s *service) Conn() *sql.DB {
+	return s.db
 }
 
 // Health checks the health of the database connection by pinging the database.
