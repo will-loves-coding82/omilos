@@ -30,7 +30,7 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 	r.Get("/", s.HelloWorldHandler)
 	r.Get("/health", s.healthHandler)
 
-	r.Get("/users", userHandler.CreateNewUser)
+	r.Post("/users", userHandler.CreateNewUser)
 
 	return r
 }

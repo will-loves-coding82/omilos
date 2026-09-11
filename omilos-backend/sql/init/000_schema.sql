@@ -5,8 +5,8 @@ CREATE TABLE users (
   clerk_id VARCHAR(255) NOT NULL UNIQUE,
   first_name TEXT NOT NULL,
   last_name TEXT NOT NULL,
-  email TEXT UNIQUE NOT NULL, 
-  created_at TIMESTAMPTZ NOT NULL,
+  email TEXT UNIQUE NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ
 );
 
@@ -65,5 +65,5 @@ create table event_notifications (
   actor_id INTEGER references users(id) NOT NULL,
   type TEXT NOT NULL,
   new_status e_stop_status NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

@@ -20,7 +20,7 @@ type UserClient struct {
 
 const createNewUserQuery = `
 	INSERT INTO users(clerk_id, first_name, last_name, email)
-	VALUES($1, $2, $3, $4, $5);
+	VALUES($1, $2, $3, $4);
 `
 
 func NewUserClient(database database.Service) *UserClient {
