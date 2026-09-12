@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "omilos-s3-demo-bucket.s3.us-east-2.amazonaws.com",
+        hostname: process.env.AWS_S3_BUCKET_HOSTNAME!,
       },
     ],
   },
