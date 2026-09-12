@@ -1,9 +1,10 @@
 "use client";
 
-import Map, { NavigationControl, MapRef, GeolocateControl } from 'react-map-gl/mapbox';
+import Map, { NavigationControl, MapRef, GeolocateControl, Marker, Popup } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css'; // Don't forget the CSS!
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import type { SearchBoxRetrieveResponse } from '@mapbox/search-js-core';
 import { environment } from './environments/environment';
 
 const SearchBox = dynamic(
@@ -11,21 +12,35 @@ const SearchBox = dynamic(
   { ssr: false }
 );
 
-type LocationState = {
-  lon: number,
-  lat: number
+type Coordinates = {
+  lon?: number,
+  lat?: number
 }
 
 export default function HangoutDetailsClient() {
   const mapRef = useRef<MapRef>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [viewState, setViewState] = useState({
-    longitude: -74.5,
-    latitude: 40,
-    zoom: 12,
-  });
   const [mapInstanceReady, setMapInstanceReady] = useState(false);
+  const [viewState, setViewState] = useState({ longitude: -74.5, latitude: 40, zoom: 12,});
+  
+  const [eventStops, setEventStops] = useState([]); // TODO: Add type
+  const [searchSelectedResponse, setSearchSelectedResponse] = useState<SearchBoxRetrieveResponse | null>(null);
+  const [searchMarkerCoord, setSearchMarkerCoord] = useState<Coordinates|null>(null);
+  const [showSearchMarkerPopup, setShowSearchMarkerPopup] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
+  // Track OS color scheme so the map style can switch with it
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    setIsDarkMode(mediaQuery.matches);
+
+    const handleChange = (e: MediaQueryListEvent) => setIsDarkMode(e.matches);
+    mediaQuery.addEventListener('change', handleChange);
+
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  // When component mounts, the map will center on the user coordinates
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(position => {
@@ -39,6 +54,7 @@ export default function HangoutDetailsClient() {
     }
   }, []);
 
+  //Initialize the map and attach a resize observer
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -50,11 +66,30 @@ export default function HangoutDetailsClient() {
     return () => resizeObserver.disconnect();
   }, []);
 
+
+  // Update the search marker everytime
+  useEffect(() => {
+    if (searchSelectedResponse) {
+      const coord = searchSelectedResponse.features[0].geometry.coordinates
+      setSearchMarkerCoord({lon: coord[0], lat: coord[1]})
+    }
+  }, [searchSelectedResponse])
+
   return (
     <div ref={containerRef} className='relative w-full h-full'>
       <div className='max-w-md absolute top-4 left-4 z-10 w-80'>
         {mapInstanceReady && (
           <SearchBox
+            onChange={(s)=>{
+              if (s.length === 0) {
+                setSearchMarkerCoord(null);
+                setShowSearchMarkerPopup(false);
+              }
+            }}
+            onClear={()=> {
+                setSearchMarkerCoord(null);
+                setShowSearchMarkerPopup(false);
+            }}
             theme={{
               variables: {
                 colorPrimary: '#0ea5e9',
@@ -73,6 +108,9 @@ export default function HangoutDetailsClient() {
             }}
             accessToken={environment.mapbox.accessToken ?? ""}
             map={mapRef.current!.getMap()}
+            onRetrieve={(res) => {
+              setSearchSelectedResponse(res);
+            }}
           />
         )}
       </div>
@@ -82,15 +120,33 @@ export default function HangoutDetailsClient() {
         onMove={evt => setViewState(evt.viewState)}
         onLoad={() => setMapInstanceReady(true)}
         mapboxAccessToken={environment.mapbox.accessToken}
-        mapStyle='mapbox://styles/mapbox/streets-v11'
+        mapStyle={isDarkMode ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/streets-v11'}
         style={{ width: '100%', height: '100%' }}
       >
          <GeolocateControl
           position="top-right"
           trackUserLocation={true}
           showUserLocation={true}
-
         />
+        { searchMarkerCoord && (
+          <>
+            { showSearchMarkerPopup && (
+              <Popup
+                className='hangout-popup'
+                anchor='bottom'
+                onClose={()=> setShowSearchMarkerPopup(false)}
+                longitude={searchMarkerCoord.lon!}
+                latitude={searchMarkerCoord.lat!}
+              >
+                <p>Selected location</p>
+              </Popup>
+            )}
+            <Marker onClick={(e) => {
+              e.originalEvent.stopPropagation();
+              setShowSearchMarkerPopup(true);
+            }} color="#0662db" longitude={searchMarkerCoord.lon!} latitude={searchMarkerCoord.lat!}/>
+          </>
+        )}
         <NavigationControl position='bottom-right' />
       </Map>
     </div>
