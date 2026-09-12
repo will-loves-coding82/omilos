@@ -1,13 +1,16 @@
 "use client";
-import { CircleX, X } from "lucide-react";
+import { CircleX, ImagePlus, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 import { createNewHangout, ActionResponse, searchUsers } from "../actions";
 import { OmilosUser, OmilosEvent } from "@/app/types";
 import DatePicker from "@/app/components/DatePicker";
 import Image from "next/image";
 import { hangoutDetailsSchema } from "../schemas";
+import Cropper, { Area, Point } from "react-easy-crop";
+import { getCroppedImageFile } from "../cropImage";
 
 type CreateHangoutModalProps = {
   isOpen: boolean,
@@ -32,6 +35,12 @@ export function CreateHangoutModal({ isOpen, onClose }: CreateHangoutModalProps)
   const [searchResults, setSearchResults] = useState<OmilosUser[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<OmilosUser[]>([]);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Tracks avatars that fail to load at runtime (expired/rotated CDN URLs, transient
   // network issues) so we can hide them instead of retrying or crashing. Kept even
@@ -43,12 +52,13 @@ export function CreateHangoutModal({ isOpen, onClose }: CreateHangoutModalProps)
 
   const steps = [
     { id: 1, title: "Give your hangout some details" },
-    { id: 2, title: "Who do you want to invite?" }
+    { id: 2, title: "Who do you want to invite?" },
+    { id: 3, title: "Add a fun cover image" }
   ]
 
   function nextStep() {
     setDirection(1)
-    setStep(prev => Math.min(2, prev + 1))
+    setStep(prev => Math.min(3, prev + 1))
   }
 
   function prevStep() {
@@ -106,6 +116,34 @@ export function CreateHangoutModal({ isOpen, onClose }: CreateHangoutModalProps)
 
   function removeUser(userId: number) {
     setSelectedUsers(prev => prev.filter(u => u.id !== userId))
+  }
+
+  function onSelectImage(file: File | null) {
+    if (!file) return
+    setCropSrc(URL.createObjectURL(file))
+    setCrop({ x: 0, y: 0 })
+    setZoom(1)
+    setCroppedAreaPixels(null)
+  }
+
+  function cancelCrop() {
+    if (cropSrc) URL.revokeObjectURL(cropSrc)
+    setCropSrc(null)
+  }
+
+  async function confirmCrop() {
+    if (!cropSrc || !croppedAreaPixels) return
+    const cropped = await getCroppedImageFile(cropSrc, croppedAreaPixels, "cover.jpg")
+    setImageFile(cropped)
+
+    if (fileInputRef.current) {
+      const dataTransfer = new DataTransfer()
+      dataTransfer.items.add(cropped)
+      fileInputRef.current.files = dataTransfer.files
+    }
+
+    URL.revokeObjectURL(cropSrc)
+    setCropSrc(null)
   }
 
   function displayName(user: OmilosUser) {
@@ -299,11 +337,12 @@ export function CreateHangoutModal({ isOpen, onClose }: CreateHangoutModalProps)
                           </AnimatePresence>
                         </section>
                         <button
-                          type="submit"
+                          type="button"
+                          onClick={nextStep}
                           disabled={!isStep1Valid}
                           className="bg-text-primary text-text-inverse p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed mt-12"
                         >
-                          {pending ? "...Submitting" : "Submit"}
+                          Next
                         </button>
                         <button
                           type="button"
@@ -314,6 +353,112 @@ export function CreateHangoutModal({ isOpen, onClose }: CreateHangoutModalProps)
                           Back
                         </button>
                       </section>
+                    </motion.div>
+                  }
+
+                  {
+                    step === 3 &&
+                    <motion.div
+                      key="step-3"
+                      custom={direction}
+                      variants={stepVariants}
+                      initial="enter"
+                      animate="center"
+                      exit="exit"
+                      transition={{ duration: 0.1, ease: "easeOut" }}
+                      className="flex flex-col gap-6 h-full w-full justify-between mx-auto"
+                    >
+
+                      <h2 className="text-2xl text-center font-medium">{steps[step - 1].title}</h2>
+                      <section className={`flex flex-col gap-4 ${cropSrc ? "invisible" : ""}`}>
+                        <label
+                          htmlFor="coverImage"
+                          className="w-full aspect-video bg-bg-secondary flex flex-col gap-2 justify-center items-center rounded-lg border-1 border-dashed border-border-primary cursor-pointer hover:bg-bg-secondary/70 overflow-hidden"
+                        >
+                          {imageFile ? (
+                            <Image
+                              src={URL.createObjectURL(imageFile)}
+                              alt="Cover preview"
+                              width={480}
+                              height={270}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <>
+                              <ImagePlus className="text-text-secondary" size={28} />
+                              <span className="text-sm text-text-secondary">
+                                Click to upload a cover image
+                              </span>
+                            </>
+                          )}
+                        </label>
+                        <input
+                          ref={fileInputRef}
+                          id="coverImage"
+                          name="coverImage"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => onSelectImage(e.target.files ? e.target.files[0] : null)}
+                        />
+
+                        {cropSrc && createPortal(
+                          <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-4 p-6">
+                            <div className="relative w-full max-w-md aspect-video bg-bg-secondary rounded-lg overflow-hidden">
+                              <Cropper
+                                image={cropSrc}
+                                crop={crop}
+                                zoom={zoom}
+                                aspect={16 / 9}
+                                onCropChange={setCrop}
+                                onZoomChange={setZoom}
+                                onCropComplete={(_, areaPixels) => setCroppedAreaPixels(areaPixels)}
+                              />
+                            </div>
+                            <input
+                              type="range"
+                              min={1}
+                              max={3}
+                              step={0.1}
+                              value={zoom}
+                              onChange={(e) => setZoom(Number(e.target.value))}
+                              className="w-full max-w-md accent-text-primary"
+                            />
+                            <div className="flex gap-3">
+                              <button
+                                type="button"
+                                onClick={cancelCrop}
+                                className="bg-bg-secondary text-text-primary px-4 py-2 rounded-md"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={confirmCrop}
+                                className="bg-text-primary text-text-inverse px-4 py-2 rounded-md"
+                              >
+                                Confirm crop
+                              </button>
+                            </div>
+                          </div>,
+                          document.body
+                        )}
+                      </section>
+                      <div className={`flex flex-col gap-2 ${cropSrc ? "invisible" : ""}`}>
+                        <button
+                          type="button"
+                          className="bg-text-primary text-text-inverse p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          {pending ? "...Submitting" : "Submit"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={prevStep}
+                          className="bg-bg-secondary text-text-primary p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          Back
+                        </button>
+                      </div>
                     </motion.div>
                   }
                 </AnimatePresence>

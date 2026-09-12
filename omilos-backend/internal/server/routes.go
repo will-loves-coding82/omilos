@@ -1,12 +1,16 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
 	"omilos-backend/internal/app"
 	"omilos-backend/internal/database"
+	"os"
 
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -15,6 +19,15 @@ import (
 func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
+
+	awsCfg, err := config.LoadDefaultConfig(context.Background())
+	if err != nil {
+		log.Fatalf("error loading AWS config: %v", err)
+	}
+
+	awsS3Client := s3.NewFromConfig(awsCfg)
+	awsPresignClient := s3.NewPresignClient(awsS3Client)
+	awsPresignHandler := NewPresignHandler(awsPresignClient, os.Getenv("OMILOS_S3_BUCKET"))
 
 	userClient := app.NewUserClient(database)
 	eventClient := app.NewEventClient(database, userClient)
@@ -37,6 +50,7 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 	r.Get("/users", userHandler.SearchUsers)
 	r.Post("/events", eventHandler.CreateNewEvent)
 	r.Get("/events", eventHandler.GetEventsForUser)
+	r.Get("/presign", awsPresignHandler.GetPresignedURL)
 
 	return r
 }
