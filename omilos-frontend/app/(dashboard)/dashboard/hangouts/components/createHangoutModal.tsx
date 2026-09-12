@@ -40,7 +40,10 @@ export function CreateHangoutModal({ isOpen, onClose }: CreateHangoutModalProps)
   const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 
   // Tracks avatars that fail to load at runtime (expired/rotated CDN URLs, transient
   // network issues) so we can hide them instead of retrying or crashing. Kept even
@@ -120,6 +123,14 @@ export function CreateHangoutModal({ isOpen, onClose }: CreateHangoutModalProps)
 
   function onSelectImage(file: File | null) {
     if (!file) return
+
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      setImageError("Image must be smaller than 10MB")
+      if (fileInputRef.current) fileInputRef.current.value = ""
+      return
+    }
+
+    setImageError(null)
     setCropSrc(URL.createObjectURL(file))
     setCrop({ x: 0, y: 0 })
     setZoom(1)
@@ -370,6 +381,12 @@ export function CreateHangoutModal({ isOpen, onClose }: CreateHangoutModalProps)
                     >
 
                       <h2 className="text-2xl text-center font-medium">{steps[step - 1].title}</h2>
+                      <input type="hidden" name="title" value={title} />
+                      <input type="hidden" name="description" value={description} />
+                      <input type="hidden" name="date" value={date ? date.toISOString() : ""} />
+                      {selectedUsers.map(u => (
+                        <input key={u.id} type="hidden" name="inviteeIds" value={u.id} />
+                      ))}
                       <section className={`flex flex-col gap-4 ${cropSrc ? "invisible" : ""}`}>
                         <label
                           htmlFor="coverImage"
@@ -401,6 +418,9 @@ export function CreateHangoutModal({ isOpen, onClose }: CreateHangoutModalProps)
                           className="hidden"
                           onChange={(e) => onSelectImage(e.target.files ? e.target.files[0] : null)}
                         />
+                        {imageError && (
+                          <p className="text-sm text-red-500">{imageError}</p>
+                        )}
 
                         {cropSrc && createPortal(
                           <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-4 p-6">
@@ -446,7 +466,8 @@ export function CreateHangoutModal({ isOpen, onClose }: CreateHangoutModalProps)
                       </section>
                       <div className={`flex flex-col gap-2 ${cropSrc ? "invisible" : ""}`}>
                         <button
-                          type="button"
+                          type="submit"
+                          disabled={pending}
                           className="bg-text-primary text-text-inverse p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           {pending ? "...Submitting" : "Submit"}

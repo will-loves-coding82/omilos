@@ -2,11 +2,14 @@ package server
 
 import (
 	"errors"
+	"fmt"
+	"log"
 	"net/http"
 	"omilos-backend/internal/server/httpio"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/google/uuid"
 )
 
 type PresignerHandler struct {
@@ -26,18 +29,21 @@ type PresignedHandlerResponse struct {
 }
 
 func (h *PresignerHandler) GetPresignedURL(w http.ResponseWriter, r *http.Request) {
-	objectKey := r.URL.Query().Get("fileName")
+	log.Print("Getting presigned URL")
+	objectKey := r.URL.Query().Get("file")
 	if objectKey == "" {
-		httpio.BadRequest(w, r, errors.New("Missing fileName query parameter"))
+		httpio.BadRequest(w, r, errors.New("Missing file query parameter"))
 		return
 	}
 
+	uniqueKey := fmt.Sprintf("%s-%s", uuid.NewString(), objectKey)
 	presignedReq, err := h.PresignClient.PresignPutObject(r.Context(), &s3.PutObjectInput{
 		Bucket: aws.String(h.BucketName),
-		Key:    aws.String("event-images/" + objectKey),
+		Key:    aws.String("event-images/" + uniqueKey),
 	})
 
 	if err != nil {
+		log.Print(err)
 		httpio.InternalError(w, r, err)
 		return
 	}

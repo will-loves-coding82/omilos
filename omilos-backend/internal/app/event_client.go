@@ -35,7 +35,7 @@ func NewEventClient(database database.Service, userClient *UserClient) *EventCli
 
 const getEventsForUserQuery = `
 	SELECT
-		e.id, e.slug, e.name AS title, e.description, e.date, e.host_id,
+		e.id, e.slug, e.name AS title, e.description, e.date, e.host_id, e.image_url,
 		COALESCE(
 			(
 				SELECT json_agg(json_build_object(
@@ -67,6 +67,7 @@ type eventRow struct {
 	Description *string         `db:"description"`
 	Date        time.Time       `db:"date"`
 	HostId      int64           `db:"host_id"`
+	ImageURL    *string         `db:"image_url"`
 	Members     json.RawMessage `db:"members"`
 }
 
@@ -91,6 +92,9 @@ func (e *EventClient) GetEventsForUser(clerkId string) ([]Event, error) {
 		}
 		if r.Description != nil {
 			event.Description = *r.Description
+		}
+		if r.ImageURL != nil {
+			event.ImageURL = *r.ImageURL
 		}
 
 		var members []User
@@ -136,8 +140,8 @@ func (e *EventClient) CreateNewEventTx(ctx context.Context, event Event) (string
 
 	var eventId int64
 	err = tx.QueryRow(
-		`INSERT INTO events(slug, name, description, date, host_id) VALUES($1, $2, $3, $4, $5) RETURNING id;`,
-		newSlug, event.Title, event.Description, parsedDate, host.Id,
+		`INSERT INTO events(slug, name, description, date, host_id, image_url) VALUES($1, $2, $3, $4, $5, $6) RETURNING id;`,
+		newSlug, event.Title, event.Description, parsedDate, host.Id, event.ImageURL,
 	).Scan(&eventId)
 	if err != nil {
 		return fail(err)
