@@ -48,7 +48,7 @@ const getEventsForUserQuery = `
 				))
 				FROM users u
 				WHERE u.id = e.host_id
-				OR u.id IN (SELECT user_id FROM event_members WHERE event_id = e.id)
+				OR u.id IN (SELECT user_id FROM event_members WHERE event_id = e.id AND rsvp_status = 'accepted')
 			),
 			'[]'
 		) AS members
