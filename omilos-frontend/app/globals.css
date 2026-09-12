@@ -20,6 +20,9 @@
   --color-success: #ace92a;
 
   --color-skeleton: #e8e8e8;
+
+  --color-bg-active: #eefad1;
+  --color-text-active: #6ebc29;
 }
 
 @theme inline {
@@ -44,6 +47,9 @@
   --color-success: var(--color-success);
 
   --color-skeleton: var(--color-skeleton);
+
+  --color-bg-active: var(--color-bg-active);
+  --color-text-active: var(--color-text-active);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -61,6 +67,9 @@
     --color-text-inverse: #000000;
 
     --color-skeleton: #2e2e2e;
+
+    --color-bg-active: #2b3313;
+    --color-text-active: #ace92a;
   }
 }
 

@@ -23,7 +23,7 @@ export function HangoutsClient({data}: HangoutsClientProps) {
   }
 
   return (
-    <section className="flex flex-col w-full h-full py-6 gap-16">
+    <section className="flex flex-col w-full h-full max-w-[1700px] mx-auto py-6 gap-16">
       <CreateHangoutModal isOpen={isCreateHangoutModalOpen} onClose={closeCreateModal}/>
       <section id="header" className="flex justify-between w-full px-4">
         {/* Hangout search bar  */}
@@ -50,6 +50,7 @@ function HangoutPreviewCard({ hangout, onClick }: { hangout: OmilosEvent, onClic
         {hangout.image_url &&
           <Image
             fill
+            sizes="(min-width: 1280px) 33vw, (min-width: 1024px) 50vw, 100vw"
             className="object-cover"
             alt="hangout cover image"
             src={hangout.image_url}

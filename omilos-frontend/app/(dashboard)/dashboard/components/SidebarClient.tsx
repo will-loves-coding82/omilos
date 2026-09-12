@@ -22,7 +22,7 @@ export default function SidebarClient() {
         <Menu size={20} className="text-text-secondary" />
       </button>
 
-      <nav className={`hidden md:flex flex-col h-full ${isOpen ? "min-w-[224px]": "min-w-[80px]"} bg-bg-secondary shadow-md transition-all duration-300`}>
+      <nav className={`hidden md:flex flex-col h-full ${isOpen ? "min-w-[224px]": "min-w-[80px]"} bg-bg-primary shadow-md transition-all duration-300`}>
         <section className={`h-[64px] flex items-center p-4 ${isOpen ? "justify-between" : "justify-center"}`}>
             {isOpen ? <Link href="/" className="flex items-center gap-3 font-medium text-text-primary"><p className="text-3xl">O</p><p className="text-md">Omilos</p></Link> : null}
             <button
@@ -32,7 +32,7 @@ export default function SidebarClient() {
                 setIsOpen(!isOpen)
               }}
               >
-              <PanelLeft size={20} className="text-text-secondary"/>
+              <PanelLeft size={20} className="text-text-primary"/>
             </button>
           </section>
 
@@ -99,9 +99,9 @@ function SidebarLink({pathname, title, isOpen, icon, onNavigate}: SidebarLinkPro
     <Link
       href={`/dashboard/${title.toLocaleLowerCase()}`}
       onClick={onNavigate}
-      className={`h-[40px] flex items-center ${isActive ? "bg-success" : "bg-transparent"} transition-all duration-200 hover:cursor-pointer px-3 py-2 rounded-lg w-full text-text-primary`}
+      className={`h-[40px] flex items-center ${isActive ? "bg-bg-active" : "bg-transparent"} transition-all duration-200 hover:cursor-pointer px-3 py-2 rounded-md w-full text-text-primary`}
     >
-      <div className={`flex items-center w-full gap-2 ${isActive ? "text-text-inverse font-medium" : "text-text-secondary"}`}>
+      <div className={`flex items-center w-full gap-2 ${isActive ? "text-text-active font-medium" : "text-text-secondary"}`}>
         <span className="shrink-0">{icon}</span>
         {isOpen ? <span>{title}</span> : null}
       </div>
