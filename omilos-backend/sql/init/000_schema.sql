@@ -31,7 +31,7 @@ CREATE TABLE event_stops (
   location GEOGRAPHY(Point, 4326) NOT NULL,
   start_time TIMESTAMPTZ, 
   end_time TIMESTAMPTZ,
-  CONSTRAINT fk_event_id FOREIGN KEY(event_id) REFERENCES events(id)
+  CONSTRAINT fk_event_id FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE CASCADE
 );
 
 CREATE TYPE e_rsvp_status 
@@ -44,7 +44,7 @@ CREATE TABLE event_members (
   status_updated_at TIMESTAMPTZ,
   PRIMARY KEY(user_id, event_id),
   CONSTRAINT fk_user_id FOREIGN KEY(user_id) REFERENCES users(id),
-  CONSTRAINT fk_event_id FOREIGN KEY(event_id) REFERENCES events(id)
+  CONSTRAINT fk_event_id FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE CASCADE
 );
 
 CREATE TYPE e_stop_status
@@ -57,12 +57,12 @@ CREATE TABLE stop_member_status (
   status_updated_at TIMESTAMPTZ,
   PRIMARY KEY (user_id, stop_id),
   CONSTRAINT fk_user_id FOREIGN KEY(user_id) REFERENCES users(id),
-  CONSTRAINT fk_stop_id FOREIGN KEY(stop_id) REFERENCES event_stops(id)
+  CONSTRAINT fk_stop_id FOREIGN KEY(stop_id) REFERENCES event_stops(id) ON DELETE CASCADE
 );
 
 create table event_notifications (
   id bigserial PRIMARY KEY,
-  event_id BIGINT REFERENCES events(id),
+  event_id BIGINT REFERENCES events(id) ON DELETE CASCADE,
   stop_id INTEGER REFERENCES event_stops(id),
   actor_id INTEGER references users(id) NOT NULL,
   type TEXT NOT NULL,
