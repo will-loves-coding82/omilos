@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { SearchBoxResponse } from "./hangoutDetailsClient";
 
 type Tab = "Stops" | "Participants";
 
 const PANEL_WIDTH_DESKTOP = "280px";
 
-export default function HangoutSidePanel() {
+export default function HangoutSidePanel({eventStops} : {eventStops: SearchBoxResponse[]}) {
   const [activeTab, setActiveTab] = useState<Tab>("Stops");
 
   // Expose this panel's width as a CSS variable (desktop only, since on
@@ -33,15 +34,25 @@ export default function HangoutSidePanel() {
 
   return (
     <div className="fixed inset-0 z-10 bg-bg-primary md:inset-auto md:top-0 md:h-full md:w-[280px] md:shadow-md md:left-[var(--sidebar-width)] transition-[left] duration-300">
-      <div className="flex items-center gap-4 p-4 border-b border-border-primary">
+      <section className="flex items-center gap-4 p-4 border-b border-border-primary">
         <TabButton label="Stops" activeTab={activeTab} onClick={setActiveTab} />
         <TabButton label="Participants" activeTab={activeTab} onClick={setActiveTab} />
-      </div>
+      </section>
 
-      <div className="p-4">
-        {activeTab === "Stops" && <p className="text-text-secondary">No stops yet.</p>}
+      <section className="p-4">
+        {
+          activeTab === "Stops" && 
+          <ul className="text-text-secondary">
+            {eventStops.map(s => (
+              <div className='min-h-24 max-h-32 bg-bg-secondary p-3 flex flex-col gap-1 rounded-lg'>
+                <h3 className='text-lg font-semibold text-text-primary'>{s.name}</h3>
+                <p className='text-md text-text-secondary'>{s.address}</p>
+              </div>              
+            ))}
+          </ul>
+        }
         {activeTab === "Participants" && <p className="text-text-secondary">No participants yet.</p>}
-      </div>
+      </section>
     </div>
   );
 }

@@ -99,9 +99,11 @@ body {
 
 .hangout-popup .mapboxgl-popup-content {
   background: #ffffff;
+  width: 300px;
+  height: 200px;
   color: #000000;
   border-radius: 12px;
-  padding: 2rem;
+  padding: 1rem;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
@@ -133,7 +135,7 @@ body {
 }
 
 .hangout-popup .mapboxgl-popup-close-button {
-  color: #737373;
+  color: #505050;
   font-size: 18px;
   padding: 4px 8px;
   top: 8px;
@@ -141,6 +143,6 @@ body {
 }
 
 .hangout-popup .mapboxgl-popup-close-button:hover {
-  background: #f6f6f6;
+  background: #f3f3f3;
   border-radius: 6px;
 }

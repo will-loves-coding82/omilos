@@ -19,6 +19,28 @@ type Coordinates = {
   lat?: number
 }
 
+export type SearchBoxResponse = {
+  address: string,
+  name: string,
+  mapbox_id: string,
+  coordinates: {
+    latitude: number,
+    longitude: number
+  }
+}
+
+function toSearchBoxResponse(res: SearchBoxRetrieveResponse): SearchBoxResponse {
+  return {
+    address: res.features[0].properties.address ?? '',
+    name: res.features[0].properties.name ?? '',
+    mapbox_id: res.features[0].properties.name ?? '',
+    coordinates: {
+      latitude: res.features[0].properties.coordinates.latitude,
+      longitude: res.features[0].properties.coordinates.longitude,
+    },    
+  }
+}
+
 // Extrudes building footprints from Mapbox's built-in composite source into 3D shapes.
 // Requires the map's `pitch` to be > 0 to actually see the height.
 const buildingExtrusionLayer: FillExtrusionLayerSpecification = {
@@ -42,10 +64,11 @@ export default function HangoutDetailsClient() {
   const [mapInstanceReady, setMapInstanceReady] = useState(false);
   const [viewState, setViewState] = useState({ longitude: -74.5, latitude: 40, zoom: 12, pitch: 40});
   
-  const [eventStops, setEventStops] = useState([]); // TODO: Add type
-  const [searchSelectedResponse, setSearchSelectedResponse] = useState<SearchBoxRetrieveResponse | null>(null);
+  const [eventStops, setEventStops] = useState<SearchBoxResponse[]>([]); // TODO: Add type
+  const [searchSelectedResponse, setSearchSelectedResponse] = useState<SearchBoxResponse | null>(null);
   const [searchMarkerCoord, setSearchMarkerCoord] = useState<Coordinates|null>(null);
   const [showSearchMarkerPopup, setShowSearchMarkerPopup] = useState(false);
+  const [openStopId, setOpenStopId] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   // Track OS color scheme so the map style can switch with it
@@ -86,17 +109,30 @@ export default function HangoutDetailsClient() {
   }, []);
 
 
-  // Update the search marker everytime
+  // Update the search marker when user selects on a search result
   useEffect(() => {
     if (searchSelectedResponse) {
-      const coord = searchSelectedResponse.features[0].geometry.coordinates
-      setSearchMarkerCoord({lon: coord[0], lat: coord[1]})
+      console.log(searchSelectedResponse)
+      const coord = searchSelectedResponse.coordinates
+      setSearchMarkerCoord({lon: coord.longitude, lat: coord.latitude})
     }
   }, [searchSelectedResponse])
 
+
+  function addSelectedSearchToStops() {
+    if (searchSelectedResponse) {
+      if (eventStops.includes(searchSelectedResponse)) {
+        return
+      }
+      setShowSearchMarkerPopup(false);
+      setSearchSelectedResponse(null);
+      setEventStops(prev => [searchSelectedResponse, ...prev])
+    }
+  }
+
   return (
     <div ref={containerRef} className='fixed inset-0 z-0'>
-      <HangoutSidePanel />
+      <HangoutSidePanel eventStops={eventStops} />
       {/* Map overlays elements that need to respond to sidebar and panel resizing  */}
       <div className='max-w-md absolute top-4 z-10 w-[calc(100%-5rem)] left-1/2 -translate-x-1/2 md:left-[calc(var(--sidebar-width)+var(--panel-width)+1rem)] md:translate-x-0 md:w-80 transition-[left] duration-300'>
         {mapInstanceReady && (
@@ -131,7 +167,8 @@ export default function HangoutDetailsClient() {
             accessToken={environment.mapbox.accessToken ?? ""}
             map={mapRef.current!.getMap()}
             onRetrieve={(res) => {
-              setSearchSelectedResponse(res);
+              console.log(res)
+              setSearchSelectedResponse(toSearchBoxResponse(res));
             }}
           />
         )}
@@ -165,13 +202,20 @@ export default function HangoutDetailsClient() {
           <>
             { showSearchMarkerPopup && (
               <Popup
-                className='hangout-popup'
+                className='hangout-popup flex'
                 anchor='bottom'
                 onClose={()=> setShowSearchMarkerPopup(false)}
                 longitude={searchMarkerCoord.lon!}
                 latitude={searchMarkerCoord.lat!}
               >
-                <p>Selected location</p>
+                <div className='flex flex-col justify-between h-[164px]'>
+                  <header className='flex flex-col gap-2'>
+                    <h3 className='text-xl font-semibold text-text-primary'>{searchSelectedResponse?.name}</h3>
+                    <p className='text-lg text-text-secondary'>{searchSelectedResponse?.address}</p>
+                  </header>
+                  <button onClick={()=> {addSelectedSearchToStops()}} className='bg-black text-white p-2 text-lg rounded-md hover:cursor-pointer'>Add Stop</button>
+                </div>
+
               </Popup>
             )}
             <Marker onClick={(e) => {
@@ -180,6 +224,38 @@ export default function HangoutDetailsClient() {
             }} color="#0662db" longitude={searchMarkerCoord.lon!} latitude={searchMarkerCoord.lat!}/>
           </>
         )}
+
+        {
+          eventStops.map((s) => (
+            <div key={s.mapbox_id}>
+              {openStopId === s.mapbox_id && (
+                <Popup
+                  className='hangout-popup flex'
+                  anchor='bottom'
+                  onClose={() => setOpenStopId(null)}
+                  longitude={s.coordinates.longitude}
+                  latitude={s.coordinates.latitude}
+                >
+                  <div className='flex flex-col justify-between h-[164px]'>
+                    <header className='flex flex-col gap-2'>
+                      <h3 className='text-xl font-semibold text-text-primary'>{s.name}</h3>
+                      <p className='text-lg text-text-secondary'>{s.address}</p>
+                    </header>
+                  </div>
+                </Popup>
+              )}
+              <Marker
+                onClick={(e) => {
+                  e.originalEvent.stopPropagation();
+                  setOpenStopId(s.mapbox_id);
+                }}
+                color="#0662db"
+                longitude={s.coordinates.longitude}
+                latitude={s.coordinates.latitude}
+              />
+            </div>
+          ))
+        }
         <NavigationControl position='bottom-right' />
       </Map>
     </div>
