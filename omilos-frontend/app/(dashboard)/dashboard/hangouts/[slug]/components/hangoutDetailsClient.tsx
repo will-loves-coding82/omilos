@@ -1,8 +1,9 @@
 "use client";
 
-import Map, { NavigationControl, MapRef, GeolocateControl, Marker, Popup } from 'react-map-gl/mapbox';
+import Map, { NavigationControl, MapRef, GeolocateControl, Marker, Popup, Layer } from 'react-map-gl/mapbox';
+import type { FillExtrusionLayerSpecification } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css'; // Don't forget the CSS!
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { SearchBoxRetrieveResponse } from '@mapbox/search-js-core';
 import { environment } from './environments/environment';
@@ -17,11 +18,28 @@ type Coordinates = {
   lat?: number
 }
 
+// Extrudes building footprints from Mapbox's built-in composite source into 3D shapes.
+// Requires the map's `pitch` to be > 0 to actually see the height.
+const buildingExtrusionLayer: FillExtrusionLayerSpecification = {
+  id: '3d-buildings',
+  source: 'composite',
+  'source-layer': 'building',
+  filter: ['==', 'extrude', 'true'],
+  type: 'fill-extrusion',
+  minzoom: 14,
+  paint: {
+    'fill-extrusion-color': '#aaa',
+    'fill-extrusion-height': ['get', 'height'],
+    'fill-extrusion-base': ['get', 'min_height'],
+    'fill-extrusion-opacity': 0.6,
+  },
+};
+
 export default function HangoutDetailsClient() {
   const mapRef = useRef<MapRef>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [mapInstanceReady, setMapInstanceReady] = useState(false);
-  const [viewState, setViewState] = useState({ longitude: -74.5, latitude: 40, zoom: 12,});
+  const [viewState, setViewState] = useState({ longitude: -74.5, latitude: 40, zoom: 12, pitch: 40});
   
   const [eventStops, setEventStops] = useState([]); // TODO: Add type
   const [searchSelectedResponse, setSearchSelectedResponse] = useState<SearchBoxRetrieveResponse | null>(null);
@@ -76,13 +94,15 @@ export default function HangoutDetailsClient() {
   }, [searchSelectedResponse])
 
   return (
-    <div ref={containerRef} className='relative w-full h-full'>
-      <div className='max-w-md absolute top-4 left-4 z-10 w-80'>
+    <div ref={containerRef} className='fixed inset-0 z-0'>
+      <div
+        className='max-w-md absolute top-4 z-10 w-[calc(100%-5rem)] left-1/2 -translate-x-1/2 md:left-[calc(var(--sidebar-width)+1rem)] md:translate-x-0 md:w-80 transition-[left] duration-300'
+      >
         {mapInstanceReady && (
           <SearchBox
-            onChange={(s)=>{
-              if (s.length === 0) {
-                setSearchMarkerCoord(null);
+          onChange={(s)=>{
+            if (s.length === 0) {
+              setSearchMarkerCoord(null);
                 setShowSearchMarkerPopup(false);
               }
             }}
@@ -125,9 +145,20 @@ export default function HangoutDetailsClient() {
       >
          <GeolocateControl
           position="top-right"
+          style={{
+            marginTop: "1rem",
+            height: "38px",
+            width: "38px",
+            display: "flex",
+            justifyContent:"center",
+            alignItems: "center",
+            borderColor: "none",
+            borderRadius: "6px"
+          }}
           trackUserLocation={true}
           showUserLocation={true}
         />
+        <Layer {...buildingExtrusionLayer} />
         { searchMarkerCoord && (
           <>
             { showSearchMarkerPopup && (

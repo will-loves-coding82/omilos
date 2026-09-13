@@ -4,13 +4,31 @@
 import { Calendar, User, PanelLeft, Bell, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
 export default function SidebarClient() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(true);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  // Expose the sidebar's current width as a CSS variable so overlays
+  // rendered elsewhere (e.g. the map's search box) can offset around it
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(min-width: 768px)');
+
+    const updateSidebarWidth = () => {
+      document.documentElement.style.setProperty(
+        '--sidebar-width',
+        mediaQuery.matches ? (isOpen ? '224px' : '80px') : '0px'
+      );
+    };
+
+    updateSidebarWidth();
+    mediaQuery.addEventListener('change', updateSidebarWidth);
+
+    return () => mediaQuery.removeEventListener('change', updateSidebarWidth);
+  }, [isOpen]);
 
   return (
     <>
@@ -22,7 +40,7 @@ export default function SidebarClient() {
         <Menu size={20} className="text-text-secondary" />
       </button>
 
-      <nav className={`hidden md:flex flex-col h-full ${isOpen ? "min-w-[224px]": "min-w-[80px]"} bg-bg-primary shadow-md transition-all duration-300`}>
+      <nav className={`hidden md:flex flex-col h-full relative z-20 ${isOpen ? "min-w-[224px]": "min-w-[80px]"} bg-bg-primary shadow-md transition-all duration-300`}>
         <section className={`h-[64px] flex items-center p-4 ${isOpen ? "justify-between" : "justify-center"}`}>
             {isOpen ? <Link href="/" className="flex items-center gap-3 font-medium text-text-primary"><p className="text-3xl">O</p><p className="text-md">Omilos</p></Link> : null}
             <button

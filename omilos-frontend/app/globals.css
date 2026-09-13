@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
 :root {
+  --sidebar-width: 0px;
+
   --background: #ffffff;
   --foreground: #171717;
 
