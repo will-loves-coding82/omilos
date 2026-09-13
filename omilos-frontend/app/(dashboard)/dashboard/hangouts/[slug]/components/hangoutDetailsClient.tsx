@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { SearchBoxRetrieveResponse } from '@mapbox/search-js-core';
 import { environment } from './environments/environment';
+import HangoutSidePanel from './hangoutSidePanel';
 
 const SearchBox = dynamic(
   () => import("@mapbox/search-js-react").then((mod) => mod.SearchBox),
@@ -95,11 +96,12 @@ export default function HangoutDetailsClient() {
 
   return (
     <div ref={containerRef} className='fixed inset-0 z-0'>
-      <div
-        className='max-w-md absolute top-4 z-10 w-[calc(100%-5rem)] left-1/2 -translate-x-1/2 md:left-[calc(var(--sidebar-width)+1rem)] md:translate-x-0 md:w-80 transition-[left] duration-300'
-      >
+      <HangoutSidePanel />
+      {/* Map overlays elements that need to respond to sidebar and panel resizing  */}
+      <div className='max-w-md absolute top-4 z-10 w-[calc(100%-5rem)] left-1/2 -translate-x-1/2 md:left-[calc(var(--sidebar-width)+var(--panel-width)+1rem)] md:translate-x-0 md:w-80 transition-[left] duration-300'>
         {mapInstanceReady && (
           <SearchBox
+          placeholder='Add a stop'
           onChange={(s)=>{
             if (s.length === 0) {
               setSearchMarkerCoord(null);
