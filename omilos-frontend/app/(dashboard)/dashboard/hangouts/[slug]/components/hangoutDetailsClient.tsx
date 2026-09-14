@@ -19,7 +19,7 @@ type Coordinates = {
   lat?: number
 }
 
-export type SearchBoxResponse = {
+export type EventStop = {
   address: string,
   name: string,
   mapbox_id: string,
@@ -29,7 +29,7 @@ export type SearchBoxResponse = {
   }
 }
 
-function toSearchBoxResponse(res: SearchBoxRetrieveResponse): SearchBoxResponse {
+function toEventStop(res: SearchBoxRetrieveResponse): EventStop {
   return {
     address: res.features[0].properties.address ?? '',
     name: res.features[0].properties.name ?? '',
@@ -64,11 +64,13 @@ export default function HangoutDetailsClient() {
   const [mapInstanceReady, setMapInstanceReady] = useState(false);
   const [viewState, setViewState] = useState({ longitude: -74.5, latitude: 40, zoom: 12, pitch: 40});
   
-  const [eventStops, setEventStops] = useState<SearchBoxResponse[]>([]); // TODO: Add type
-  const [searchSelectedResponse, setSearchSelectedResponse] = useState<SearchBoxResponse | null>(null);
-  const [searchMarkerCoord, setSearchMarkerCoord] = useState<Coordinates|null>(null);
-  const [showSearchMarkerPopup, setShowSearchMarkerPopup] = useState(false);
-  const [openStopId, setOpenStopId] = useState<string | null>(null);
+  const [eventStops, setEventStops] = useState<EventStop[]>([]);
+  const [selectedStop, setSelectedStop] = useState<EventStop | null>(null); // Tracks the selected search result stop
+ 
+  const [stopMarkerCoord, setStopMarkerCoord] = useState<Coordinates|null>(null);
+  const [showStophMarkerPopup, setShowStopMarkerPopup] = useState(false); 
+ 
+  const [openStopId, setOpenStopId] = useState<string | null>(null); // Tracks which existing stop the user selects
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   // Track OS color scheme so the map style can switch with it
@@ -109,30 +111,38 @@ export default function HangoutDetailsClient() {
   }, []);
 
 
-  // Update the search marker when user selects on a search result
+  // Update the active marker when user selects on a stop or search result
   useEffect(() => {
-    if (searchSelectedResponse) {
-      console.log(searchSelectedResponse)
-      const coord = searchSelectedResponse.coordinates
-      setSearchMarkerCoord({lon: coord.longitude, lat: coord.latitude})
+    if (selectedStop) {
+      console.log(selectedStop)
+      const coord = selectedStop.coordinates
+      setStopMarkerCoord({lon: coord.longitude, lat: coord.latitude})
     }
-  }, [searchSelectedResponse])
+  }, [selectedStop])
 
 
   function addSelectedSearchToStops() {
-    if (searchSelectedResponse) {
-      if (eventStops.includes(searchSelectedResponse)) {
+    if (selectedStop) {
+      if (eventStops.includes(selectedStop)) {
         return
       }
-      setShowSearchMarkerPopup(false);
-      setSearchSelectedResponse(null);
-      setEventStops(prev => [searchSelectedResponse, ...prev])
+      setShowStopMarkerPopup(false);
+      setSelectedStop(null);
+      setEventStops(prev => [selectedStop, ...prev])
     }
+  }
+
+  function selectEventStop(stop: EventStop) {
+    setOpenStopId(stop.mapbox_id);
+    mapRef.current?.getMap().flyTo({
+      center: [stop.coordinates.longitude, stop.coordinates.latitude],
+      zoom: 15,
+    });
   }
 
   return (
     <div ref={containerRef} className='fixed inset-0 z-0'>
-      <HangoutSidePanel eventStops={eventStops} />
+      <HangoutSidePanel eventStops={eventStops} onReorderStops={setEventStops} onSelectStop={selectEventStop} activeStopId={openStopId} />
       {/* Map overlays elements that need to respond to sidebar and panel resizing  */}
       <div className='max-w-md absolute top-4 z-10 w-[calc(100%-5rem)] left-1/2 -translate-x-1/2 md:left-[calc(var(--sidebar-width)+var(--panel-width)+1rem)] md:translate-x-0 md:w-80 transition-[left] duration-300'>
         {mapInstanceReady && (
@@ -140,13 +150,13 @@ export default function HangoutDetailsClient() {
           placeholder='Add a stop'
           onChange={(s)=>{
             if (s.length === 0) {
-              setSearchMarkerCoord(null);
-                setShowSearchMarkerPopup(false);
+              setStopMarkerCoord(null);
+                setShowStopMarkerPopup(false);
               }
             }}
             onClear={()=> {
-                setSearchMarkerCoord(null);
-                setShowSearchMarkerPopup(false);
+                setStopMarkerCoord(null);
+                setShowStopMarkerPopup(false);
             }}
             theme={{
               variables: {
@@ -168,7 +178,7 @@ export default function HangoutDetailsClient() {
             map={mapRef.current!.getMap()}
             onRetrieve={(res) => {
               console.log(res)
-              setSearchSelectedResponse(toSearchBoxResponse(res));
+              setSelectedStop(toEventStop(res));
             }}
           />
         )}
@@ -198,20 +208,20 @@ export default function HangoutDetailsClient() {
           showUserLocation={true}
         />
         <Layer {...buildingExtrusionLayer} />
-        { searchMarkerCoord && (
+        { stopMarkerCoord && (
           <>
-            { showSearchMarkerPopup && (
+            { showStophMarkerPopup && (
               <Popup
                 className='hangout-popup flex'
                 anchor='bottom'
-                onClose={()=> setShowSearchMarkerPopup(false)}
-                longitude={searchMarkerCoord.lon!}
-                latitude={searchMarkerCoord.lat!}
+                onClose={()=> setShowStopMarkerPopup(false)}
+                longitude={stopMarkerCoord.lon!}
+                latitude={stopMarkerCoord.lat!}
               >
                 <div className='flex flex-col justify-between h-[164px]'>
                   <header className='flex flex-col gap-2'>
-                    <h3 className='text-xl font-semibold text-text-primary'>{searchSelectedResponse?.name}</h3>
-                    <p className='text-lg text-text-secondary'>{searchSelectedResponse?.address}</p>
+                    <h3 className='text-xl font-semibold text-text-primary'>{selectedStop?.name}</h3>
+                    <p className='text-lg text-text-secondary'>{selectedStop?.address}</p>
                   </header>
                   <button onClick={()=> {addSelectedSearchToStops()}} className='bg-black text-white p-2 text-lg rounded-md hover:cursor-pointer'>Add Stop</button>
                 </div>
@@ -220,8 +230,8 @@ export default function HangoutDetailsClient() {
             )}
             <Marker onClick={(e) => {
               e.originalEvent.stopPropagation();
-              setShowSearchMarkerPopup(true);
-            }} color="#0662db" longitude={searchMarkerCoord.lon!} latitude={searchMarkerCoord.lat!}/>
+              setShowStopMarkerPopup(true);
+            }} color="#0662db" longitude={stopMarkerCoord.lon!} latitude={stopMarkerCoord.lat!}/>
           </>
         )}
 
