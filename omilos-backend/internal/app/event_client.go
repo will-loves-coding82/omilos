@@ -23,12 +23,12 @@ type Event struct {
 
 type EventStop struct {
 	Id        int64   `json:"id" db:"id"`
-	EventId   string  `json:"event_id" db:"event_id"`
+	EventId   int64   `json:"event_id" db:"event_id"`
 	SortId    int64   `json:"sort_id" db:"sort_id"`
 	Name      string  `json:"name" db:"name"`
 	Address   string  `json:"address" db:"address"`
-	Latitude  float64 `db:"latitude"`
-	Longitude float64 `db:"longitude"`
+	Latitude  float64 `json:"latitude" db:"latitude"`
+	Longitude float64 `json:"longitude" db:"longitude"`
 }
 
 type EventClient struct {
@@ -74,24 +74,30 @@ const getEventsForUserQuery = `
 `
 
 const getEventStopsQuery = `
-	SELECT es.*
+	SELECT
+		es.id, es.event_id, es.sort_id, es.name, es.address, es.longitude, es.latitude
 	FROM event_stops es
 	JOIN events e ON es.event_id = e.id
 	WHERE e.slug=$1
-	ORDER BY es.sort_id DESC;
+	ORDER BY es.sort_id ASC;
 `
 
 const addEventStopQuery = `
 	INSERT INTO event_stops(event_id, sort_id, name, address, latitude, longitude)
-	VALUES ($1, $2, $3, $4, $5);
+	VALUES (
+		$1,
+		COALESCE((SELECT MAX(sort_id) + 1 FROM event_stops WHERE event_id = $1), 0),
+		$2, $3, $4, $5
+	)
+	RETURNING id;
 `
 
 const reorderEventStopsQuery = `
 	UPDATE event_stops AS es
-	SET sort_order = data.sort_order
+	SET sort_id = data.sort_id
 	FROM (
-		SELECT unnest($1::int[], $2::int[]) AS t(id, sort_order)
-	)
+		SELECT * FROM unnest($1::int[], $2::int[]) AS t(id, sort_id)
+	) AS data
 	WHERE es.id = data.id AND es.event_id = $3;
 `
 
@@ -111,7 +117,7 @@ type eventRow struct {
 
 func (e *EventClient) GetEventIdForSlug(slug string) (int64, error) {
 	var id int64
-	err := e.db.Conn().Select(&id, getEventIdForSlug, slug)
+	err := e.db.Conn().Get(&id, getEventIdForSlug, slug)
 	if err != nil {
 		return 0, err
 	}
@@ -211,12 +217,8 @@ func (e *EventClient) CreateNewEventTx(ctx context.Context, event Event) (string
 }
 
 func (e *EventClient) GetEventStops(slug string) ([]EventStop, error) {
-	eventId, err := e.GetEventIdForSlug(slug)
-	if err != nil {
-		return nil, err
-	}
 	var eventStops []EventStop
-	err = e.db.Conn().Select(&eventStops, getEventStopsQuery, eventId)
+	err := e.db.Conn().Select(&eventStops, getEventStopsQuery, slug)
 	if err != nil {
 		return nil, err
 	}
@@ -224,16 +226,22 @@ func (e *EventClient) GetEventStops(slug string) ([]EventStop, error) {
 	return eventStops, nil
 }
 
-func (e *EventClient) AddEventStop(slug string, stop EventStop) error {
-	_, err := e.db.Conn().Exec(
-		addEventStopQuery,
-		slug, stop.SortId, stop.Name, stop.Address, stop.Latitude, stop.Longitude,
-	)
+func (e *EventClient) AddEventStop(slug string, stop EventStop) (int64, error) {
+	eventId, err := e.GetEventIdForSlug(slug)
 	if err != nil {
-		return fmt.Errorf("AddEventStop: %v", err)
+		return 0, err
 	}
 
-	return nil
+	var id int64
+	err = e.db.Conn().Get(
+		&id, addEventStopQuery,
+		eventId, stop.Name, stop.Address, stop.Latitude, stop.Longitude,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("AddEventStop: %v", err)
+	}
+
+	return id, nil
 }
 
 func (e *EventClient) ReorderEventStops(slug string, reorderedStops []EventStop) error {

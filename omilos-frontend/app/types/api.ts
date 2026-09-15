@@ -26,7 +26,7 @@ export type APIEventStop = {
   event_id: number,
   address: string,
   name: string,
-  sort_order: number,
+  sort_id: number,
   latitude: number,
   longitude: number
 }

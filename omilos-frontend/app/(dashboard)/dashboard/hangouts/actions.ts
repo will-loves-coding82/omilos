@@ -1,12 +1,11 @@
 "use server";
 
-import { APIUser, APIEvent } from "@/app/types/api";
+import { APIUser, APIEvent, APIEventStop } from "@/app/types/api";
 import { ClientEventStop } from "@/app/types/client";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
-
-import { API_ROUTES, BASE_URL, EVENTS_ENDPOINT, EVENTS_STOPS_ENDPOINT, PRESIGN_ENDPOINT, USERS_ENDPOINT } from "@/app/constants";
-import { hangoutDetailsSchema } from "./schemas";
+import { API_ROUTES } from "@/app/constants";
+import { eventDetailsSchema } from "./schemas";
 
 export type ActionResponse<T> = {
   success: boolean,
@@ -26,7 +25,7 @@ export async function createNewEvent(prevState: ActionResponse<Partial<APIEvent>
     return { success: false, data: prevState.data, message: "Not authenticated" };
   }
 
-  const parsed = hangoutDetailsSchema.safeParse({
+  const parsed = eventDetailsSchema.safeParse({
     title: formData.get("title"),
     description: formData.get("description") || undefined,
     date: formData.get("date")
@@ -161,14 +160,43 @@ export async function getEventsForUser(userId: string | null): Promise<ActionRes
   }
 }
 
-export async function addEventStop(slug: string, stop: ClientEventStop) : Promise<ActionResponse<null>> {
+export async function getEventStops(slug: string): Promise<ActionResponse<APIEventStop[]>> {
+  try {
+    const res = await fetch(API_ROUTES.events.stops.list(slug))
+
+    if (!res.ok) {
+      const body = await res.text()
+      console.error("Get hangout stops failed:", res.status, body)
+      return {
+        success: false,
+        data: [],
+        message: "Failed to fetch stops",
+      }
+    }
+
+    const { data } = await res.json()
+    return {
+      success: true,
+      data: data.stops ?? []
+    }
+  } catch (err) {
+    console.error("Error fetching hangout stops:", err)
+    return {
+      success: false,
+      data: [],
+      message: err instanceof Error ? err.message : "An unknown error occurred",
+    }
+  }
+}
+
+export async function addEventStop(slug: string, stop: ClientEventStop) : Promise<ActionResponse<{ id: number } | null>> {
   try {
     const res = await fetch(API_ROUTES.events.stops.create(slug), {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({}),
+      body: JSON.stringify(stop),
     })
 
     if (!res.ok) {
@@ -181,9 +209,10 @@ export async function addEventStop(slug: string, stop: ClientEventStop) : Promis
       }
     }
 
+    const { data } = await res.json()
     return {
       success: true,
-      data: null,
+      data,
     }
   } catch (err) {
     console.error("Error adding hangout stop:", err)
@@ -195,9 +224,39 @@ export async function addEventStop(slug: string, stop: ClientEventStop) : Promis
   }
 }
 
-// export async function updateHangoutStopOrder(stops: EventStop[]) : Promise<ActionResponse<null>> {
+export async function reorderEventStops(slug: string, stops: ClientEventStop[]) : Promise<ActionResponse<null>> {
+  try {
+    const res = await fetch(API_ROUTES.events.stops.update(slug), {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(stops),
+    })
 
-// }
+    if (!res.ok) {
+      const body = await res.text()
+      console.error("Reorder hangout stops failed:", res.status, body)
+      return {
+        success: false,
+        data: null,
+        message: "Failed to reorder stops",
+      }
+    }
+
+    return {
+      success: true,
+      data: null,
+    }
+  } catch (err) {
+    console.error("Error reordering hangout stops:", err)
+    return {
+      success: false,
+      data: null,
+      message: err instanceof Error ? err.message : "An unknown error occurred",
+    }
+  }
+}
 
 
 export async function searchUsers(searchQuery: string): Promise<ActionResponse<APIUser[]>> {
@@ -210,8 +269,7 @@ export async function searchUsers(searchQuery: string): Promise<ActionResponse<A
   }
 
   try {
-    const params = new URLSearchParams({ search: searchQuery })
-    const res = await fetch(BASE_URL + USERS_ENDPOINT + "?" + params.toString())
+    const res = await fetch(API_ROUTES.users.search(searchQuery))
 
     if (!res.ok) {
       return {

@@ -48,8 +48,14 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 
 	r.Post("/users", userHandler.CreateNewUser)
 	r.Get("/users", userHandler.SearchUsers)
+
 	r.Post("/events", eventHandler.CreateNewEvent)
 	r.Get("/events", eventHandler.GetEventsForUser)
+
+	r.Get("/events/{slug}/stops", eventHandler.GetEventStops)
+	r.Post("/events/{slug}/stops", eventHandler.AddNewEventStop)
+	r.Patch("/events/{slug}/stops", eventHandler.ReorderEventStops)
+
 	r.Get("/presign", awsPresignHandler.GetPresignedURL)
 
 	return r

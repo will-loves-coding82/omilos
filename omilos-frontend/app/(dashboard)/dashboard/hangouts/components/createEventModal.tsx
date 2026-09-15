@@ -8,7 +8,7 @@ import { createNewEvent, ActionResponse, searchUsers } from "../actions";
 import { APIEvent } from "@/app/types/api";
 import DatePicker from "@/app/components/DatePicker";
 import Image from "next/image";
-import { hangoutDetailsSchema } from "../schemas";
+import { eventDetailsSchema } from "../schemas";
 import Cropper, { Area, Point } from "react-easy-crop";
 import { getCroppedImageFile } from "../cropImage";
 import { ClientUser } from "@/app/types/client";
@@ -51,7 +51,7 @@ export function CreateHangoutModal({ isOpen, onClose }: CreateHangoutModalProps)
   // though real Clerk image_urls are always well-formed, since a valid URL can still
   // fail to load; isValidImageUrl only screens out malformed/fake values up front.
   const [brokenImageIds, setBrokenImageIds] = useState<Set<number>>(new Set());
-  const detailsResult = hangoutDetailsSchema.safeParse({ title, description, date });
+  const detailsResult = eventDetailsSchema.safeParse({ title, description, date });
   const isStep1Valid = detailsResult.success;
 
   const steps = [

@@ -55,9 +55,9 @@ export default function EventSidePanel({eventStops, onReorderStops, onSelectStop
           activeTab === "Stops" &&
           <DragDropProvider
             onDragEnd={(event) => {
-              const stopsById = new Map(eventStops.map(stop => [stop.mapbox_id, stop]));
-              const reorderedIds = move(eventStops.map(stop => stop.mapbox_id), event);
-              onReorderStops(reorderedIds.map(id => stopsById.get(id)!));
+              const stopsByMapboxId = new Map(eventStops.map(stop => [stop.mapbox_id, stop]));
+              const reorderedMapboxIds = move(eventStops.map(stop => stop.mapbox_id), event);
+              onReorderStops(reorderedMapboxIds.map(mapboxId => stopsByMapboxId.get(mapboxId)!));
             }}
           >
             <ul ref={ref} className="flex flex-col gap-2">

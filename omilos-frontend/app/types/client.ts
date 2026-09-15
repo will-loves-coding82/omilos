@@ -26,6 +26,7 @@ export type ClientEvent = {
 }
 
 export type ClientEventStop = {
+  id?: number,
   address: string,
   name: string,
   mapbox_id: string,

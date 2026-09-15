@@ -22,10 +22,14 @@ export const createApiRoutes = (baseUrl: string) => {
       list: (userId: string) => `${baseUrl}/events?userId=${userId}`,
       detail: (slug: string) => `${baseUrl}/events/${slug}`,
       stops: {
+        list: (slug: string) => `${baseUrl}/events/${slug}/stops`,
         create: (slug: string) => `${baseUrl}/events/${slug}/stops`,
         update: (slug: string) => `${baseUrl}/events/${slug}/stops`
       }
     },
+    users: {
+      search: (searchQuery: string) => `${baseUrl}/users?search=${searchQuery}`
+    }
   } as const; // Use 'as const' to make properties read-only and preserve exact literal types
 };
 

@@ -14,7 +14,7 @@ CREATE TABLE events (
   slug VARCHAR(255) NOT NULL UNIQUE,
   host_id INTEGER NOT NULL,
   image_url TEXT,
-  active_event_id INTEGER, -- this can be null
+  active_stop_id INTEGER, -- this can be null
   name TEXT NOT NULL,
   description TEXT,
   date DATE NOT NULL, 

@@ -9,7 +9,19 @@ import type { SearchBoxRetrieveResponse } from '@mapbox/search-js-core';
 import { environment } from './environments/environment';
 import HangoutSidePanel from './eventSidePanel';
 import { Coordinates, ClientEventStop } from '@/app/types/client';
-import { addEventStop } from '../../actions';
+import { APIEventStop } from '@/app/types/api';
+import { addEventStop, reorderEventStops } from '../../actions';
+
+function toClientEventStop(stop: APIEventStop): ClientEventStop {
+  return {
+    id: stop.id,
+    address: stop.address,
+    name: stop.name,
+    mapbox_id: String(stop.id),
+    latitude: stop.latitude,
+    longitude: stop.longitude,
+  }
+}
 
 const SearchBox = dynamic(
   () => import("@mapbox/search-js-react").then((mod) => mod.SearchBox),
@@ -44,13 +56,13 @@ const buildingExtrusionLayer: FillExtrusionLayerSpecification = {
   },
 };
 
-export default function EventDetailsClient({slug}: {slug: string}) {
+export default function EventDetailsClient({slug, initialStops}: {slug: string, initialStops: APIEventStop[]}) {
   const mapRef = useRef<MapRef>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [mapInstanceReady, setMapInstanceReady] = useState(false);
   const [viewState, setViewState] = useState({ longitude: -74.5, latitude: 40, zoom: 12, pitch: 40});
-  
-  const [eventStops, setEventStops] = useState<ClientEventStop[]>([]);
+
+  const [eventStops, setEventStops] = useState<ClientEventStop[]>(() => initialStops.map(toClientEventStop));
   const [selectedStop, setSelectedStop] = useState<ClientEventStop | null>(null); // Tracks the selected search result stop
  
   const [stopMarkerCoord, setStopMarkerCoord] = useState<Coordinates|null>(null);
@@ -106,7 +118,15 @@ export default function EventDetailsClient({slug}: {slug: string}) {
   }, [selectedStop])
 
 
-  async function addSelectedSearchToStops() {
+  function selectEventStop(stop: ClientEventStop) {
+    setOpenStopId(stop.mapbox_id);
+    mapRef.current?.getMap().flyTo({
+      center: [stop.longitude, stop.latitude],
+      zoom: 15,
+    });
+  }
+
+  async function onAddEventStop() {
     if (selectedStop) {
       if (eventStops.includes(selectedStop)) {
         return
@@ -118,8 +138,11 @@ export default function EventDetailsClient({slug}: {slug: string}) {
       // Sync with database
       try {
         const res = await addEventStop(slug, selectedStop)
-        if (!res.success) {
+        if (!res.success || !res.data) {
           console.log("Failed to add stop to database")
+        } else {
+          const stopId = res.data.id;
+          setEventStops(prev => prev.map(s => s.mapbox_id === selectedStop.mapbox_id ? { ...s, id: stopId } : s))
         }
       }
       catch(err) {
@@ -128,18 +151,27 @@ export default function EventDetailsClient({slug}: {slug: string}) {
     }
   }
 
-  function selectEventStop(stop: ClientEventStop) {
-    setOpenStopId(stop.mapbox_id);
-    mapRef.current?.getMap().flyTo({
-      center: [stop.longitude, stop.latitude],
-      zoom: 15,
-    });
+  async function onReorderEventStops(stops: ClientEventStop[]) {
+    setEventStops(stops);
+
+    // Stops not yet persisted (no id) can't be reordered on the backend yet
+    const persistedStops = stops.filter((s): s is ClientEventStop & { id: number } => s.id !== undefined);
+
+    try {
+      const res = await reorderEventStops(slug, persistedStops);
+      if (!res.success) {
+        console.log("Failed to reorder event stops")
+      }
+    }
+    catch(err) {
+      console.log("Error reordering event stops")
+    }
   }
 
 
   return (
     <div ref={containerRef} className='fixed inset-0 z-0'>
-      <HangoutSidePanel eventStops={eventStops} onReorderStops={setEventStops} onSelectStop={selectEventStop} activeStopId={openStopId} />
+      <HangoutSidePanel eventStops={eventStops} onReorderStops={onReorderEventStops} onSelectStop={selectEventStop} activeStopId={openStopId} />
       {/* Map overlays elements that need to respond to sidebar and panel resizing  */}
       <div className='max-w-md absolute top-4 z-10 w-[calc(100%-5rem)] left-1/2 -translate-x-1/2 md:left-[calc(var(--sidebar-width)+var(--panel-width)+1rem)] md:translate-x-0 md:w-80 transition-[left] duration-300'>
         {mapInstanceReady && (
@@ -220,7 +252,7 @@ export default function EventDetailsClient({slug}: {slug: string}) {
                     <h3 className='text-xl font-semibold text-text-primary'>{selectedStop?.name}</h3>
                     <p className='text-lg text-text-secondary'>{selectedStop?.address}</p>
                   </header>
-                  <button onClick={()=> {addSelectedSearchToStops()}} className='bg-black text-white p-2 text-lg rounded-md hover:cursor-pointer'>Add Stop</button>
+                  <button onClick={onAddEventStop} className='bg-black text-white p-2 text-lg rounded-md hover:cursor-pointer'>Add Stop</button>
                 </div>
 
               </Popup>

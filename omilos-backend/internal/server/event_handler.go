@@ -67,11 +67,28 @@ func (h *EventHandler) GetEventsForUser(w http.ResponseWriter, r *http.Request) 
 	httpio.JSON(w, r, http.StatusOK, EventsForUserPayload{Events: events})
 }
 
+type GetEventStopsPayload struct {
+	Stops []app.EventStop `json:"stops"`
+}
+
 func (h *EventHandler) GetEventStops(w http.ResponseWriter, r *http.Request) {
-	eventId := r.URL.Query().Get("eventId")
-	if len(eventId) == 0 {
-		httpio.BadRequest(w, r, errors.New("eventId query"))
+	eventSlug := r.PathValue("slug")
+	if len(eventSlug) == 0 {
+		httpio.BadRequest(w, r, errors.New("slug path parameter is missing"))
+		return
 	}
+
+	stops, err := h.client.GetEventStops(eventSlug)
+	if err != nil {
+		httpio.InternalError(w, r, err)
+		return
+	}
+
+	httpio.JSON(w, r, http.StatusOK, GetEventStopsPayload{Stops: stops})
+}
+
+type AddEventStopPayload struct {
+	Id int64 `json:"id"`
 }
 
 func (h *EventHandler) AddNewEventStop(w http.ResponseWriter, r *http.Request) {
@@ -95,13 +112,13 @@ func (h *EventHandler) AddNewEventStop(w http.ResponseWriter, r *http.Request) {
 		Longitude: stop.Longitude,
 	}
 
-	err = h.client.AddEventStop(eventSlug, eventStop)
+	id, err := h.client.AddEventStop(eventSlug, eventStop)
 	if err != nil {
 		httpio.InternalError(w, r, err)
 		return
 	}
 
-	httpio.JSON(w, r, http.StatusCreated, nil)
+	httpio.JSON(w, r, http.StatusCreated, AddEventStopPayload{Id: id})
 }
 
 func (h *EventHandler) ReorderEventStops(w http.ResponseWriter, r *http.Request) {
@@ -111,11 +128,18 @@ func (h *EventHandler) ReorderEventStops(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var reoderedStops []app.EventStop
-	err := json.NewDecoder(r.Body).Decode(&reoderedStops)
+	var reorderedStops []app.EventStop
+	err := json.NewDecoder(r.Body).Decode(&reorderedStops)
+	if err != nil {
+		httpio.BadRequest(w, r, err)
+		return
+	}
+
+	err = h.client.ReorderEventStops(eventSlug, reorderedStops)
 	if err != nil {
 		httpio.InternalError(w, r, err)
 		return
 	}
 
+	httpio.JSON(w, r, http.StatusOK, nil)
 }
