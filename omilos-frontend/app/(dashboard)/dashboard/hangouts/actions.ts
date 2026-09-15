@@ -1,10 +1,11 @@
 "use server";
 
-import { OmilosUser, OmilosEvent } from "@/app/types";
+import { APIUser, APIEvent } from "@/app/types/api";
+import { ClientEventStop } from "@/app/types/client";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 
-import { BASE_URL, EVENTS_ENDPOINT, PRESIGN_ENDPOINT, USERS_ENDPOINT } from "@/app/constants";
+import { API_ROUTES, BASE_URL, EVENTS_ENDPOINT, EVENTS_STOPS_ENDPOINT, PRESIGN_ENDPOINT, USERS_ENDPOINT } from "@/app/constants";
 import { hangoutDetailsSchema } from "./schemas";
 
 export type ActionResponse<T> = {
@@ -17,7 +18,8 @@ export type ActionResponse<T> = {
 export type SortOption = "newest" | "oldest"
 export type FilterOption = "all" | "host" | "participant"
 
-export async function createNewHangout(prevState: ActionResponse<Partial<OmilosEvent>>, formData: FormData): Promise<ActionResponse<Partial<OmilosEvent>>> {
+
+export async function createNewEvent(prevState: ActionResponse<Partial<APIEvent>>, formData: FormData): Promise<ActionResponse<Partial<APIEvent>>> {
   const { userId } = await auth();
 
   if (!userId) {
@@ -47,10 +49,8 @@ export async function createNewHangout(prevState: ActionResponse<Partial<OmilosE
     let imageUrl: string | undefined
 
     if (coverImage instanceof File && coverImage.size > 0) {
-      const params = new URLSearchParams({ file: coverImage.name })
-      
       // Generate a presigned URL to upload to S3
-      const presignRes = await fetch(BASE_URL + PRESIGN_ENDPOINT + "?" + params.toString())
+      const presignRes = await fetch(API_ROUTES.presign.create(coverImage.name))
       if (!presignRes.ok) {
         return {
           success: false,
@@ -84,7 +84,7 @@ export async function createNewHangout(prevState: ActionResponse<Partial<OmilosE
     }
 
     // Save the new event in the database
-    const res = await fetch(BASE_URL + EVENTS_ENDPOINT, {
+    const res = await fetch(API_ROUTES.events.create, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -130,14 +130,13 @@ export async function createNewHangout(prevState: ActionResponse<Partial<OmilosE
   }
 }
 
-export async function getHangoutsForUser(userId: string | null): Promise<ActionResponse<OmilosEvent[]>> {
+export async function getEventsForUser(userId: string | null): Promise<ActionResponse<APIEvent[]>> {
   if (!userId) {
     return { success: false, data: [], message: "Not authenticated" };
   }
 
   try {
-    const params = new URLSearchParams({ userId })
-    const res = await fetch(BASE_URL + EVENTS_ENDPOINT + "?" + params.toString())
+    const res = await fetch(API_ROUTES.events.list(userId), {method: "GET"})
 
     if (!res.ok) {
       return {
@@ -162,8 +161,46 @@ export async function getHangoutsForUser(userId: string | null): Promise<ActionR
   }
 }
 
+export async function addEventStop(slug: string, stop: ClientEventStop) : Promise<ActionResponse<null>> {
+  try {
+    const res = await fetch(API_ROUTES.events.stops.create(slug), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({}),
+    })
 
-export async function searchUsers(searchQuery: string): Promise<ActionResponse<OmilosUser[]>> {
+    if (!res.ok) {
+      const body = await res.text()
+      console.error("Add hangout stop failed:", res.status, body)
+      return {
+        success: false,
+        data: null,
+        message: "Failed to add stop",
+      }
+    }
+
+    return {
+      success: true,
+      data: null,
+    }
+  } catch (err) {
+    console.error("Error adding hangout stop:", err)
+    return {
+      success: false,
+      data: null,
+      message: err instanceof Error ? err.message : "An unknown error occurred",
+    }
+  }
+}
+
+// export async function updateHangoutStopOrder(stops: EventStop[]) : Promise<ActionResponse<null>> {
+
+// }
+
+
+export async function searchUsers(searchQuery: string): Promise<ActionResponse<APIUser[]>> {
   if (searchQuery.length === 0) {
     return {
       success: false,
@@ -198,3 +235,5 @@ export async function searchUsers(searchQuery: string): Promise<ActionResponse<O
     }
   }
 }
+
+
