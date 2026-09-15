@@ -55,6 +55,7 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 	r.Get("/events/{slug}/stops", eventHandler.GetEventStops)
 	r.Post("/events/{slug}/stops", eventHandler.AddNewEventStop)
 	r.Patch("/events/{slug}/stops", eventHandler.ReorderEventStops)
+	r.Delete("/events/{slug}/stops/{stopId}", eventHandler.DeleteEventStop)
 
 	r.Get("/presign", awsPresignHandler.GetPresignedURL)
 

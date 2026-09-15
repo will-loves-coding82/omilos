@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"omilos-backend/internal/app"
 	"omilos-backend/internal/server/httpio"
+	"strconv"
 	"time"
 )
 
@@ -136,6 +137,33 @@ func (h *EventHandler) ReorderEventStops(w http.ResponseWriter, r *http.Request)
 	}
 
 	err = h.client.ReorderEventStops(eventSlug, reorderedStops)
+	if err != nil {
+		httpio.InternalError(w, r, err)
+		return
+	}
+
+	httpio.JSON(w, r, http.StatusOK, nil)
+}
+
+func (h *EventHandler) DeleteEventStop(w http.ResponseWriter, r *http.Request) {
+	eventSlug := r.PathValue("slug")
+	if len(eventSlug) == 0 {
+		httpio.BadRequest(w, r, errors.New("slug path parameter is missing"))
+		return
+	}
+
+	stopId := r.PathValue("stopId")
+	if len(stopId) == 0 {
+		httpio.BadRequest(w, r, errors.New("stop path parameter is missing"))
+	}
+
+	intStopId, err := strconv.ParseInt(stopId, 10, 64)
+	if err != nil {
+		httpio.InternalError(w, r, fmt.Errorf("Could not convert stopId path parameter to integer: %v", err))
+		return
+	}
+
+	err = h.client.DeleteEventStop(eventSlug, intStopId)
 	if err != nil {
 		httpio.InternalError(w, r, err)
 		return

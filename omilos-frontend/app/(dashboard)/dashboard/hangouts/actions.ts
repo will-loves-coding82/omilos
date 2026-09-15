@@ -18,6 +18,77 @@ export type SortOption = "newest" | "oldest"
 export type FilterOption = "all" | "host" | "participant"
 
 
+export async function searchUsers(searchQuery: string): Promise<ActionResponse<APIUser[]>> {
+  if (searchQuery.length === 0) {
+    return {
+      success: false,
+      message: "Search query cannot be empty",
+      data: []
+    }
+  }
+
+  try {
+    const res = await fetch(API_ROUTES.users.search(searchQuery),{
+      method: "GET"
+    })
+
+    if (!res.ok) {
+      return {
+        success: false,
+        message: "Failed to search users",
+        data: []
+      }
+    }
+
+    const { data } = await res.json()
+    return {
+      success: true,
+      data: data.users ?? []
+    }
+  } catch (err) {
+    console.error("Error searching users:", err)
+    return {
+      success: false,
+      message: "Failed to search users",
+      data: []
+    }
+  }
+}
+
+export async function getEventsForUser(userId: string | null): Promise<ActionResponse<APIEvent[]>> {
+  if (!userId) {
+    return { success: false, data: [], message: "Not authenticated" };
+  }
+
+  try {
+    const res = await fetch(API_ROUTES.events.list(userId), {
+      method: "GET"
+    })
+
+    if (!res.ok) {
+      return {
+        success: false,
+        message: "Failed to fetch events",
+        data: []
+      }
+    }
+
+    const { data } = await res.json()
+    return {
+      success: true,
+      data: data.events ?? []
+    }
+  } catch (err) {
+    console.error("Error fetching events:", err)
+    return {
+      success: false,
+      message: "Failed to fetch events",
+      data: []
+    }
+  }
+}
+
+
 export async function createNewEvent(prevState: ActionResponse<Partial<APIEvent>>, formData: FormData): Promise<ActionResponse<Partial<APIEvent>>> {
   const { userId } = await auth();
 
@@ -104,7 +175,7 @@ export async function createNewEvent(prevState: ActionResponse<Partial<APIEvent>
       return {
         success: false,
         data: prevState.data,
-        message: "Failed to create hangout",
+        message: "Failed to create event",
       };
     }
 
@@ -120,7 +191,7 @@ export async function createNewEvent(prevState: ActionResponse<Partial<APIEvent>
     };
   }
   catch (err) {
-    console.error("Error creating hangout:", err)
+    console.error("Error creating event:", err)
     return {
       success: false,
       data: prevState.data,
@@ -129,44 +200,15 @@ export async function createNewEvent(prevState: ActionResponse<Partial<APIEvent>
   }
 }
 
-export async function getEventsForUser(userId: string | null): Promise<ActionResponse<APIEvent[]>> {
-  if (!userId) {
-    return { success: false, data: [], message: "Not authenticated" };
-  }
-
-  try {
-    const res = await fetch(API_ROUTES.events.list(userId), {method: "GET"})
-
-    if (!res.ok) {
-      return {
-        success: false,
-        message: "Failed to fetch hangouts",
-        data: []
-      }
-    }
-
-    const { data } = await res.json()
-    return {
-      success: true,
-      data: data.events ?? []
-    }
-  } catch (err) {
-    console.error("Error fetching hangouts:", err)
-    return {
-      success: false,
-      message: "Failed to fetch hangouts",
-      data: []
-    }
-  }
-}
-
 export async function getEventStops(slug: string): Promise<ActionResponse<APIEventStop[]>> {
   try {
-    const res = await fetch(API_ROUTES.events.stops.list(slug))
+    const res = await fetch(API_ROUTES.events.stops.list(slug), {
+      method: "GET"
+    })
 
     if (!res.ok) {
       const body = await res.text()
-      console.error("Get hangout stops failed:", res.status, body)
+      console.error("Get event stops failed:", res.status, body)
       return {
         success: false,
         data: [],
@@ -180,7 +222,7 @@ export async function getEventStops(slug: string): Promise<ActionResponse<APIEve
       data: data.stops ?? []
     }
   } catch (err) {
-    console.error("Error fetching hangout stops:", err)
+    console.error("Error fetching event stops:", err)
     return {
       success: false,
       data: [],
@@ -236,7 +278,7 @@ export async function reorderEventStops(slug: string, stops: ClientEventStop[]) 
 
     if (!res.ok) {
       const body = await res.text()
-      console.error("Reorder hangout stops failed:", res.status, body)
+      console.error("Reorder event stops failed:", res.status, body)
       return {
         success: false,
         data: null,
@@ -258,40 +300,35 @@ export async function reorderEventStops(slug: string, stops: ClientEventStop[]) 
   }
 }
 
-
-export async function searchUsers(searchQuery: string): Promise<ActionResponse<APIUser[]>> {
-  if (searchQuery.length === 0) {
-    return {
-      success: false,
-      message: "Search query cannot be empty",
-      data: []
-    }
-  }
-
+export async function deleteEventStop(slug: string, stopId: number) : Promise<ActionResponse<null>> {
   try {
-    const res = await fetch(API_ROUTES.users.search(searchQuery))
+    const res = await fetch(API_ROUTES.events.stops.delete(slug, stopId), {
+      method: "DELETE"
+    })
 
     if (!res.ok) {
+      const body = await res.text()
+      console.error("Delete event stop failed:", res.status, body)
       return {
         success: false,
-        message: "Failed to search users",
-        data: []
+        data: null,
+        message: "Failed to delete stop"
       }
     }
 
-    const { data } = await res.json()
     return {
       success: true,
-      data: data.users ?? []
+      data: null
     }
-  } catch (err) {
-    console.error("Error searching users:", err)
+  }
+  catch (err) {
     return {
       success: false,
-      message: "Failed to search users",
-      data: []
+      data: null,
+      message: err instanceof Error ? err.message : "An unknown error occurred"
     }
   }
 }
+
 
 

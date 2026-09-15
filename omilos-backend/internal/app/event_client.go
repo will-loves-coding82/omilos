@@ -101,6 +101,11 @@ const reorderEventStopsQuery = `
 	WHERE es.id = data.id AND es.event_id = $3;
 `
 
+const deleteEventStopQuery = `
+		DELETE FROM event_stops
+		WHERE id=$1 and event_id=$2;
+`
+
 // eventRow mirrors the events table's actual column shape, since Event's
 // db tags describe the API/insert shape (host_id as a Clerk string id,
 // title vs the name column) rather than what a plain SELECT returns.
@@ -260,6 +265,20 @@ func (e *EventClient) ReorderEventStops(slug string, reorderedStops []EventStop)
 	_, err = e.db.Conn().Exec(reorderEventStopsQuery, ids, sortOrders, eventId)
 	if err != nil {
 		return fmt.Errorf("ReorderEventStops: %v", err)
+	}
+
+	return nil
+}
+
+func (e *EventClient) DeleteEventStop(slug string, stopId int64) error {
+	eventId, err := e.GetEventIdForSlug(slug)
+	if err != nil {
+		return err
+	}
+
+	_, err = e.db.Conn().Exec(deleteEventStopQuery, stopId, eventId)
+	if err != nil {
+		return fmt.Errorf("DeleteEventStop: %v", err)
 	}
 
 	return nil

@@ -24,7 +24,8 @@ export const createApiRoutes = (baseUrl: string) => {
       stops: {
         list: (slug: string) => `${baseUrl}/events/${slug}/stops`,
         create: (slug: string) => `${baseUrl}/events/${slug}/stops`,
-        update: (slug: string) => `${baseUrl}/events/${slug}/stops`
+        update: (slug: string) => `${baseUrl}/events/${slug}/stops`,
+        delete: (slug: string, stopId: number) => `${baseUrl}/events/${slug}/${stopId}`,
       }
     },
     users: {
