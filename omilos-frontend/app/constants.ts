@@ -19,13 +19,16 @@ export const createApiRoutes = (baseUrl: string) => {
     },
     events: {
       create: `${baseUrl}/events`,
-      list: (userId: string) => `${baseUrl}/events?userId=${userId}`,
+      list: (clerkId: string) => `${baseUrl}/events?clerkId=${clerkId}`,
       detail: (slug: string) => `${baseUrl}/events/${slug}`,
       stops: {
         list: (slug: string) => `${baseUrl}/events/${slug}/stops`,
         create: (slug: string) => `${baseUrl}/events/${slug}/stops`,
         update: (slug: string) => `${baseUrl}/events/${slug}/stops`,
         delete: (slug: string, stopId: number) => `${baseUrl}/events/${slug}/${stopId}`,
+      },
+      invites: {
+        list: (clerkId: string) => `${baseUrl}/events/invites`
       }
     },
     users: {

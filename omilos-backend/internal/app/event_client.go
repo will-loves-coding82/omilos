@@ -31,6 +31,18 @@ type EventStop struct {
 	MemberStopStatusArr []MemberStopStatus `json:"member_stop_status_arr" db:"member_stop_status_arr"`
 }
 
+type EventMember struct {
+	Id         int64  `json:"id" db:"id"`
+	UserId     int64  `json:"user_id" db:"user_id"`
+	RSVPStatus string `json:"rsvp_status" db:"rsvp_status"`
+}
+
+type Invite struct {
+	Event       Event       `json:"event" db:"event"`
+	HostUser    User        `json:"user" db:"user"`
+	EventMember EventMember `json:"event_member" db:"event_member"`
+}
+
 type MemberStopStatus struct {
 	User            User   `json:"user" db:"user"`
 	StopId          int64  `json:"stop_id" db:"stop_id"`
@@ -76,7 +88,7 @@ const getEventsForUserQuery = `
 			'[]'
 		) AS members
 	FROM events e
-	WHERE e.host_id = $1
+	WHERE e.host_id = $
 	OR e.id IN (SELECT event_id FROM event_members WHERE user_id = $1);
 `
 
@@ -89,6 +101,16 @@ const getEventStopsQuery = `
 	ORDER BY es.sort_id ASC;
 `
 
+const getEventPendingInvitesQuery = `
+	SELECT 
+		e.* AS event, 
+		h.* AS host_user,
+		em.* AS event_member
+	FROM events e
+	JOIN users h ON e.host_id = h.id
+	JOIN event_members em ON e.id = em.event_id
+	WHERE em.user_id = $1 AND em.rsvp_status = 'pending';
+`
 const addEventStopQuery = `
 	INSERT INTO event_stops(event_id, sort_id, name, address, latitude, longitude)
 	VALUES (
@@ -135,6 +157,21 @@ func (e *EventClient) GetEventsForUser(clerkId string) ([]Event, error) {
 	}
 
 	return events, nil
+}
+
+// GetnvitesForUser returns all the invites that a user recieved or sent
+func (e *EventClient) GetnvitesForUser(clerkId string) ([]Invite, error) {
+	user, err := e.userClient.GetUserByClerkId(clerkId)
+	if err != nil {
+		return nil, fmt.Errorf("GetEventsForUser: %v", err)
+	}
+
+	invites := []Invite{}
+	if err := e.db.Conn().Select(&invites, getEventPendingInvitesQuery, user.Id); err != nil {
+		return nil, fmt.Errorf("GetEventsPendingInvitesForUser: %v", err)
+	}
+
+	return invites, nil
 }
 
 // CreateNewHangoutTx initializes a new transaction and creates a new

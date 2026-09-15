@@ -300,9 +300,10 @@ export function CreateHangoutModal({ isOpen, onClose }: CreateHangoutModalProps)
                                     type="button"
                                     onMouseDown={(e) => e.preventDefault()}
                                     onClick={() => selectUser(u)}
-                                    className="w-full text-left px-3 py-2 text-text-primary hover:bg-bg-secondary"
+                                    className="flex flex-col gap-1 w-full text-left px-3 py-2 text-text-primary hover:bg-bg-secondary"
                                   >
-                                    {displayName(u)}
+                                    <p>{displayName(u)}</p>
+                                    <p className="text-text-secondary text-sm">{u.email}</p>
                                   </button>
                                 </li>
                               ))}

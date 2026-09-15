@@ -30,6 +30,10 @@ type NewEventPayload struct {
 	Slug string `json:"slug"`
 }
 
+type InvitesPayload struct {
+	Invites []app.Invite `json:"invites"`
+}
+
 func (h *EventHandler) CreateNewEvent(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
@@ -53,7 +57,7 @@ func (h *EventHandler) CreateNewEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *EventHandler) GetEventsForUser(w http.ResponseWriter, r *http.Request) {
-	userId := r.URL.Query().Get("userId")
+	userId := r.URL.Query().Get("clerkId")
 	if len(userId) == 0 {
 		httpio.BadRequest(w, r, errors.New("userId query param is required"))
 		return
@@ -66,6 +70,22 @@ func (h *EventHandler) GetEventsForUser(w http.ResponseWriter, r *http.Request) 
 	}
 
 	httpio.JSON(w, r, http.StatusOK, EventsForUserPayload{Events: events})
+}
+
+func (h *EventHandler) GetInvitesForUser(w http.ResponseWriter, r *http.Request) {
+	clerkId := r.URL.Query().Get("clerkId")
+	if len(clerkId) == 0 {
+		httpio.BadRequest(w, r, errors.New("userId query param is required"))
+		return
+	}
+
+	invites, err := h.client.GetnvitesForUser(clerkId)
+	if err != nil {
+		httpio.InternalError(w, r, err)
+		return
+	}
+
+	httpio.JSON(w, r, http.StatusOK, InvitesPayload{Invites: invites})
 }
 
 type GetEventStopsPayload struct {
