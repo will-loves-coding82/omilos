@@ -14,7 +14,7 @@ type Event struct {
 	Description string  `json:"description" db:"description"`
 	Slug        string  `json:"slug" db:"slug"`
 	Date        string  `json:"date" db:"date"`
-	HostId      string  `json:"host_id" db:"host_id"`
+	HostId      int64   `json:"host_id" db:"host_id"`
 	ImageURL    string  `json:"image_url,omitempty" db:"image_url"`
 	MemberIds   []int64 `json:"member_ids,omitempty" db:"member_ids"` // invitee ids, used only when creating an event
 	Members     []User  `json:"members,omitempty" db:"members"`       // enriched attendees, populated only when reading an event
@@ -32,8 +32,7 @@ type EventStop struct {
 }
 
 type EventMember struct {
-	Id         int64  `json:"id" db:"id"`
-	UserId     int64  `json:"user_id" db:"user_id"`
+	Member     User   `json:"member" db:"member"`
 	RSVPStatus string `json:"rsvp_status" db:"rsvp_status"`
 }
 
@@ -88,7 +87,7 @@ const getEventsForUserQuery = `
 			'[]'
 		) AS members
 	FROM events e
-	WHERE e.host_id = $
+	WHERE e.host_id = $1
 	OR e.id IN (SELECT event_id FROM event_members WHERE user_id = $1);
 `
 
@@ -101,14 +100,20 @@ const getEventStopsQuery = `
 	ORDER BY es.sort_id ASC;
 `
 
-const getEventPendingInvitesQuery = `
-	SELECT 
-		e.* AS event, 
-		h.* AS host_user,
-		em.* AS event_member
+const getInvitesQuery = `
+	SELECT
+		e.id "event.id", e.slug "event.slug", e.name "event.title", e.description "event.description",
+		e.date "event.date", e.host_id::text "event.host_id", e.image_url "event.image_url",
+		h.id "user.id", h.clerk_id "user.clerk_id", h.first_name "user.first_name",
+		h.last_name "user.last_name", h.email "user.email", h.image_url "user.image_url",
+		m.id "event_member.member.id", m.clerk_id "event_member.member.clerk_id",
+		m.first_name "event_member.member.first_name", m.last_name "event_member.member.last_name",
+		m.email "event_member.member.email", m.image_url "event_member.member.image_url",
+		em.rsvp_status "event_member.rsvp_status"
 	FROM events e
 	JOIN users h ON e.host_id = h.id
 	JOIN event_members em ON e.id = em.event_id
+	JOIN users m ON em.user_id = m.id
 	WHERE em.user_id = $1 AND em.rsvp_status = 'pending';
 `
 const addEventStopQuery = `
@@ -167,7 +172,7 @@ func (e *EventClient) GetnvitesForUser(clerkId string) ([]Invite, error) {
 	}
 
 	invites := []Invite{}
-	if err := e.db.Conn().Select(&invites, getEventPendingInvitesQuery, user.Id); err != nil {
+	if err := e.db.Conn().Select(&invites, getInvitesQuery, user.Id); err != nil {
 		return nil, fmt.Errorf("GetEventsPendingInvitesForUser: %v", err)
 	}
 
@@ -177,12 +182,12 @@ func (e *EventClient) GetnvitesForUser(clerkId string) ([]Invite, error) {
 // CreateNewHangoutTx initializes a new transaction and creates a new
 // hangout in the database. A second query in the same transaction
 // creates new notifications for the members invited to this event
-func (e *EventClient) CreateNewEventTx(ctx context.Context, event Event) (string, error) {
+func (e *EventClient) CreateNewEventTx(ctx context.Context, clerkId string, event Event) (string, error) {
 	fail := func(err error) (string, error) {
 		return "", fmt.Errorf("CreateNewEventTx: %v", err)
 	}
 
-	host, err := e.userClient.GetUserByClerkId(event.HostId)
+	host, err := e.userClient.GetUserByClerkId(clerkId)
 	if err != nil {
 		return fail(err)
 	}

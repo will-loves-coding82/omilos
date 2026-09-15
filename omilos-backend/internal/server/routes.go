@@ -51,8 +51,9 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 
 	r.Post("/events", eventHandler.CreateNewEvent)
 	r.Get("/events", eventHandler.GetEventsForUser)
-
+	r.Get("/events/invites", eventHandler.GetInvitesForUser)
 	r.Get("/events/{slug}/stops", eventHandler.GetEventStops)
+
 	r.Post("/events/{slug}/stops", eventHandler.AddNewEventStop)
 	r.Patch("/events/{slug}/stops", eventHandler.ReorderEventStops)
 	r.Delete("/events/{slug}/stops/{stopId}", eventHandler.DeleteEventStop)

@@ -6,11 +6,20 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { ClientInvite } from "@/app/types/client";
 
-export default function SidebarClient() {
+export type SidebarClientProps = {
+  invites: ClientInvite[]
+}
+
+export default function SidebarClient({invites} : SidebarClientProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(true);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  const pendingInvites = invites.filter(i => {
+    return i.event_member.rsvp_status === "pending"
+  })
 
   // Expose the sidebar's current width as a CSS variable so overlays
   // rendered elsewhere (e.g. the map's search box) can offset around it
@@ -56,7 +65,7 @@ export default function SidebarClient() {
 
           <section className="flex flex-col m-4 gap-2">
             <SidebarLink pathname={pathname} title={"Hangouts"} isOpen={isOpen} icon={<Calendar size={20}/>} />
-            <SidebarLink pathname={pathname} title={"Invitations"} isOpen={isOpen} icon={<Bell size={20}/>} />
+            <SidebarLink badgeCount={pendingInvites.length} pathname={pathname} title={"Invitations"} isOpen={isOpen} icon={<Bell size={20}/>} />
             <SidebarLink pathname={pathname} title={"Profile"} isOpen={isOpen} icon={<User size={20}/>} />
           </section>
       </nav>
@@ -91,7 +100,7 @@ export default function SidebarClient() {
 
               <section className="flex flex-col m-4 gap-2">
                 <SidebarLink pathname={pathname} title={"Hangouts"} isOpen={true} icon={<Calendar size={20}/>} onNavigate={() => setIsMobileOpen(false)} />
-                <SidebarLink pathname={pathname} title={"Invitations"} isOpen={true} icon={<Bell size={20}/>} onNavigate={() => setIsMobileOpen(false)} />
+                <SidebarLink badgeCount={pendingInvites.length} pathname={pathname} title={"Invitations"} isOpen={true} icon={<Bell size={20}/>} onNavigate={() => setIsMobileOpen(false)} />
                 <SidebarLink pathname={pathname} title={"Profile"} isOpen={true} icon={<User size={20}/>} onNavigate={() => setIsMobileOpen(false)} />
               </section>
             </motion.nav>
@@ -104,14 +113,15 @@ export default function SidebarClient() {
 
 
 type SidebarLinkProps = {
-  title: String,
+  title: string,
   icon: React.ReactNode,
-  pathname: String,
-  isOpen: Boolean,
+  pathname: string,
+  isOpen: boolean,
+  badgeCount?: number,
   onNavigate?: () => void,
 }
 
-function SidebarLink({pathname, title, isOpen, icon, onNavigate}: SidebarLinkProps) {
+function SidebarLink({pathname, title, isOpen, icon, badgeCount, onNavigate}: SidebarLinkProps) {
   const isActive = pathname.toLocaleLowerCase().split("/").includes(title.toLocaleLowerCase());
   return (
     <Link
@@ -121,7 +131,7 @@ function SidebarLink({pathname, title, isOpen, icon, onNavigate}: SidebarLinkPro
     >
       <div className={`flex items-center w-full gap-2 ${isActive ? "text-text-active font-medium" : "text-text-secondary"}`}>
         <span className="shrink-0">{icon}</span>
-        {isOpen ? <span>{title}</span> : null}
+        {isOpen ? <span>{title} {badgeCount}</span> : null}
       </div>
     </Link>
   )

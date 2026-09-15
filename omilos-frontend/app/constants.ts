@@ -18,7 +18,7 @@ export const createApiRoutes = (baseUrl: string) => {
       create: (file: string) => `${baseUrl}/presign?file=${file}`
     },
     events: {
-      create: `${baseUrl}/events`,
+      create: (clerkId: string) => `${baseUrl}/events?clerkId=${clerkId}`,
       list: (clerkId: string) => `${baseUrl}/events?clerkId=${clerkId}`,
       detail: (slug: string) => `${baseUrl}/events/${slug}`,
       stops: {
@@ -27,9 +27,9 @@ export const createApiRoutes = (baseUrl: string) => {
         update: (slug: string) => `${baseUrl}/events/${slug}/stops`,
         delete: (slug: string, stopId: number) => `${baseUrl}/events/${slug}/${stopId}`,
       },
-      invites: {
-        list: (clerkId: string) => `${baseUrl}/events/invites`
-      }
+    },
+    invites: {
+      list: (clerkId: string) => `${baseUrl}/events/invites?clerkId=${clerkId}`
     },
     users: {
       search: (searchQuery: string) => `${baseUrl}/users?search=${searchQuery}`

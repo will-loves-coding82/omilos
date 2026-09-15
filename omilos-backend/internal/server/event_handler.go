@@ -46,7 +46,13 @@ func (h *EventHandler) CreateNewEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newSlug, err := h.client.CreateNewEventTx(ctx, event)
+	clerkId := r.URL.Query().Get("clerkId")
+	if len(clerkId) == 0 {
+		httpio.BadRequest(w, r, errors.New("clerkId query param is required"))
+		return
+	}
+
+	newSlug, err := h.client.CreateNewEventTx(ctx, clerkId, event)
 	if err != nil {
 		fmt.Print(err)
 		httpio.InternalError(w, r, err)
@@ -57,13 +63,13 @@ func (h *EventHandler) CreateNewEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *EventHandler) GetEventsForUser(w http.ResponseWriter, r *http.Request) {
-	userId := r.URL.Query().Get("clerkId")
-	if len(userId) == 0 {
-		httpio.BadRequest(w, r, errors.New("userId query param is required"))
+	clerkId := r.URL.Query().Get("clerkId")
+	if len(clerkId) == 0 {
+		httpio.BadRequest(w, r, errors.New("clerkId query param is required"))
 		return
 	}
 
-	events, err := h.client.GetEventsForUser(userId)
+	events, err := h.client.GetEventsForUser(clerkId)
 	if err != nil {
 		httpio.InternalError(w, r, err)
 		return

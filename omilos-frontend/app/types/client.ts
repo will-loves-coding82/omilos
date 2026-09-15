@@ -35,6 +35,19 @@ export type ClientEventStop = {
   stop_member_status_arr: ClientStopMemberStatus[]
 }
 
+export type RSVPStatus = "pending" | "accepted" | "declined";
+export type ClientEventMember = {
+  member: ClientUser,
+  rsvp_status: RSVPStatus,
+}
+
+export type ClientInvite = {
+  event: ClientEvent,
+  host_user: ClientUser,
+  event_member: ClientEventMember,
+}
+
+
 export type ClientStopStatus = "not_started" | "on_the_way" | "arrived" | "no_show";
 
 export type ClientStopMemberStatus = {

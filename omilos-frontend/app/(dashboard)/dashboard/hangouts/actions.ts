@@ -1,6 +1,6 @@
 "use server";
 
-import { APIUser, APIEvent, APIEventStop } from "@/app/types/api";
+import { APIUser, APIEvent, APIEventStop, APIInvite } from "@/app/types/api";
 import { ClientEventStop } from "@/app/types/client";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
@@ -55,13 +55,13 @@ export async function searchUsers(searchQuery: string): Promise<ActionResponse<A
   }
 }
 
-export async function getEventsForUser(userId: string | null): Promise<ActionResponse<APIEvent[]>> {
-  if (!userId) {
+export async function getEventsForUser(clerkId: string | null): Promise<ActionResponse<APIEvent[]>> {
+  if (!clerkId) {
     return { success: false, data: [], message: "Not authenticated" };
   }
 
   try {
-    const res = await fetch(API_ROUTES.events.list(userId), {
+    const res = await fetch(API_ROUTES.events.list(clerkId), {
       method: "GET"
     })
 
@@ -88,11 +88,46 @@ export async function getEventsForUser(userId: string | null): Promise<ActionRes
   }
 }
 
+export async function getInvitesForUser(clerkId: string | null) : Promise<ActionResponse<APIInvite[]>> {
+  if (!clerkId) {
+    return { success: false, data: [], message: "Not authenticated" };
+  }
+
+  try {
+    const res = await fetch(API_ROUTES.invites.list(clerkId), {
+      method: "GET"
+    })
+
+    if (!res.ok) {
+      const body = await res.text()
+      console.error("Get invites failed:", res.status, body)
+      return {
+        success: false,
+        data: [],
+        message: "Failed to fetch invites",
+      }
+    }
+
+    const { data } = await res.json();
+    return {
+      success: true,
+      data: data.invites ?? []
+    }
+  }
+  catch (err) {
+    return {
+      success: false,
+      data: [],
+      message: err instanceof Error ? err.message : "An unknown error occurred",
+    }
+  }
+
+}
 
 export async function createNewEvent(prevState: ActionResponse<Partial<APIEvent>>, formData: FormData): Promise<ActionResponse<Partial<APIEvent>>> {
-  const { userId } = await auth();
+  const { userId: clerkId } = await auth();
 
-  if (!userId) {
+  if (!clerkId) {
     return { success: false, data: prevState.data, message: "Not authenticated" };
   }
 
@@ -154,7 +189,7 @@ export async function createNewEvent(prevState: ActionResponse<Partial<APIEvent>
     }
 
     // Save the new event in the database
-    const res = await fetch(API_ROUTES.events.create, {
+    const res = await fetch(API_ROUTES.events.create(clerkId), {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -163,7 +198,7 @@ export async function createNewEvent(prevState: ActionResponse<Partial<APIEvent>
         title: parsed.data.title,
         description: parsed.data.description,
         image_url: imageUrl,
-        host_id: userId,
+        host_id: clerkId,
         date: parsed.data.date,
         member_ids: memberIds,
       })

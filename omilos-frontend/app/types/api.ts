@@ -29,13 +29,25 @@ export type APIEventStop = {
   sort_id: number,
   latitude: number,
   longitude: number,
-  stop_member_status_arr: APIStopMemberStatus[]
+  stop_member_status_arr: APIStopMemberStatus[],
 }
+
+export type APIEventMember = {
+  member: APIUser,
+  rsvp_status: string,
+}
+
+export type APIInvite = {
+  event: APIEvent,
+  host_user: APIUser,
+  event_member: APIEventMember,
+}
+
 
 export type APIStopStatus = "not_started" | "on_the_way" | "arrived" | "no_show";
 export type APIStopMemberStatus = {
   user: APIUser,
   stop_id:  number,
   stop_status: APIStopStatus,
-  status_updated_at: string
+  status_updated_at: string,
 }

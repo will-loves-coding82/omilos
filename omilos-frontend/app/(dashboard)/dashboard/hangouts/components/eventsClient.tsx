@@ -7,10 +7,10 @@ import { useRouter } from "next/navigation";
 import { ClientEvent } from "@/app/types/client";
 
 export type EventsClientProps = {
-  data: ClientEvent[]
+  events: ClientEvent[]
 }
 
-export function EventsClient({data}: EventsClientProps) {
+export function EventsClient({events}: EventsClientProps) {
   const [isCreateHangoutModalOpen, setCreateHangoutModalOpen] = useState(false);
   const router = useRouter();
 
@@ -34,7 +34,7 @@ export function EventsClient({data}: EventsClientProps) {
       </section>
       
       <section id="collection" className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 px-4 w-full">
-        {data.map(h => (
+        {events.map(h => (
           <EventPreviewCard key={h.slug} hangout={h} onClick={() => router.push(`/dashboard/hangouts/${h.slug}`) }/>
         ))}
       </section>
