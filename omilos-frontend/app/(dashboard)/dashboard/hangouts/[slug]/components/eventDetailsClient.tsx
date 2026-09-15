@@ -152,8 +152,13 @@ export default function EventDetailsClient({slug, initialStops}: {slug: string, 
   }
 
   async function onReorderEventStops(stops: ClientEventStop[]) {
-    setEventStops(stops);
+    const orderUnchanged = stops.length === eventStops.length
+      && stops.every((s, i) => s.mapbox_id === eventStops[i].mapbox_id);
+    if (orderUnchanged) {
+      return;
+    }
 
+    setEventStops(stops);
     // Stops not yet persisted (no id) can't be reordered on the backend yet
     const persistedStops = stops.filter((s): s is ClientEventStop & { id: number } => s.id !== undefined);
 
