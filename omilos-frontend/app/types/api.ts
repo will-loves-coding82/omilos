@@ -28,5 +28,14 @@ export type APIEventStop = {
   name: string,
   sort_id: number,
   latitude: number,
-  longitude: number
+  longitude: number,
+  stop_member_status_arr: APIStopMemberStatus[]
+}
+
+export type APIStopStatus = "not_started" | "on_the_way" | "arrived" | "no_show";
+export type APIStopMemberStatus = {
+  user: APIUser,
+  stop_id:  number,
+  stop_status: APIStopStatus,
+  status_updated_at: string
 }

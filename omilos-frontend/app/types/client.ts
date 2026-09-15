@@ -31,5 +31,15 @@ export type ClientEventStop = {
   name: string,
   mapbox_id: string,
   latitude: number,
-  longitude: number
+  longitude: number,
+  stop_member_status_arr: ClientStopMemberStatus[]
+}
+
+export type ClientStopStatus = "not_started" | "on_the_way" | "arrived" | "no_show";
+
+export type ClientStopMemberStatus = {
+  user: ClientUser,
+  stop_id:  number,
+  stop_status: ClientStopStatus,
+  status_updated_at: string
 }

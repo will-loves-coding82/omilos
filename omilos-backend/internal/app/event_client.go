@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"omilos-backend/internal/database"
 	"omilos-backend/internal/slug"
@@ -11,24 +10,32 @@ import (
 
 type Event struct {
 	Id          int64   `json:"id" db:"id"`
-	Title       string  `json:"title" db:"title"` // omitted if empty string
+	Title       string  `json:"title" db:"title"`
 	Description string  `json:"description" db:"description"`
 	Slug        string  `json:"slug" db:"slug"`
 	Date        string  `json:"date" db:"date"`
 	HostId      string  `json:"host_id" db:"host_id"`
 	ImageURL    string  `json:"image_url,omitempty" db:"image_url"`
-	MemberIds   []int64 `json:"member_ids,omitempty"` // invitee ids, used only when creating an event
-	Members     []User  `json:"members,omitempty"`    // enriched attendees, populated only when reading an event
+	MemberIds   []int64 `json:"member_ids,omitempty" db:"member_ids"` // invitee ids, used only when creating an event
+	Members     []User  `json:"members,omitempty" db:"members"`       // enriched attendees, populated only when reading an event
 }
 
 type EventStop struct {
-	Id        int64   `json:"id" db:"id"`
-	EventId   int64   `json:"event_id" db:"event_id"`
-	SortId    int64   `json:"sort_id" db:"sort_id"`
-	Name      string  `json:"name" db:"name"`
-	Address   string  `json:"address" db:"address"`
-	Latitude  float64 `json:"latitude" db:"latitude"`
-	Longitude float64 `json:"longitude" db:"longitude"`
+	Id                  int64              `json:"id" db:"id"`
+	EventId             int64              `json:"event_id" db:"event_id"`
+	SortId              int64              `json:"sort_id" db:"sort_id"`
+	Name                string             `json:"name" db:"name"`
+	Address             string             `json:"address" db:"address"`
+	Latitude            float64            `json:"latitude" db:"latitude"`
+	Longitude           float64            `json:"longitude" db:"longitude"`
+	MemberStopStatusArr []MemberStopStatus `json:"member_stop_status_arr" db:"member_stop_status_arr"`
+}
+
+type MemberStopStatus struct {
+	User            User   `json:"user" db:"user"`
+	StopId          int64  `json:"stop_id" db:"stop_id"`
+	StopStatus      string `json:"stop_status" db:"stop_status"`
+	StatusUpdatedAt string `json:"status_updated_at" db:"status_updated_at"`
 }
 
 type EventClient struct {
@@ -106,20 +113,6 @@ const deleteEventStopQuery = `
 		WHERE id=$1 and event_id=$2;
 `
 
-// eventRow mirrors the events table's actual column shape, since Event's
-// db tags describe the API/insert shape (host_id as a Clerk string id,
-// title vs the name column) rather than what a plain SELECT returns.
-type eventRow struct {
-	Id          int64           `db:"id"`
-	Slug        string          `db:"slug"`
-	Title       string          `db:"title"`
-	Description *string         `db:"description"`
-	Date        time.Time       `db:"date"`
-	HostId      int64           `db:"host_id"`
-	ImageURL    *string         `db:"image_url"`
-	Members     json.RawMessage `db:"members"`
-}
-
 func (e *EventClient) GetEventIdForSlug(slug string) (int64, error) {
 	var id int64
 	err := e.db.Conn().Get(&id, getEventIdForSlug, slug)
@@ -136,33 +129,9 @@ func (e *EventClient) GetEventsForUser(clerkId string) ([]Event, error) {
 		return nil, fmt.Errorf("GetEventsForUser: %v", err)
 	}
 
-	rows := []eventRow{}
-	if err := e.db.Conn().Select(&rows, getEventsForUserQuery, user.Id); err != nil {
+	events := []Event{}
+	if err := e.db.Conn().Select(&events, getEventsForUserQuery, user.Id); err != nil {
 		return nil, fmt.Errorf("GetEventsForUser: %v", err)
-	}
-
-	events := make([]Event, 0, len(rows))
-	for _, r := range rows {
-		event := Event{
-			Id:    r.Id,
-			Slug:  r.Slug,
-			Title: r.Title,
-			Date:  r.Date.Format("2006-01-02"),
-		}
-		if r.Description != nil {
-			event.Description = *r.Description
-		}
-		if r.ImageURL != nil {
-			event.ImageURL = *r.ImageURL
-		}
-
-		var members []User
-		if err := json.Unmarshal(r.Members, &members); err != nil {
-			return nil, fmt.Errorf("GetEventsForUser: %v", err)
-		}
-		event.Members = members
-
-		events = append(events, event)
 	}
 
 	return events, nil

@@ -7,10 +7,11 @@ import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { SearchBoxRetrieveResponse } from '@mapbox/search-js-core';
 import { environment } from './environments/environment';
-import HangoutSidePanel from './eventSidePanel';
+import EventSidePanel from './eventSidePanel';
 import { Coordinates, ClientEventStop } from '@/app/types/client';
 import { APIEventStop } from '@/app/types/api';
 import { addEventStop, reorderEventStops } from '../../actions';
+import EventStopSidePanel from './eventStopSidePanel';
 
 function toClientEventStop(stop: APIEventStop): ClientEventStop {
   return {
@@ -20,13 +21,9 @@ function toClientEventStop(stop: APIEventStop): ClientEventStop {
     mapbox_id: String(stop.id),
     latitude: stop.latitude,
     longitude: stop.longitude,
+    stop_member_status_arr: stop.stop_member_status_arr
   }
 }
-
-const SearchBox = dynamic(
-  () => import("@mapbox/search-js-react").then((mod) => mod.SearchBox),
-  { ssr: false }
-);
 
 
 function toEventStop(res: SearchBoxRetrieveResponse): ClientEventStop {
@@ -36,8 +33,14 @@ function toEventStop(res: SearchBoxRetrieveResponse): ClientEventStop {
     mapbox_id: res.features[0].properties.name ?? '',
     latitude: res.features[0].properties.coordinates.latitude,
     longitude: res.features[0].properties.coordinates.longitude,
+    stop_member_status_arr: [],
   }
 }
+
+const SearchBox = dynamic(
+  () => import("@mapbox/search-js-react").then((mod) => mod.SearchBox),
+  { ssr: false }
+);
 
 // Extrudes building footprints from Mapbox's built-in composite source into 3D shapes.
 // Requires the map's `pitch` to be > 0 to actually see the height.
@@ -63,13 +66,16 @@ export default function EventDetailsClient({slug, initialStops}: {slug: string, 
   const [viewState, setViewState] = useState({ longitude: -74.5, latitude: 40, zoom: 12, pitch: 40});
 
   const [eventStops, setEventStops] = useState<ClientEventStop[]>(() => initialStops.map(toClientEventStop));
+  
   const [selectedStop, setSelectedStop] = useState<ClientEventStop | null>(null); // Tracks the selected search result stop
- 
   const [stopMarkerCoord, setStopMarkerCoord] = useState<Coordinates|null>(null);
-  const [showStophMarkerPopup, setShowStopMarkerPopup] = useState(false); 
+  const [showStopMarkerPopup, setShowStopMarkerPopup] = useState(false); 
  
   const [openStopId, setOpenStopId] = useState<string | null>(null); // Tracks which existing stop the user selects
   const [isDarkMode, setIsDarkMode] = useState(false);
+
+  const [selectedEventStop, setSelectedEventStop] = useState<ClientEventStop | null>(null); // Tracks which existing stop is shown in the stop details panel
+  const [isEventStopPanelOpen, setIsEventStopPanelOpen] = useState(false);
 
   // Track OS color scheme so the map style can switch with it
   useEffect(() => {
@@ -120,6 +126,7 @@ export default function EventDetailsClient({slug, initialStops}: {slug: string, 
 
   function selectEventStop(stop: ClientEventStop) {
     setOpenStopId(stop.mapbox_id);
+    setSelectedEventStop(stop);
     mapRef.current?.getMap().flyTo({
       center: [stop.longitude, stop.latitude],
       zoom: 15,
@@ -151,6 +158,10 @@ export default function EventDetailsClient({slug, initialStops}: {slug: string, 
     }
   }
 
+  async function onDeleteStop() {
+
+  }
+
   async function onReorderEventStops(stops: ClientEventStop[]) {
     const orderUnchanged = stops.length === eventStops.length
       && stops.every((s, i) => s.mapbox_id === eventStops[i].mapbox_id);
@@ -174,9 +185,16 @@ export default function EventDetailsClient({slug, initialStops}: {slug: string, 
   }
 
 
+  function onDismissEventStopPanel() {
+    setIsEventStopPanelOpen(prev => !prev)
+  }
+
   return (
     <div ref={containerRef} className='fixed inset-0 z-0'>
-      <HangoutSidePanel eventStops={eventStops} onReorderStops={onReorderEventStops} onSelectStop={selectEventStop} activeStopId={openStopId} />
+      <EventSidePanel eventStops={eventStops} onReorderStops={onReorderEventStops} onSelectStop={selectEventStop} activeStopId={openStopId} />
+      {selectedEventStop && (
+        <EventStopSidePanel stop={selectedEventStop} isOpen={isEventStopPanelOpen} onDeleteStop={onDeleteStop} onDismiss={onDismissEventStopPanel}/>
+      )}
       {/* Map overlays elements that need to respond to sidebar and panel resizing  */}
       <div className='max-w-md absolute top-4 z-10 w-[calc(100%-5rem)] left-1/2 -translate-x-1/2 md:left-[calc(var(--sidebar-width)+var(--panel-width)+1rem)] md:translate-x-0 md:w-80 transition-[left] duration-300'>
         {mapInstanceReady && (
@@ -244,7 +262,7 @@ export default function EventDetailsClient({slug, initialStops}: {slug: string, 
         <Layer {...buildingExtrusionLayer} />
         { stopMarkerCoord && (
           <>
-            { showStophMarkerPopup && (
+            { showStopMarkerPopup && (
               <Popup
                 className='hangout-popup flex'
                 anchor='bottom'
@@ -276,7 +294,10 @@ export default function EventDetailsClient({slug, initialStops}: {slug: string, 
                 <Popup
                   className='hangout-popup flex'
                   anchor='bottom'
-                  onClose={() => setOpenStopId(null)}
+                  onClose={() => {
+                    setOpenStopId(null);
+                    setIsEventStopPanelOpen(false);
+                  }}
                   longitude={s.longitude}
                   latitude={s.latitude}
                 >
@@ -285,6 +306,7 @@ export default function EventDetailsClient({slug, initialStops}: {slug: string, 
                       <h3 className='text-xl font-semibold text-text-primary'>{s.name}</h3>
                       <p className='text-lg text-text-secondary'>{s.address}</p>
                     </header>
+                    <button onClick={()=> { setSelectedEventStop(s); setIsEventStopPanelOpen(true); }} className='bg-black text-white p-2 text-lg rounded-md hover:cursor-pointer'>View</button>
                   </div>
                 </Popup>
               )}
