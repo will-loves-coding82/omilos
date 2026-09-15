@@ -133,7 +133,7 @@ export default function EventDetailsClient({slug, initialStops}: {slug: string, 
       }
       setShowStopMarkerPopup(false);
       setSelectedStop(null);
-      setEventStops(prev => [selectedStop, ...prev])
+      setEventStops(prev => [...prev, selectedStop])
 
       // Sync with database
       try {
