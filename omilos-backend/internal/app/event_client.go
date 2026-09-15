@@ -21,6 +21,16 @@ type Event struct {
 	Members     []User  `json:"members,omitempty"`    // enriched attendees, populated only when reading an event
 }
 
+type EventStop struct {
+	Id        int64   `json:"id" db:"id"`
+	EventId   string  `json:"event_id" db:"event_id"`
+	SortId    int64   `json:"sort_id" db:"sort_id"`
+	Name      string  `json:"name" db:"name"`
+	Address   string  `json:"address" db:"address"`
+	Latitude  float64 `db:"latitude"`
+	Longitude float64 `db:"longitude"`
+}
+
 type EventClient struct {
 	db         database.Service
 	userClient *UserClient
@@ -32,6 +42,12 @@ func NewEventClient(database database.Service, userClient *UserClient) *EventCli
 		userClient: userClient,
 	}
 }
+
+const getEventIdForSlug = `
+	SELECT id
+	FROM events
+	WHERE slug=$1;
+`
 
 const getEventsForUserQuery = `
 	SELECT
@@ -57,6 +73,28 @@ const getEventsForUserQuery = `
 	OR e.id IN (SELECT event_id FROM event_members WHERE user_id = $1);
 `
 
+const getEventStopsQuery = `
+	SELECT es.*
+	FROM event_stops es
+	JOIN events e ON es.event_id = e.id
+	WHERE e.slug=$1
+	ORDER BY es.sort_id DESC;
+`
+
+const addEventStopQuery = `
+	INSERT INTO event_stops(event_id, sort_id, name, address, latitude, longitude)
+	VALUES ($1, $2, $3, $4, $5);
+`
+
+const reorderEventStopsQuery = `
+	UPDATE event_stops AS es
+	SET sort_order = data.sort_order
+	FROM (
+		SELECT unnest($1::int[], $2::int[]) AS t(id, sort_order)
+	)
+	WHERE es.id = data.id AND es.event_id = $3;
+`
+
 // eventRow mirrors the events table's actual column shape, since Event's
 // db tags describe the API/insert shape (host_id as a Clerk string id,
 // title vs the name column) rather than what a plain SELECT returns.
@@ -69,6 +107,16 @@ type eventRow struct {
 	HostId      int64           `db:"host_id"`
 	ImageURL    *string         `db:"image_url"`
 	Members     json.RawMessage `db:"members"`
+}
+
+func (e *EventClient) GetEventIdForSlug(slug string) (int64, error) {
+	var id int64
+	err := e.db.Conn().Select(&id, getEventIdForSlug, slug)
+	if err != nil {
+		return 0, err
+	}
+
+	return id, nil
 }
 
 func (e *EventClient) GetEventsForUser(clerkId string) ([]Event, error) {
@@ -160,4 +208,51 @@ func (e *EventClient) CreateNewEventTx(ctx context.Context, event Event) (string
 	}
 
 	return newSlug, nil
+}
+
+func (e *EventClient) GetEventStops(slug string) ([]EventStop, error) {
+	eventId, err := e.GetEventIdForSlug(slug)
+	if err != nil {
+		return nil, err
+	}
+	var eventStops []EventStop
+	err = e.db.Conn().Select(&eventStops, getEventStopsQuery, eventId)
+	if err != nil {
+		return nil, err
+	}
+
+	return eventStops, nil
+}
+
+func (e *EventClient) AddEventStop(slug string, stop EventStop) error {
+	_, err := e.db.Conn().Exec(
+		addEventStopQuery,
+		slug, stop.SortId, stop.Name, stop.Address, stop.Latitude, stop.Longitude,
+	)
+	if err != nil {
+		return fmt.Errorf("AddEventStop: %v", err)
+	}
+
+	return nil
+}
+
+func (e *EventClient) ReorderEventStops(slug string, reorderedStops []EventStop) error {
+	eventId, err := e.GetEventIdForSlug(slug)
+	if err != nil {
+		return err
+	}
+
+	ids := make([]int32, len(reorderedStops))
+	sortOrders := make([]int32, len(reorderedStops))
+	for i, stop := range reorderedStops {
+		ids[i] = int32(stop.Id)
+		sortOrders[i] = int32(i)
+	}
+
+	_, err = e.db.Conn().Exec(reorderEventStopsQuery, ids, sortOrders, eventId)
+	if err != nil {
+		return fmt.Errorf("ReorderEventStops: %v", err)
+	}
+
+	return nil
 }

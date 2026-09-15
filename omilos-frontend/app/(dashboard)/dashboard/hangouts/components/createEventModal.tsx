@@ -4,13 +4,14 @@ import { AnimatePresence, motion } from "motion/react";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
-import { createNewHangout, ActionResponse, searchUsers } from "../actions";
-import { OmilosUser, OmilosEvent } from "@/app/types";
+import { createNewEvent, ActionResponse, searchUsers } from "../actions";
+import { APIEvent } from "@/app/types/api";
 import DatePicker from "@/app/components/DatePicker";
 import Image from "next/image";
 import { hangoutDetailsSchema } from "../schemas";
 import Cropper, { Area, Point } from "react-easy-crop";
 import { getCroppedImageFile } from "../cropImage";
+import { ClientUser } from "@/app/types/client";
 
 type CreateHangoutModalProps = {
   isOpen: boolean,
@@ -20,11 +21,11 @@ type CreateHangoutModalProps = {
 export function CreateHangoutModal({ isOpen, onClose }: CreateHangoutModalProps) {
   const router = useRouter();
 
-  const initialState: ActionResponse<Partial<OmilosEvent>> = {
+  const initialState: ActionResponse<Partial<APIEvent>> = {
     success: false,
     data: {},
   }
-  const [formState, formAction, pending] = useActionState(createNewHangout, initialState);
+  const [formState, formAction, pending] = useActionState(createNewEvent, initialState);
   const [step, setStep] = useState(1);
   const [direction, setDirection] = useState(1);
   const [title, setTitle] = useState("");
@@ -32,9 +33,9 @@ export function CreateHangoutModal({ isOpen, onClose }: CreateHangoutModalProps)
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<OmilosUser[]>([]);
+  const [searchResults, setSearchResults] = useState<ClientUser[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [selectedUsers, setSelectedUsers] = useState<OmilosUser[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<ClientUser[]>([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
@@ -109,7 +110,7 @@ export function CreateHangoutModal({ isOpen, onClose }: CreateHangoutModalProps)
     }
   }, [formState])
 
-  function selectUser(user: OmilosUser) {
+  function selectUser(user: ClientUser) {
     setSelectedUsers(prev => prev.some(u => u.id === user.id) ? prev : [...prev, user])
     setSearchQuery("")
     setDebouncedSearchQuery("")
@@ -157,7 +158,7 @@ export function CreateHangoutModal({ isOpen, onClose }: CreateHangoutModalProps)
     setCropSrc(null)
   }
 
-  function displayName(user: OmilosUser) {
+  function displayName(user: ClientUser) {
     const name = [user.first_name, user.last_name].filter(Boolean).join(" ")
     return name || user.email || "Unknown user"
   }

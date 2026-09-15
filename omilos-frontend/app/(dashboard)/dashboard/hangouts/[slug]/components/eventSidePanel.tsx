@@ -1,23 +1,23 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { EventStop  } from "./hangoutDetailsClient";
 import {DragDropProvider} from '@dnd-kit/react';
 import { useSortable } from '@dnd-kit/react/sortable';
 import { move } from '@dnd-kit/helpers';
 import { GripVertical } from "lucide-react";
+import { ClientEventStop } from "@/app/types/client";
 
 type Tab = "Stops" | "Participants";
 const PANEL_WIDTH_DESKTOP = "300px";
 
 type HangoutSidePanelProps = {
-  eventStops: EventStop[];
-  onReorderStops: (stops: EventStop[]) => void;
-  onSelectStop: (stop: EventStop) => void;
+  eventStops: ClientEventStop[];
+  onReorderStops: (stops: ClientEventStop[]) => void;
+  onSelectStop: (stop: ClientEventStop) => void;
   activeStopId: string | null;
 };
 
-export default function HangoutSidePanel({eventStops, onReorderStops, onSelectStop, activeStopId} : HangoutSidePanelProps) {
+export default function EventSidePanel({eventStops, onReorderStops, onSelectStop, activeStopId} : HangoutSidePanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>("Stops");
   const ref = useRef<HTMLUListElement | null>(null);
 
@@ -74,9 +74,9 @@ export default function HangoutSidePanel({eventStops, onReorderStops, onSelectSt
 }
 
 type SortableStopProps = {
-  stop: EventStop;
+  stop: ClientEventStop;
   index: number;
-  onSelectStop: (stop: EventStop) => void;
+  onSelectStop: (stop: ClientEventStop) => void;
   isSelected: boolean;
 };
 

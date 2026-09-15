@@ -7,37 +7,23 @@ import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { SearchBoxRetrieveResponse } from '@mapbox/search-js-core';
 import { environment } from './environments/environment';
-import HangoutSidePanel from './hangoutSidePanel';
+import HangoutSidePanel from './eventSidePanel';
+import { Coordinates, ClientEventStop } from '@/app/types/client';
+import { addEventStop } from '../../actions';
 
 const SearchBox = dynamic(
   () => import("@mapbox/search-js-react").then((mod) => mod.SearchBox),
   { ssr: false }
 );
 
-type Coordinates = {
-  lon?: number,
-  lat?: number
-}
 
-export type EventStop = {
-  address: string,
-  name: string,
-  mapbox_id: string,
-  coordinates: {
-    latitude: number,
-    longitude: number
-  }
-}
-
-function toEventStop(res: SearchBoxRetrieveResponse): EventStop {
+function toEventStop(res: SearchBoxRetrieveResponse): ClientEventStop {
   return {
     address: res.features[0].properties.address ?? '',
     name: res.features[0].properties.name ?? '',
     mapbox_id: res.features[0].properties.name ?? '',
-    coordinates: {
-      latitude: res.features[0].properties.coordinates.latitude,
-      longitude: res.features[0].properties.coordinates.longitude,
-    },    
+    latitude: res.features[0].properties.coordinates.latitude,
+    longitude: res.features[0].properties.coordinates.longitude,
   }
 }
 
@@ -58,14 +44,14 @@ const buildingExtrusionLayer: FillExtrusionLayerSpecification = {
   },
 };
 
-export default function HangoutDetailsClient() {
+export default function EventDetailsClient({slug}: {slug: string}) {
   const mapRef = useRef<MapRef>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [mapInstanceReady, setMapInstanceReady] = useState(false);
   const [viewState, setViewState] = useState({ longitude: -74.5, latitude: 40, zoom: 12, pitch: 40});
   
-  const [eventStops, setEventStops] = useState<EventStop[]>([]);
-  const [selectedStop, setSelectedStop] = useState<EventStop | null>(null); // Tracks the selected search result stop
+  const [eventStops, setEventStops] = useState<ClientEventStop[]>([]);
+  const [selectedStop, setSelectedStop] = useState<ClientEventStop | null>(null); // Tracks the selected search result stop
  
   const [stopMarkerCoord, setStopMarkerCoord] = useState<Coordinates|null>(null);
   const [showStophMarkerPopup, setShowStopMarkerPopup] = useState(false); 
@@ -115,13 +101,12 @@ export default function HangoutDetailsClient() {
   useEffect(() => {
     if (selectedStop) {
       console.log(selectedStop)
-      const coord = selectedStop.coordinates
-      setStopMarkerCoord({lon: coord.longitude, lat: coord.latitude})
+      setStopMarkerCoord({lon: selectedStop.longitude, lat: selectedStop.latitude})
     }
   }, [selectedStop])
 
 
-  function addSelectedSearchToStops() {
+  async function addSelectedSearchToStops() {
     if (selectedStop) {
       if (eventStops.includes(selectedStop)) {
         return
@@ -129,16 +114,28 @@ export default function HangoutDetailsClient() {
       setShowStopMarkerPopup(false);
       setSelectedStop(null);
       setEventStops(prev => [selectedStop, ...prev])
+
+      // Sync with database
+      try {
+        const res = await addEventStop(slug, selectedStop)
+        if (!res.success) {
+          console.log("Failed to add stop to database")
+        }
+      }
+      catch(err) {
+        console.log("Error adding stop to database: " + err)
+      }
     }
   }
 
-  function selectEventStop(stop: EventStop) {
+  function selectEventStop(stop: ClientEventStop) {
     setOpenStopId(stop.mapbox_id);
     mapRef.current?.getMap().flyTo({
-      center: [stop.coordinates.longitude, stop.coordinates.latitude],
+      center: [stop.longitude, stop.latitude],
       zoom: 15,
     });
   }
+
 
   return (
     <div ref={containerRef} className='fixed inset-0 z-0'>
@@ -243,8 +240,8 @@ export default function HangoutDetailsClient() {
                   className='hangout-popup flex'
                   anchor='bottom'
                   onClose={() => setOpenStopId(null)}
-                  longitude={s.coordinates.longitude}
-                  latitude={s.coordinates.latitude}
+                  longitude={s.longitude}
+                  latitude={s.latitude}
                 >
                   <div className='flex flex-col justify-between h-[164px]'>
                     <header className='flex flex-col gap-2'>
@@ -260,8 +257,8 @@ export default function HangoutDetailsClient() {
                   setOpenStopId(s.mapbox_id);
                 }}
                 color="#0662db"
-                longitude={s.coordinates.longitude}
-                latitude={s.coordinates.latitude}
+                longitude={s.longitude}
+                latitude={s.latitude}
               />
             </div>
           ))

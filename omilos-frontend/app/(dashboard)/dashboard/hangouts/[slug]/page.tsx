@@ -1,7 +1,7 @@
 "use server";
 
 import { Suspense } from "react";
-import HangoutDetailsServer from "./components/hangoutDetailsServer";
+import EventDetailsServer from "./components/eventDetailsServer";
 
 export default async function Page({params} : {params: Promise<{slug: string}>}) {
   const { slug } = await params;
@@ -9,7 +9,7 @@ export default async function Page({params} : {params: Promise<{slug: string}>})
   return (
     <div className="flex-1 h-full">
       <Suspense fallback={<p>Loading...</p>}>
-        <HangoutDetailsServer slug={slug}/>
+        <EventDetailsServer slug={slug}/>
       </Suspense>
     </div>
   )

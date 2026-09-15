@@ -1,16 +1,16 @@
 "use client";
 
-import { OmilosEvent } from "@/app/types";
-import { CreateHangoutModal } from "./createHangoutModal";
+import { CreateHangoutModal } from "./createEventModal";
 import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { ClientEvent } from "@/app/types/client";
 
-export type HangoutsClientProps = {
-  data: OmilosEvent[]
+export type EventsClientProps = {
+  data: ClientEvent[]
 }
 
-export function HangoutsClient({data}: HangoutsClientProps) {
+export function EventsClient({data}: EventsClientProps) {
   const [isCreateHangoutModalOpen, setCreateHangoutModalOpen] = useState(false);
   const router = useRouter();
 
@@ -35,7 +35,7 @@ export function HangoutsClient({data}: HangoutsClientProps) {
       
       <section id="collection" className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 px-4 w-full">
         {data.map(h => (
-          <HangoutPreviewCard key={h.slug} hangout={h} onClick={() => router.push(`/dashboard/hangouts/${h.slug}`) }/>
+          <EventPreviewCard key={h.slug} hangout={h} onClick={() => router.push(`/dashboard/hangouts/${h.slug}`) }/>
         ))}
       </section>
     </section>
@@ -43,7 +43,7 @@ export function HangoutsClient({data}: HangoutsClientProps) {
 }
 
 
-function HangoutPreviewCard({ hangout, onClick }: { hangout: OmilosEvent, onClick: () => void }) {
+function EventPreviewCard({ hangout, onClick }: { hangout: ClientEvent, onClick: () => void }) {
   return (
     <div onClick={onClick} className="hover:cursor-pointer mx-auto w-full max-w-[400px] md:w-full md:max-w-[480px] lg:max-w-full bg-bg-primary border-1 border-border-primary shadow-md rounded-lg overflow-hidden">
       <section className="relative h-[140px] bg-bg-secondary overflow-hidden">
