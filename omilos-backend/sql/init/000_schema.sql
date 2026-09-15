@@ -1,5 +1,3 @@
-CREATE EXTENSION IF NOT EXISTS postgis;
-
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
   clerk_id VARCHAR(255) NOT NULL UNIQUE,
@@ -13,9 +11,10 @@ CREATE TABLE users (
 
 CREATE TABLE events (
   id SERIAL PRIMARY KEY,
-  slug VARCHAR(255) NOT NULL,
+  slug VARCHAR(255) NOT NULL UNIQUE,
   host_id INTEGER NOT NULL,
   image_url TEXT,
+  active_event_id INTEGER, -- this can be null
   name TEXT NOT NULL,
   description TEXT,
   date DATE NOT NULL, 
@@ -26,11 +25,11 @@ CREATE TABLE events (
 CREATE TABLE event_stops (
   id SERIAL PRIMARY KEY,
   event_id INTEGER NOT NULL,
+  sort_id INTEGER NOT NULL,
+  name TEXT NOT NULL,
   address TEXT NOT NULL,
-  notes TEXT,
-  location GEOGRAPHY(Point, 4326) NOT NULL,
-  start_time TIMESTAMPTZ, 
-  end_time TIMESTAMPTZ,
+  latitude DOUBLE PRECISION NOT NULL,
+  longitude DOUBLE PRECISION NOT NULL,
   CONSTRAINT fk_event_id FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE CASCADE
 );
 
@@ -69,3 +68,8 @@ create table event_notifications (
   new_status e_stop_status NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE events
+ADD CONSTRAINT fk_active_stop_id
+FOREIGN KEY (active_stop_id) REFERENCES event_stops(id)
+ON DELETE SET NULL; -- set the active stop id to null if the stop is deleted
