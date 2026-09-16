@@ -61,6 +61,20 @@ const getAllInvitesForUserQuery = `
 	) invite;
 `
 
+const acceptInviteQuery = `
+	UPDATE event_member em
+	JOIN events e ON em.event_id = e.id
+	SET rsvp_status = 'accepted'
+	WHERE em.user_id = $1 AND em.event_id = $2;
+`
+
+const declineInviteQuery = `
+	UPDATE event_member em
+	JOIN events e ON em.event_id = e.id
+	SET rsvp_status = 'declined'
+	WHERE em.user_id = $1 AND em.event_id = $2;
+`
+
 type Invite struct {
 	Event       Event       `json:"event" db:"event"`
 	HostUser    User        `json:"host_user" db:"host_user"`
@@ -87,14 +101,9 @@ func NewInviteClient(database database.Service, userClient *UserClient) *InviteC
 }
 
 // GetPendingInvitesForUser gets the invites that a user recieved but hasn't accepted
-func (m *InviteClient) GetPendingInviteCountForUser(clerkId string) (int64, error) {
-	user, err := m.userClient.GetUserByClerkId(clerkId)
-	if err != nil {
-		return 0, fmt.Errorf("GetInvitesForUser: %v", err)
-	}
-
+func (i *InviteClient) GetPendingInviteCountForUser(userId int64) (int64, error) {
 	var count int64
-	if err := m.db.Conn().Get(&count, getPendingInviteCountForUserQuery, user.Id); err != nil {
+	if err := i.db.Conn().Get(&count, getPendingInviteCountForUserQuery, userId); err != nil {
 		if err == sql.ErrNoRows {
 			return 0, nil
 		}
@@ -104,14 +113,9 @@ func (m *InviteClient) GetPendingInviteCountForUser(clerkId string) (int64, erro
 	return count, nil
 }
 
-func (m *InviteClient) GetAllInvitesForUser(clerkId string) (InviteLists, error) {
-	user, err := m.userClient.GetUserByClerkId(clerkId)
-	if err != nil {
-		return InviteLists{}, fmt.Errorf("GetAllInvitesForUser: %v", err)
-	}
-
+func (i *InviteClient) GetAllInvitesForUser(userId int64) (InviteLists, error) {
 	var pending, sent []byte
-	row := m.db.Conn().QueryRow(getAllInvitesForUserQuery, user.Id)
+	row := i.db.Conn().QueryRow(getAllInvitesForUserQuery, userId)
 	if err := row.Scan(&pending, &sent); err != nil {
 		return InviteLists{}, fmt.Errorf("GetAllInvitesForUser: %v", err)
 	}
@@ -128,4 +132,22 @@ func (m *InviteClient) GetAllInvitesForUser(clerkId string) (InviteLists, error)
 	}
 
 	return lists, nil
+}
+
+func (i *InviteClient) AcceptInvite(userId int64, invite Invite) error {
+	_, err := i.db.Conn().Exec(acceptInviteQuery, userId, invite.Event.Id)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (i *InviteClient) DeclineInvite(userId int64, invite Invite) error {
+	_, err := i.db.Conn().Exec(declineInviteQuery, userId, invite.Event.Id)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

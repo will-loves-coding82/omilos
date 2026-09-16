@@ -54,7 +54,7 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 	r.Post("/users", userHandler.CreateNewUser)
 
 	r.Group(func(r chi.Router) {
-		r.Use(Middleware)
+		r.Use(UserMiddleware(userClient))
 
 		r.Get("/users", userHandler.SearchUsers)
 
@@ -75,19 +75,37 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 	return r
 }
 
-func Middleware(next http.Handler) http.Handler {
-	return clerkhttp.RequireHeaderAuthorization()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, ok := clerk.SessionClaimsFromContext(r.Context())
-		if !ok {
-			fmt.Print("middleware failed")
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
+type contextKey string
 
-		// claims.Subject is the Clerk user id — already verified and in context
-		next.ServeHTTP(w, r)
-	}))
+const userContextKey contextKey = "omilos-user"
 
+// UserFromContext returns the database user attached to the request context
+// by UserMiddleware.
+func UserFromContext(ctx context.Context) (app.User, bool) {
+	user, ok := ctx.Value(userContextKey).(app.User)
+	return user, ok
+}
+
+func UserMiddleware(userClient *app.UserClient) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return clerkhttp.RequireHeaderAuthorization()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			claims, ok := clerk.SessionClaimsFromContext(r.Context())
+			if !ok {
+				fmt.Print("middleware failed")
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+
+			user, err := userClient.GetUserByClerkId(claims.Subject)
+			if err != nil {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+
+			ctx := context.WithValue(r.Context(), userContextKey, user)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		}))
+	}
 }
 
 func (s *Server) HelloWorldHandler(w http.ResponseWriter, r *http.Request) {

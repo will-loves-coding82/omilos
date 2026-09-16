@@ -1,75 +1,10 @@
-"use server";
-
-import { APIUser, APIEvent, APIEventStop, APIInvite } from "@/app/types/api";
-import { ClientEventStop } from "@/app/types/client";
 import { auth } from "@clerk/nextjs/server";
-import { z } from "zod";
-import { API_ROUTES } from "@/app/constants";
-import { eventDetailsSchema } from "./schemas";
-
-export type ActionResponse<T> = {
-  success: boolean,
-  data: T,
-  message?: string | undefined,
-  error?: Record<string, string[]>,
-}
-
-export type SortOption = "newest" | "oldest"
-export type FilterOption = "all" | "host" | "participant"
-
-async function apiFetch(url: string, init: RequestInit = {}) : Promise<Response> {
-  const { getToken } = await auth();
-  const token = await getToken();
-
-  if (!token) {
-    throw new Error("Not authenticated");
-  }
-
-  return fetch(url, {
-    ...init,
-    headers: {
-      ...init.headers,
-      Authorization: `Bearer ${token}`,
-    }
-  })
-}
-
-export async function searchUsers(searchQuery: string): Promise<ActionResponse<{users: APIUser[]}>> {
-  if (searchQuery.length === 0) {
-    return {
-      success: false,
-      message: "Search query cannot be empty",
-      data: {users: []}
-    }
-  }
-
-  try {
-    const res = await apiFetch(API_ROUTES.users.search(searchQuery),{
-      method: "GET"
-    })
-
-    if (!res.ok) {
-      return {
-        success: false,
-        message: "Failed to search users",
-        data: {users: []}
-      }
-    }
-
-    const { data } = await res.json()
-    return {
-      success: true,
-      data: {users: data.users ?? []}
-    }
-  } catch (err) {
-    console.error("Error searching users:", err)
-    return {
-      success: false,
-      message: "Failed to search users",
-      data: {users: []}
-    }
-  }
-}
+import z from "zod";
+import { eventDetailsSchema } from "../(dashboard)/dashboard/events/schemas";
+import { API_ROUTES } from "../constants";
+import { APIEvent, APIInvite, APIEventStop } from "../types/api";
+import { ClientEventStop } from "../types/client";
+import { ActionResponse, apiFetch } from "./utils";
 
 export async function getEventsForUser(clerkId: string | null): Promise<ActionResponse<{events: APIEvent[]}>> {
   if (!clerkId) {
@@ -100,79 +35,6 @@ export async function getEventsForUser(clerkId: string | null): Promise<ActionRe
       success: false,
       message: "Failed to fetch events",
       data: {events: []}
-    }
-  }
-}
-
-export async function getPendingInviteCountForUser(clerkId: string | null) : Promise<ActionResponse<{count: number}>> {
-  if (!clerkId) {
-    return { success: false, data: {count: 0}, message: "Not authenticated" };
-  }
-
-  try {
-    const res = await apiFetch(API_ROUTES.invites.pending.count, {
-      method: "GET"
-    })
-
-    if (!res.ok) {
-      const body = await res.text()
-      console.error("Get pending invite counts failed:", res.status, body)
-      return {
-        success: false,
-        data: { count: 0 },
-        message: "Failed to fetch pending invite counts",
-      }
-    }
-
-    const { data } = await res.json();
-    return {
-      success: true,
-      data: { count: data.count }
-    }
-  }
-  catch (err) {
-    return {
-      success: false,
-      data: { count: 0 },
-      message: err instanceof Error ? err.message : "An unknown error occurred",
-    }
-  }
-
-}
-
-export async function getAllInvitesForUser(clerkId: string | null) : Promise<ActionResponse<{sent: APIInvite[], received: APIInvite[]} | null>> {
-  if (!clerkId) {
-    return { success: false, data: null, message: "Not authenticated" };
-  }
-  try {
-    const res = await apiFetch(API_ROUTES.invites.all.list, {
-      method: "GET"
-    })
-
-    if (!res.ok) {
-      const body = await res.text()
-      console.error("Get all invites failed:", res.status, body)
-      return {
-        success: false,
-        data: null,
-        message: "Failed to fetch all invite",
-      }
-    }
-
-    const { data } = await res.json();
-    return {
-      success: true,
-      data: {
-        sent: data.sent_invites,
-        received: data.pending_invites
-      }
-    }
-  }
-  catch (err) {
-    return {
-      success: false,
-      data: null,
-      message: err instanceof Error ? err.message : "An unknown error occurred",
     }
   }
 }

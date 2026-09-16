@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"omilos-backend/internal/app"
 	"omilos-backend/internal/server/httpio"
-
-	"github.com/clerk/clerk-sdk-go/v2"
 )
 
 type InviteHandler struct {
@@ -29,14 +27,13 @@ type InvitesPayload struct {
 }
 
 func (h *InviteHandler) GetPendingInviteCountForUser(w http.ResponseWriter, r *http.Request) {
-	claims, ok := clerk.SessionClaimsFromContext(r.Context())
+	user, ok := UserFromContext(r.Context())
 	if !ok {
-		httpio.InternalError(w, r, errors.New("no session claims in context"))
+		httpio.InternalError(w, r, errors.New("no user in context"))
 		return
 	}
-	clerkId := claims.Subject
 
-	count, err := h.client.GetPendingInviteCountForUser(clerkId)
+	count, err := h.client.GetPendingInviteCountForUser(user.Id)
 	if err != nil {
 		httpio.InternalError(w, r, err)
 		return
@@ -46,14 +43,13 @@ func (h *InviteHandler) GetPendingInviteCountForUser(w http.ResponseWriter, r *h
 }
 
 func (h *InviteHandler) GetAllInvitesForUser(w http.ResponseWriter, r *http.Request) {
-	claims, ok := clerk.SessionClaimsFromContext(r.Context())
+	user, ok := UserFromContext(r.Context())
 	if !ok {
-		httpio.InternalError(w, r, errors.New("no session claims in context"))
+		httpio.InternalError(w, r, errors.New("no user in context"))
 		return
 	}
-	clerkId := claims.Subject
 
-	invites, err := h.client.GetAllInvitesForUser(clerkId)
+	invites, err := h.client.GetAllInvitesForUser(user.Id)
 	if err != nil {
 		httpio.InternalError(w, r, err)
 		return
