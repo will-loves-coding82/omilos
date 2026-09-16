@@ -78,6 +78,17 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
     return () => { clearTimeout(timer) }
   }, [searchQuery])
 
+  // Step 3 (and its file input) unmounts when navigating away and remounts when
+  // navigating back, which drops whatever was previously assigned to its native
+  // .files. Re-attach the already-cropped file so it isn't silently lost on submit.
+  useEffect(() => {
+    if (step === 3 && imageFile && fileInputRef.current) {
+      const dataTransfer = new DataTransfer()
+      dataTransfer.items.add(imageFile)
+      fileInputRef.current.files = dataTransfer.files
+    }
+  }, [step, imageFile])
+
   useEffect(() => {
     if (!debouncedSearchQuery.trim()) {
       setSearchResults([])
@@ -467,6 +478,9 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
                         )}
                       </section>
                       <div className={`flex flex-col gap-2 ${cropSrc ? "invisible" : ""}`}>
+                        {!formState.success && formState.message && (
+                          <p className="text-sm text-red-500">{formState.message}</p>
+                        )}
                         <button
                           type="submit"
                           disabled={pending}

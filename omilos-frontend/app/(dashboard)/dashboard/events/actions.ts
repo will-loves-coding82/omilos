@@ -220,9 +220,11 @@ export async function createNewEvent(prevState: ActionResponse<Partial<APIEvent>
       const { data: presignData } = await presignRes.json()
       const presigned_url = presignData.presigned_url
       
-      // Upload the file to AWS S3
+      // Upload directly to S3 using the presigned URL, which carries its own
+      // auth via signed query params — apiFetch would attach our Clerk bearer
+      // token, which S3 rejects since it wasn't part of the signed request.
       const imageBytes = await coverImage.arrayBuffer()
-      const uploadRes = await apiFetch(presigned_url, {
+      const uploadRes = await fetch(presigned_url, {
         method: "PUT",
         headers: { "Content-Type": coverImage.type },
         body: imageBytes,
