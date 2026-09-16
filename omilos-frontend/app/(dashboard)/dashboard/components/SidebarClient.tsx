@@ -131,7 +131,7 @@ function SidebarLink({pathname, title, isOpen, icon, badgeCount, onNavigate}: Si
     >
       <div className={`flex items-center w-full gap-2 ${isActive ? "text-text-active font-medium" : "text-text-secondary"}`}>
         <span className="shrink-0">
-          <SidebarBadge count={badgeCount} />
+          <SidebarBadge count={badgeCount} isActive={isActive} />
           {icon}
         </span>
         {isOpen ? <span>{title}</span> : null}
@@ -142,13 +142,14 @@ function SidebarLink({pathname, title, isOpen, icon, badgeCount, onNavigate}: Si
 
 type SidebarBadgeProps = {
   count?: number,
+  isActive?: boolean,
 }
 
-function SidebarBadge({count}: SidebarBadgeProps) {
+function SidebarBadge({count, isActive}: SidebarBadgeProps) {
   if (!count || count <= 0) return null;
 
   return (
-    <p className="h-[20px] w-[20px] absolute border-box translate-x-[8px] translate-y-[-12px] flex justify-center items-center border-2 border-badge-border bg-badge-bg rounded-full text-[10px] text-badge-text">
+    <p className={`h-[18px] w-[18px] absolute border-box translate-x-[9px] translate-y-[-10px] flex justify-center items-center border-2 ${isActive ? "border-bg-active" : "border-badge-border"} bg-badge-bg rounded-full text-[10px] text-badge-text`}>
       {count}
     </p>
   )
