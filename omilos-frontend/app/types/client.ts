@@ -68,7 +68,7 @@ export function toClientInvite(invite: APIInvite): ClientInvite {
     event_member: {
       ...invite.event_member,
       rsvp_status: invite.event_member.rsvp_status as RSVPStatus,
-    },
+    }
   }
 }
 

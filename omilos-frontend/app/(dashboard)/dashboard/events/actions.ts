@@ -140,7 +140,7 @@ export async function getPendingInviteCountForUser(clerkId: string | null) : Pro
 
 }
 
-export async function getAllInvitesForUser(clerkId: string | null) : Promise<ActionResponse<{sent: APIInvite[], pending: APIInvite[]} | null>> {
+export async function getAllInvitesForUser(clerkId: string | null) : Promise<ActionResponse<{sent: APIInvite[], received: APIInvite[]} | null>> {
   if (!clerkId) {
     return { success: false, data: null, message: "Not authenticated" };
   }
@@ -151,11 +151,11 @@ export async function getAllInvitesForUser(clerkId: string | null) : Promise<Act
 
     if (!res.ok) {
       const body = await res.text()
-      console.error("Get pending invite counts failed:", res.status, body)
+      console.error("Get all invites failed:", res.status, body)
       return {
         success: false,
         data: null,
-        message: "Failed to fetch pending invite counts",
+        message: "Failed to fetch all invite",
       }
     }
 
@@ -164,7 +164,7 @@ export async function getAllInvitesForUser(clerkId: string | null) : Promise<Act
       success: true,
       data: {
         sent: data.sent_invites,
-        pending: data.pending_invites
+        received: data.pending_invites
       }
     }
   }

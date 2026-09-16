@@ -6,8 +6,8 @@ import { useSortable } from '@dnd-kit/react/sortable';
 import { move } from '@dnd-kit/helpers';
 import { GripVertical } from "lucide-react";
 import { ClientEventStop } from "@/app/types/client";
+import TabButton from "../../components/tab-button";
 
-type Tab = "Stops" | "Participants";
 const PANEL_WIDTH_DESKTOP = "300px";
 
 type EventSidePanelProps = {
@@ -18,7 +18,7 @@ type EventSidePanelProps = {
 };
 
 export default function EventSidePanel({eventStops, onReorderStops, onSelectStop, activeStopId} : EventSidePanelProps) {
-  const [activeTab, setActiveTab] = useState<Tab>("Stops");
+  const [activeTab, setActiveTab] = useState<string>("Stops");
   const ref = useRef<HTMLUListElement | null>(null);
 
   // Expose this panel's width as a CSS variable (desktop only, since on
@@ -100,26 +100,4 @@ function SortableStop({stop, index, onSelectStop, isSelected}: SortableStopProps
       </button>
     </li>
   )
-}
-
-function TabButton({
-  label,
-  activeTab,
-  onClick,
-}: {
-  label: Tab;
-  activeTab: Tab;
-  onClick: (tab: Tab) => void;
-}) {
-  const isActive = activeTab === label;
-  return (
-    <button
-      onClick={() => onClick(label)}
-      className={`text-sm font-medium hover:cursor-pointer ${
-        isActive ? "text-text-primary" : "text-text-secondary"
-      }`}
-    >
-      {label}
-    </button>
-  );
 }

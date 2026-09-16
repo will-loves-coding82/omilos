@@ -33,7 +33,7 @@ const getAllInvitesForUserQuery = `
 					'host_id', e.host_id,
 					'image_url', e.image_url
 				),
-				'user', jsonb_build_object(
+				'host_user', jsonb_build_object(
 					'id', h.id,
 					'clerk_id', h.clerk_id,
 					'first_name', h.first_name,
@@ -63,7 +63,7 @@ const getAllInvitesForUserQuery = `
 
 type Invite struct {
 	Event       Event       `json:"event" db:"event"`
-	HostUser    User        `json:"user" db:"user"`
+	HostUser    User        `json:"host_user" db:"host_user"`
 	EventMember EventMember `json:"event_member" db:"event_member"`
 }
 
