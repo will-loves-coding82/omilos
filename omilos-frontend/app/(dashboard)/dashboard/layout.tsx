@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
-import { SidebarServer } from "./components/SidebarServer";
+import { SidebarServer } from "./components/sidebar-server";
 
 export default async function DashboardLayout({ children }: LayoutProps<"/dashboard">) {
   const { userId } = await auth();

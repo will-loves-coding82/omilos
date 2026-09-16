@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import "../globals.css";
 import { UserButton, useUser } from '@clerk/nextjs'
-import Skeleton from "./Skeleton";
+import Skeleton from "./skeleton";
+
 
 const NAV_HEIGHT = 64;
 

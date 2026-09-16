@@ -1,7 +1,7 @@
 "use server";
 
 import { Suspense } from "react";
-import { EventsServer } from "./components/eventsServer";
+import { EventsServer } from "./components/events-server";
 
 export default async function EventsPage() {
   return (

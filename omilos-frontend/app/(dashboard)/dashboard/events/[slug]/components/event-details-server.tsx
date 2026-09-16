@@ -1,6 +1,6 @@
 "use server";
 import { getEventStops } from "@/app/actions/event-actions";
-import EventDetailsClient from "./eventDetailsClient";
+import EventDetailsClient from "./event-details-client";
 
 export default async function EventDetailsServer({slug}: {slug: string}) {
   const res = await getEventStops(slug);

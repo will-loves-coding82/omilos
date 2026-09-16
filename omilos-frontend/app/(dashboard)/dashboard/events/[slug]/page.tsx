@@ -1,7 +1,7 @@
 "use server";
 
 import { Suspense } from "react";
-import EventDetailsServer from "./components/eventDetailsServer";
+import EventDetailsServer from "./components/event-details-server";
 
 export default async function Page({params} : {params: Promise<{slug: string}>}) {
   const { slug } = await params;

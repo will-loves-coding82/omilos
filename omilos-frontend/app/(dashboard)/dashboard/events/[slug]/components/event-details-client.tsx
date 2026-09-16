@@ -6,11 +6,11 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { environment } from './environments/environment';
-import EventSidePanel from './eventSidePanel';
+import EventSidePanel from './event-side-panel';
 import { Coordinates, ClientEventStop, toClientEventStop, toEventStop } from '@/app/types/client';
 import { APIEventStop } from '@/app/types/api';
 
-import EventStopSidePanel from './eventStopSidePanel';
+import EventStopSidePanel from './event-stop-side-panel';
 import { addEventStop, reorderEventStops } from '@/app/actions/event-actions';
 
 const SearchBox = dynamic(

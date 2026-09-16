@@ -1,6 +1,6 @@
 "use client";
 
-import { CreateEventModal } from "./createEventModal";
+import { CreateEventModal } from "./create-event-modal";
 import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
