@@ -1,5 +1,5 @@
+import { getEventsForUser } from "@/app/actions/event-actions";
 import { EventsClient } from "./eventsClient";
-import { getEventsForUser } from "../actions";
 import { auth } from "@clerk/nextjs/server";
 
 export async function EventsServer() {

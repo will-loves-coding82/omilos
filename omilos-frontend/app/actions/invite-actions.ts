@@ -1,3 +1,5 @@
+"use server";
+
 import { API_ROUTES } from "../constants";
 import { APIInvite } from "../types/api";
 import { ClientInvite } from "../types/client";

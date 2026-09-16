@@ -9,8 +9,9 @@ import { environment } from './environments/environment';
 import EventSidePanel from './eventSidePanel';
 import { Coordinates, ClientEventStop, toClientEventStop, toEventStop } from '@/app/types/client';
 import { APIEventStop } from '@/app/types/api';
-import { addEventStop, reorderEventStops } from '../../actions';
+
 import EventStopSidePanel from './eventStopSidePanel';
+import { addEventStop, reorderEventStops } from '@/app/actions/event-actions';
 
 const SearchBox = dynamic(
   () => import("@mapbox/search-js-react").then((mod) => mod.SearchBox),

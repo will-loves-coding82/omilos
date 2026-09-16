@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from "motion/react";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
-import { createNewEvent, ActionResponse, searchUsers } from "../actions";
 import { APIEvent } from "@/app/types/api";
 import DatePicker from "@/app/components/DatePicker";
 import Image from "next/image";
@@ -12,6 +11,9 @@ import { eventDetailsSchema } from "../schemas";
 import Cropper, { Area, Point } from "react-easy-crop";
 import { getCroppedImageFile } from "../cropImage";
 import { ClientUser } from "@/app/types/client";
+import { ActionResponse } from "@/app/actions/utils";
+import { searchUsers } from "@/app/actions/user-actions";
+import { createNewEvent } from "@/app/actions/event-actions";
 
 type CreateEventModalProps = {
   isOpen: boolean,

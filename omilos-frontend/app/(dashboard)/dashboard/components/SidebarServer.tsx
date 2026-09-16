@@ -1,8 +1,8 @@
 "use server";
 
 import { auth } from "@clerk/nextjs/server";
-import { getPendingInviteCountForUser } from "../events/actions";
 import SidebarClient from "./SidebarClient";
+import { getPendingInviteCountForUser } from "@/app/actions/invite-actions";
 
 export async function SidebarServer() {
   const user = await auth();

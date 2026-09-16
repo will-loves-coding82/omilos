@@ -1,3 +1,5 @@
+"use server";
+
 import { auth } from "@clerk/nextjs/server";
 import z from "zod";
 import { eventDetailsSchema } from "../(dashboard)/dashboard/events/schemas";

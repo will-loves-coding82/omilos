@@ -2,8 +2,8 @@
 
 import { auth } from "@clerk/nextjs/server";
 import InvitationsClient from "./invitations-client";
-import { getAllInvitesForUser } from "../events/actions";
 import { toClientInvite } from "@/app/types/client";
+import { getAllInvitesForUser } from "@/app/actions/invite-actions";
 
 
 export async function InvitationsServer() {

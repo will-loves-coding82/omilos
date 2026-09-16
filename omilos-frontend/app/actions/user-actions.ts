@@ -1,3 +1,5 @@
+"use server";
+
 import { API_ROUTES } from "../constants"
 import { APIUser } from "../types/api"
 import { ActionResponse, apiFetch } from "./utils"
