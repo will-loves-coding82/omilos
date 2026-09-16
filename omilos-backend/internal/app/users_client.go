@@ -21,7 +21,12 @@ type UserClient struct {
 
 const createNewUserQuery = `
 	INSERT INTO users(clerk_id, first_name, last_name, email, image_url)
-	VALUES($1, $2, $3, $4, $5);
+	VALUES($1, $2, $3, $4, $5)
+	ON CONFLICT (clerk_id) DO UPDATE SET
+		first_name = EXCLUDED.first_name,
+		last_name = EXCLUDED.last_name,
+		email = EXCLUDED.email,
+		image_url = EXCLUDED.image_url;
 `
 
 const searchUsersQuery = `
