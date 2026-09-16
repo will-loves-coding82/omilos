@@ -3,18 +3,9 @@
 import { auth } from "@clerk/nextjs/server";
 import { getInvitesForUser } from "../events/actions";
 import SidebarClient from "./SidebarClient";
-import { ClientInvite, RSVPStatus } from "@/app/types/client";
+import { ClientInvite, RSVPStatus, toClientInvite } from "@/app/types/client";
 import { APIInvite } from "@/app/types/api";
 
-function toClientInvite(invite: APIInvite): ClientInvite {
-  return {
-    ...invite,
-    event_member: {
-      ...invite.event_member,
-      rsvp_status: invite.event_member.rsvp_status as RSVPStatus,
-    },
-  }
-}
 
 export async function SidebarServer() {
   const user = await auth();

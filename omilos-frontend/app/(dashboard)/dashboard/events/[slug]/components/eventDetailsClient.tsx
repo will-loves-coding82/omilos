@@ -2,40 +2,15 @@
 
 import Map, { NavigationControl, MapRef, GeolocateControl, Marker, Popup, Layer } from 'react-map-gl/mapbox';
 import type { FillExtrusionLayerSpecification } from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css'; // Don't forget the CSS!
+import 'mapbox-gl/dist/mapbox-gl.css';
 import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import type { SearchBoxRetrieveResponse } from '@mapbox/search-js-core';
 import { environment } from './environments/environment';
 import EventSidePanel from './eventSidePanel';
-import { Coordinates, ClientEventStop } from '@/app/types/client';
+import { Coordinates, ClientEventStop, toClientEventStop, toEventStop } from '@/app/types/client';
 import { APIEventStop } from '@/app/types/api';
 import { addEventStop, reorderEventStops } from '../../actions';
 import EventStopSidePanel from './eventStopSidePanel';
-
-function toClientEventStop(stop: APIEventStop): ClientEventStop {
-  return {
-    id: stop.id,
-    address: stop.address,
-    name: stop.name,
-    mapbox_id: String(stop.id),
-    latitude: stop.latitude,
-    longitude: stop.longitude,
-    stop_member_status_arr: stop.stop_member_status_arr
-  }
-}
-
-
-function toEventStop(res: SearchBoxRetrieveResponse): ClientEventStop {
-  return {
-    address: res.features[0].properties.address ?? '',
-    name: res.features[0].properties.name ?? '',
-    mapbox_id: res.features[0].properties.name ?? '',
-    latitude: res.features[0].properties.coordinates.latitude,
-    longitude: res.features[0].properties.coordinates.longitude,
-    stop_member_status_arr: [],
-  }
-}
 
 const SearchBox = dynamic(
   () => import("@mapbox/search-js-react").then((mod) => mod.SearchBox),
