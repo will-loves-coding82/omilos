@@ -123,7 +123,7 @@ function SidebarLink({pathname, title, isOpen, icon, badgeCount, onNavigate}: Si
     <Link
       href={`/dashboard/${title.toLocaleLowerCase()}`}
       onClick={onNavigate}
-      className={`h-[40px] flex items-center ${isActive ? "bg-bg-active" : "bg-transparent"} transition-all duration-200 hover:cursor-pointer px-3 py-2 rounded-md w-full text-text-primary`}
+      className={`h-[45px] flex items-center ${isActive ? "bg-bg-active" : "bg-transparent"} transition-all duration-200 hover:cursor-pointer px-3 py-2 rounded-md w-full text-text-primary`}
     >
       <div className={`flex items-center w-full gap-2 ${isActive ? "text-text-active font-medium" : "text-text-secondary"}`}>
         <span className="shrink-0">

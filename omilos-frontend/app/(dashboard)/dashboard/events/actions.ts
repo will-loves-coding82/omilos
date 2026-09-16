@@ -34,12 +34,12 @@ async function apiFetch(url: string, init: RequestInit = {}) : Promise<Response>
   })
 }
 
-export async function searchUsers(searchQuery: string): Promise<ActionResponse<APIUser[]>> {
+export async function searchUsers(searchQuery: string): Promise<ActionResponse<{users: APIUser[]}>> {
   if (searchQuery.length === 0) {
     return {
       success: false,
       message: "Search query cannot be empty",
-      data: []
+      data: {users: []}
     }
   }
 
@@ -52,28 +52,28 @@ export async function searchUsers(searchQuery: string): Promise<ActionResponse<A
       return {
         success: false,
         message: "Failed to search users",
-        data: []
+        data: {users: []}
       }
     }
 
     const { data } = await res.json()
     return {
       success: true,
-      data: data.users ?? []
+      data: {users: data.users ?? []}
     }
   } catch (err) {
     console.error("Error searching users:", err)
     return {
       success: false,
       message: "Failed to search users",
-      data: []
+      data: {users: []}
     }
   }
 }
 
-export async function getEventsForUser(clerkId: string | null): Promise<ActionResponse<APIEvent[]>> {
+export async function getEventsForUser(clerkId: string | null): Promise<ActionResponse<{events: APIEvent[]}>> {
   if (!clerkId) {
-    return { success: false, data: [], message: "Not authenticated" };
+    return { success: false, data: {events: []}, message: "Not authenticated" };
   }
 
   try {
@@ -85,32 +85,32 @@ export async function getEventsForUser(clerkId: string | null): Promise<ActionRe
       return {
         success: false,
         message: "Failed to fetch events",
-        data: []
+        data: {events: []}
       }
     }
 
     const { data } = await res.json()
     return {
       success: true,
-      data: data.events ?? []
+      data: {events: data.events ?? []}
     }
   } catch (err) {
     console.error("Error fetching events:", err)
     return {
       success: false,
       message: "Failed to fetch events",
-      data: []
+      data: {events: []}
     }
   }
 }
 
-export async function getPendingInviteCountForUser(clerkId: string | null) : Promise<ActionResponse<number>> {
+export async function getPendingInviteCountForUser(clerkId: string | null) : Promise<ActionResponse<{count: number}>> {
   if (!clerkId) {
-    return { success: false, data: 0, message: "Not authenticated" };
+    return { success: false, data: {count: 0}, message: "Not authenticated" };
   }
 
   try {
-    const res = await apiFetch(API_ROUTES.invites.pending.get, {
+    const res = await apiFetch(API_ROUTES.invites.pending.count, {
       method: "GET"
     })
 
@@ -119,7 +119,7 @@ export async function getPendingInviteCountForUser(clerkId: string | null) : Pro
       console.error("Get pending invite counts failed:", res.status, body)
       return {
         success: false,
-        data: 0,
+        data: { count: 0 },
         message: "Failed to fetch pending invite counts",
       }
     }
@@ -127,17 +127,54 @@ export async function getPendingInviteCountForUser(clerkId: string | null) : Pro
     const { data } = await res.json();
     return {
       success: true,
-      data: data.pending_invite_count
+      data: { count: data.count }
     }
   }
   catch (err) {
     return {
       success: false,
-      data: 0,
+      data: { count: 0 },
       message: err instanceof Error ? err.message : "An unknown error occurred",
     }
   }
 
+}
+
+export async function getAllInvitesForUser(clerkId: string | null) : Promise<ActionResponse<{sent: APIInvite[], pending: APIInvite[]} | null>> {
+  if (!clerkId) {
+    return { success: false, data: null, message: "Not authenticated" };
+  }
+  try {
+    const res = await apiFetch(API_ROUTES.invites.all.list, {
+      method: "GET"
+    })
+
+    if (!res.ok) {
+      const body = await res.text()
+      console.error("Get pending invite counts failed:", res.status, body)
+      return {
+        success: false,
+        data: null,
+        message: "Failed to fetch pending invite counts",
+      }
+    }
+
+    const { data } = await res.json();
+    return {
+      success: true,
+      data: {
+        sent: data.sent_invites,
+        pending: data.pending_invites
+      }
+    }
+  }
+  catch (err) {
+    return {
+      success: false,
+      data: null,
+      message: err instanceof Error ? err.message : "An unknown error occurred",
+    }
+  }
 }
 
 export async function createNewEvent(prevState: ActionResponse<Partial<APIEvent>>, formData: FormData): Promise<ActionResponse<Partial<APIEvent>>> {
@@ -251,7 +288,7 @@ export async function createNewEvent(prevState: ActionResponse<Partial<APIEvent>
   }
 }
 
-export async function getEventStops(slug: string): Promise<ActionResponse<APIEventStop[]>> {
+export async function getEventStops(slug: string): Promise<ActionResponse<{stops: APIEventStop[]}>> {
   try {
     const res = await apiFetch(API_ROUTES.events.stops.list(slug), {
       method: "GET"
@@ -262,7 +299,7 @@ export async function getEventStops(slug: string): Promise<ActionResponse<APIEve
       console.error("Get event stops failed:", res.status, body)
       return {
         success: false,
-        data: [],
+        data: {stops: []},
         message: "Failed to fetch stops",
       }
     }
@@ -270,13 +307,13 @@ export async function getEventStops(slug: string): Promise<ActionResponse<APIEve
     const { data } = await res.json()
     return {
       success: true,
-      data: data.stops ?? []
+      data: {stops: data.stops ?? []}
     }
   } catch (err) {
     console.error("Error fetching event stops:", err)
     return {
       success: false,
-      data: [],
+      data: {stops: []},
       message: err instanceof Error ? err.message : "An unknown error occurred",
     }
   }
@@ -380,6 +417,3 @@ export async function deleteEventStop(slug: string, stopId: number) : Promise<Ac
     }
   }
 }
-
-
-

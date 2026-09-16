@@ -7,7 +7,7 @@ export async function EventsServer() {
   if (!user) return <p>Could not load user</p>
 
   const response = getEventsForUser(user.userId);
-  const events = (await response).data
+  const events = (await response).data.events
 
   return (
     <EventsClient events = {events}/>

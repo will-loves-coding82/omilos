@@ -20,11 +20,12 @@ func NewInviteHandler(client *app.InviteClient) *InviteHandler {
 }
 
 type PendingInviteCountPayload struct {
-	PendingInviteCount int64 `json:"pending_invite_count"`
+	Count int64 `json:"count"`
 }
 
 type InvitesPayload struct {
-	Invites []app.Invite `json:"invites"`
+	SentInvites    []app.Invite `json:"sent_invites"`
+	PendingInvites []app.Invite `json:"pending_invites"`
 }
 
 func (h *InviteHandler) GetPendingInviteCountForUser(w http.ResponseWriter, r *http.Request) {
@@ -41,5 +42,23 @@ func (h *InviteHandler) GetPendingInviteCountForUser(w http.ResponseWriter, r *h
 		return
 	}
 
-	httpio.JSON(w, r, http.StatusOK, PendingInviteCountPayload{PendingInviteCount: count})
+	httpio.JSON(w, r, http.StatusOK, PendingInviteCountPayload{Count: count})
+}
+
+func (h *InviteHandler) GetAllInvitesForUser(w http.ResponseWriter, r *http.Request) {
+	claims, ok := clerk.SessionClaimsFromContext(r.Context())
+	if !ok {
+		httpio.InternalError(w, r, errors.New("no session claims in context"))
+		return
+	}
+	clerkId := claims.Subject
+
+	invites, err := h.client.GetAllInvitesForUser(clerkId)
+	if err != nil {
+		httpio.InternalError(w, r, err)
+		return
+	}
+
+	httpio.JSON(w, r, http.StatusOK, InvitesPayload{SentInvites: invites.Sent, PendingInvites: invites.Pending})
+
 }

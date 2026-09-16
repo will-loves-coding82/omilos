@@ -2,7 +2,9 @@ package app
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"log"
 	"omilos-backend/internal/database"
 )
 
@@ -11,30 +13,66 @@ const getPendingInviteCountForUserQuery = `
 		COUNT(*) AS count
 		FROM events e
 		JOIN event_members em ON e.id = em.event_id
-		WHERE em.user_id = $1;
+		WHERE em.user_id = $1 AND em.rsvp_status = 'pending';
 `
 
 const getAllInvitesForUserQuery = `
 	SELECT
-		e.id "event.id", e.slug "event.slug", e.name "event.title", e.description "event.description",
-		e.date "event.date", e.host_id::text "event.host_id", e.image_url "event.image_url",
-		h.id "user.id", h.clerk_id "user.clerk_id", h.first_name "user.first_name",
-		h.last_name "user.last_name", h.email "user.email", h.image_url "user.image_url",
-		m.id "event_member.member.id", m.clerk_id "event_member.member.clerk_id",
-		m.first_name "event_member.member.first_name", m.last_name "event_member.member.last_name",
-		m.email "event_member.member.email", m.image_url "event_member.member.image_url",
-		em.rsvp_status "event_member.rsvp_status"
-	FROM events e
-	JOIN users h ON e.host_id = h.id
-	JOIN event_members em ON e.id = em.event_id
-	JOIN users m ON em.user_id = m.id
-	WHERE em.user_id = $1 OR em.rsvp_status = 'pending';
+		COALESCE(jsonb_agg(invite.obj) FILTER (WHERE invite.is_pending), '[]') AS pending,
+		COALESCE(jsonb_agg(invite.obj) FILTER (WHERE invite.is_sent), '[]') AS sent
+	FROM (
+		SELECT
+			em.user_id = $1 AND em.rsvp_status = 'pending' AS is_pending,
+			e.host_id = $1 AND em.user_id != $1 AND em.rsvp_status = 'pending' AS is_sent,
+			jsonb_build_object(
+				'event', jsonb_build_object(
+					'id', e.id,
+					'slug', e.slug,
+					'title', e.name,
+					'description', e.description,
+					'date', e.date,
+					'host_id', e.host_id,
+					'image_url', e.image_url
+				),
+				'user', jsonb_build_object(
+					'id', h.id,
+					'clerk_id', h.clerk_id,
+					'first_name', h.first_name,
+					'last_name', h.last_name,
+					'email', h.email,
+					'image_url', h.image_url
+				),
+				'event_member', jsonb_build_object(
+					'member', jsonb_build_object(
+						'id', m.id,
+						'clerk_id', m.clerk_id,
+						'first_name', m.first_name,
+						'last_name', m.last_name,
+						'email', m.email,
+						'image_url', m.image_url
+					),
+					'rsvp_status', em.rsvp_status
+				)
+			) AS obj
+		FROM events e
+		JOIN users h ON e.host_id = h.id
+		JOIN event_members em ON e.id = em.event_id
+		JOIN users m ON em.user_id = m.id
+		WHERE em.user_id = $1 OR e.host_id = $1
+	) invite;
 `
 
 type Invite struct {
 	Event       Event       `json:"event" db:"event"`
 	HostUser    User        `json:"user" db:"user"`
 	EventMember EventMember `json:"event_member" db:"event_member"`
+}
+
+// InviteLists separates a user's invites into ones they've received (pending on them
+// to RSVP) and ones they've sent (as the host of the event).
+type InviteLists struct {
+	Pending []Invite `json:"pending"`
+	Sent    []Invite `json:"sent"`
 }
 
 type InviteClient struct {
@@ -64,5 +102,32 @@ func (m *InviteClient) GetPendingInviteCountForUser(clerkId string) (int64, erro
 		return 0, fmt.Errorf("GetPendingInviteCountForUser: %v", err)
 	}
 
+	log.Printf("Got pending invite count: %d\n", count)
 	return count, nil
+}
+
+func (m *InviteClient) GetAllInvitesForUser(clerkId string) (InviteLists, error) {
+	user, err := m.userClient.GetUserByClerkId(clerkId)
+	if err != nil {
+		return InviteLists{}, fmt.Errorf("GetAllInvitesForUser: %v", err)
+	}
+
+	var pending, sent []byte
+	row := m.db.Conn().QueryRow(getAllInvitesForUserQuery, user.Id)
+	if err := row.Scan(&pending, &sent); err != nil {
+		return InviteLists{}, fmt.Errorf("GetAllInvitesForUser: %v", err)
+	}
+
+	lists := InviteLists{
+		Pending: make([]Invite, 0),
+		Sent:    make([]Invite, 0),
+	}
+	if err := json.Unmarshal(pending, &lists.Pending); err != nil {
+		return InviteLists{}, fmt.Errorf("GetAllInvitesForUser: %v", err)
+	}
+	if err := json.Unmarshal(sent, &lists.Sent); err != nil {
+		return InviteLists{}, fmt.Errorf("GetAllInvitesForUser: %v", err)
+	}
+
+	return lists, nil
 }

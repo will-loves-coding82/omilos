@@ -30,7 +30,10 @@ export const createApiRoutes = (baseUrl: string) => {
     },
     invites: {
       pending: {
-        get: `${baseUrl}/invites/pending/count`
+        count: `${baseUrl}/invites/pending/count`
+      },
+      all: {
+        list: `${baseUrl}/invites/all`
       }
     },
     users: {
