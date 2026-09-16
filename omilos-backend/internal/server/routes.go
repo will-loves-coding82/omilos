@@ -34,9 +34,11 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 
 	userClient := app.NewUserClient(database)
 	eventClient := app.NewEventClient(database, userClient)
+	inviteClient := app.NewInviteClient(database, userClient)
 
 	userHandler := NewUserHandler(userClient)
 	eventHandler := NewEventHandler(eventClient)
+	inviteHandler := NewInviteHandler(inviteClient)
 
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"https://*", "http://*"},
@@ -58,12 +60,14 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 
 		r.Post("/events", eventHandler.CreateNewEvent)
 		r.Get("/events", eventHandler.GetEventsForUser)
-		r.Get("/events/invites", eventHandler.GetInvitesForUser)
 		r.Get("/events/{slug}/stops", eventHandler.GetEventStops)
 
 		r.Post("/events/{slug}/stops", eventHandler.AddNewEventStop)
 		r.Patch("/events/{slug}/stops", eventHandler.ReorderEventStops)
 		r.Delete("/events/{slug}/stops/{stopId}", eventHandler.DeleteEventStop)
+
+		r.Get("/invites/pending/count", inviteHandler.GetPendingInviteCountForUser)
+		// r.Get("/members/invites/all", inviteHandler.GetPendingInvitesForUser)
 
 		r.Get("/presign", awsPresignHandler.GetPresignedURL)
 	})

@@ -37,12 +37,6 @@ type EventMember struct {
 	RSVPStatus string `json:"rsvp_status" db:"rsvp_status"`
 }
 
-type Invite struct {
-	Event       Event       `json:"event" db:"event"`
-	HostUser    User        `json:"user" db:"user"`
-	EventMember EventMember `json:"event_member" db:"event_member"`
-}
-
 type MemberStopStatus struct {
 	User            User   `json:"user" db:"user"`
 	StopId          int64  `json:"stop_id" db:"stop_id"`
@@ -89,7 +83,7 @@ const getEventsForUserQuery = `
 		) AS members
 	FROM events e
 	WHERE e.host_id = $1
-	OR e.id IN (SELECT event_id FROM event_members WHERE user_id = $1);
+	OR e.id IN (SELECT event_id FROM event_members em WHERE em.user_id = $1 AND em.rsvp_status = 'accepted');
 `
 
 const getEventStopsQuery = `
@@ -101,22 +95,6 @@ const getEventStopsQuery = `
 	ORDER BY es.sort_id ASC;
 `
 
-const getInvitesQuery = `
-	SELECT
-		e.id "event.id", e.slug "event.slug", e.name "event.title", e.description "event.description",
-		e.date "event.date", e.host_id::text "event.host_id", e.image_url "event.image_url",
-		h.id "user.id", h.clerk_id "user.clerk_id", h.first_name "user.first_name",
-		h.last_name "user.last_name", h.email "user.email", h.image_url "user.image_url",
-		m.id "event_member.member.id", m.clerk_id "event_member.member.clerk_id",
-		m.first_name "event_member.member.first_name", m.last_name "event_member.member.last_name",
-		m.email "event_member.member.email", m.image_url "event_member.member.image_url",
-		em.rsvp_status "event_member.rsvp_status"
-	FROM events e
-	JOIN users h ON e.host_id = h.id
-	JOIN event_members em ON e.id = em.event_id
-	JOIN users m ON em.user_id = m.id
-	WHERE em.user_id = $1 AND em.rsvp_status = 'pending';
-`
 const addEventStopQuery = `
 	INSERT INTO event_stops(event_id, sort_id, name, address, latitude, longitude)
 	VALUES (
@@ -166,24 +144,6 @@ func (e *EventClient) GetEventsForUser(clerkId string) ([]Event, error) {
 	}
 
 	return events, nil
-}
-
-// GetnvitesForUser returns all the invites that a user recieved or sent
-func (e *EventClient) GetInvitesForUser(clerkId string) ([]Invite, error) {
-	user, err := e.userClient.GetUserByClerkId(clerkId)
-	if err != nil {
-		return nil, fmt.Errorf("GetInvitesForUser: %v", err)
-	}
-
-	invites := []Invite{}
-	if err := e.db.Conn().Select(&invites, getInvitesQuery, user.Id); err != nil {
-		if err == sql.ErrNoRows {
-			return make([]Invite, 0), nil
-		}
-		return nil, fmt.Errorf("GetEventsPendingInvitesForUser: %v", err)
-	}
-
-	return invites, nil
 }
 
 // CreateNewEventTx initializes a new transaction and creates a new

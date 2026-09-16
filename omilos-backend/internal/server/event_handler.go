@@ -32,10 +32,6 @@ type NewEventPayload struct {
 	Slug string `json:"slug"`
 }
 
-type InvitesPayload struct {
-	Invites []app.Invite `json:"invites"`
-}
-
 func (h *EventHandler) CreateNewEvent(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
@@ -80,23 +76,6 @@ func (h *EventHandler) GetEventsForUser(w http.ResponseWriter, r *http.Request) 
 	}
 
 	httpio.JSON(w, r, http.StatusOK, EventsForUserPayload{Events: events})
-}
-
-func (h *EventHandler) GetInvitesForUser(w http.ResponseWriter, r *http.Request) {
-	claims, ok := clerk.SessionClaimsFromContext(r.Context())
-	if !ok {
-		httpio.InternalError(w, r, errors.New("no session claims in context"))
-		return
-	}
-	clerkId := claims.Subject
-
-	invites, err := h.client.GetInvitesForUser(clerkId)
-	if err != nil {
-		httpio.InternalError(w, r, err)
-		return
-	}
-
-	httpio.JSON(w, r, http.StatusOK, InvitesPayload{Invites: invites})
 }
 
 type GetEventStopsPayload struct {

@@ -29,7 +29,9 @@ export const createApiRoutes = (baseUrl: string) => {
       },
     },
     invites: {
-      list: `${baseUrl}/events/invites`
+      pending: {
+        get: `${baseUrl}/invites/pending/count`
+      }
     },
     users: {
       create: `${baseUrl}/users`,

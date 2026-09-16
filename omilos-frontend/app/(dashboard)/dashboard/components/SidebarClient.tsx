@@ -9,17 +9,13 @@ import { AnimatePresence, motion } from "motion/react";
 import { ClientInvite } from "@/app/types/client";
 
 export type SidebarClientProps = {
-  invites: ClientInvite[]
+  pendingInviteCount: number
 }
 
-export default function SidebarClient({invites} : SidebarClientProps) {
+export default function SidebarClient({pendingInviteCount} : SidebarClientProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(true);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-
-  const pendingInvites = invites.filter(i => {
-    return i.event_member.rsvp_status === "pending"
-  })
 
   // Expose the sidebar's current width as a CSS variable so overlays
   // rendered elsewhere (e.g. the map's search box) can offset around it
@@ -65,7 +61,7 @@ export default function SidebarClient({invites} : SidebarClientProps) {
 
           <section className="flex flex-col m-4 gap-2">
             <SidebarLink pathname={pathname} title={"Events"} isOpen={isOpen} icon={<Calendar size={20}/>} />
-            <SidebarLink badgeCount={pendingInvites.length} pathname={pathname} title={"Invitations"} isOpen={isOpen} icon={<Bell size={20}/>} />
+            <SidebarLink badgeCount={pendingInviteCount} pathname={pathname} title={"Invitations"} isOpen={isOpen} icon={<Bell size={20}/>} />
             <SidebarLink pathname={pathname} title={"Profile"} isOpen={isOpen} icon={<User size={20}/>} />
           </section>
       </nav>
@@ -100,7 +96,7 @@ export default function SidebarClient({invites} : SidebarClientProps) {
 
               <section className="flex flex-col m-4 gap-2">
                 <SidebarLink pathname={pathname} title={"Events"} isOpen={true} icon={<Calendar size={20}/>} onNavigate={() => setIsMobileOpen(false)} />
-                <SidebarLink badgeCount={pendingInvites.length} pathname={pathname} title={"Invitations"} isOpen={true} icon={<Bell size={20}/>} onNavigate={() => setIsMobileOpen(false)} />
+                <SidebarLink badgeCount={pendingInviteCount} pathname={pathname} title={"Invitations"} isOpen={true} icon={<Bell size={20}/>} onNavigate={() => setIsMobileOpen(false)} />
                 <SidebarLink pathname={pathname} title={"Profile"} isOpen={true} icon={<User size={20}/>} onNavigate={() => setIsMobileOpen(false)} />
               </section>
             </motion.nav>

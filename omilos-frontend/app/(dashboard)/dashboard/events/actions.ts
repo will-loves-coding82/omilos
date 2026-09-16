@@ -104,36 +104,36 @@ export async function getEventsForUser(clerkId: string | null): Promise<ActionRe
   }
 }
 
-export async function getInvitesForUser(clerkId: string | null) : Promise<ActionResponse<APIInvite[]>> {
+export async function getPendingInviteCountForUser(clerkId: string | null) : Promise<ActionResponse<number>> {
   if (!clerkId) {
-    return { success: false, data: [], message: "Not authenticated" };
+    return { success: false, data: 0, message: "Not authenticated" };
   }
 
   try {
-    const res = await apiFetch(API_ROUTES.invites.list, {
+    const res = await apiFetch(API_ROUTES.invites.pending.get, {
       method: "GET"
     })
 
     if (!res.ok) {
       const body = await res.text()
-      console.error("Get invites failed:", res.status, body)
+      console.error("Get pending invite counts failed:", res.status, body)
       return {
         success: false,
-        data: [],
-        message: "Failed to fetch invites",
+        data: 0,
+        message: "Failed to fetch pending invite counts",
       }
     }
 
     const { data } = await res.json();
     return {
       success: true,
-      data: data.invites ?? []
+      data: data.pending_invite_count
     }
   }
   catch (err) {
     return {
       success: false,
-      data: [],
+      data: 0,
       message: err instanceof Error ? err.message : "An unknown error occurred",
     }
   }
