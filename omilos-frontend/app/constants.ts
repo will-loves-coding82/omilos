@@ -32,6 +32,7 @@ export const createApiRoutes = (baseUrl: string) => {
       list: `${baseUrl}/events/invites`
     },
     users: {
+      create: `${baseUrl}/users`,
       search: (searchQuery: string) => `${baseUrl}/users?search=${searchQuery}`
     }
   } as const; // Use 'as const' to make properties read-only and preserve exact literal types

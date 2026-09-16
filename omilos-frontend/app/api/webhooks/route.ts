@@ -1,4 +1,4 @@
-import { BASE_URL, USERS_ENDPOINT } from '@/app/constants'
+import { API_ROUTES } from '@/app/constants'
 import { verifyWebhook } from '@clerk/nextjs/webhooks'
 import { NextRequest } from 'next/server'
 
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       case "user.created": {
         // call create user endpoint
         try {
-          const res = await fetch(BASE_URL + USERS_ENDPOINT, {
+          const res = await fetch(API_ROUTES.users.create, {
             method: "POST",
             headers: {
               "Content-Type": "application/json"
