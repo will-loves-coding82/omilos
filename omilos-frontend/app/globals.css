@@ -82,7 +82,7 @@ body {
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
-@keyframes hangout-popup-in {
+@keyframes event-popup-in {
   0% {
     opacity: 0;
     transform: scale(0.7) translateY(6px);
@@ -97,7 +97,7 @@ body {
   }
 }
 
-.hangout-popup .mapboxgl-popup-content {
+.event-popup .mapboxgl-popup-content {
   background: #ffffff;
   width: 300px;
   height: 200px;
@@ -108,33 +108,33 @@ body {
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
-.hangout-popup .mapboxgl-popup-content,
-.hangout-popup .mapboxgl-popup-tip {
+.event-popup .mapboxgl-popup-content,
+.event-popup .mapboxgl-popup-tip {
   transform-origin: bottom center;
-  animation: hangout-popup-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: event-popup-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.hangout-popup.mapboxgl-popup-anchor-top .mapboxgl-popup-tip,
-.hangout-popup.mapboxgl-popup-anchor-top-left .mapboxgl-popup-tip,
-.hangout-popup.mapboxgl-popup-anchor-top-right .mapboxgl-popup-tip {
+.event-popup.mapboxgl-popup-anchor-top .mapboxgl-popup-tip,
+.event-popup.mapboxgl-popup-anchor-top-left .mapboxgl-popup-tip,
+.event-popup.mapboxgl-popup-anchor-top-right .mapboxgl-popup-tip {
   border-bottom-color: #ffffff;
 }
 
-.hangout-popup.mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip,
-.hangout-popup.mapboxgl-popup-anchor-bottom-left .mapboxgl-popup-tip,
-.hangout-popup.mapboxgl-popup-anchor-bottom-right .mapboxgl-popup-tip {
+.event-popup.mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip,
+.event-popup.mapboxgl-popup-anchor-bottom-left .mapboxgl-popup-tip,
+.event-popup.mapboxgl-popup-anchor-bottom-right .mapboxgl-popup-tip {
   border-top-color: #ffffff;
 }
 
-.hangout-popup.mapboxgl-popup-anchor-left .mapboxgl-popup-tip {
+.event-popup.mapboxgl-popup-anchor-left .mapboxgl-popup-tip {
   border-right-color: #ffffff;
 }
 
-.hangout-popup.mapboxgl-popup-anchor-right .mapboxgl-popup-tip {
+.event-popup.mapboxgl-popup-anchor-right .mapboxgl-popup-tip {
   border-left-color: #ffffff;
 }
 
-.hangout-popup .mapboxgl-popup-close-button {
+.event-popup .mapboxgl-popup-close-button {
   color: #505050;
   font-size: 18px;
   padding: 4px 8px;
@@ -142,7 +142,7 @@ body {
   right: 8px;
 }
 
-.hangout-popup .mapboxgl-popup-close-button:hover {
+.event-popup .mapboxgl-popup-close-button:hover {
   background: #f3f3f3;
   border-radius: 6px;
 }

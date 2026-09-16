@@ -10,14 +10,14 @@ import { ClientEventStop } from "@/app/types/client";
 type Tab = "Stops" | "Participants";
 const PANEL_WIDTH_DESKTOP = "300px";
 
-type HangoutSidePanelProps = {
+type EventSidePanelProps = {
   eventStops: ClientEventStop[];
   onReorderStops: (stops: ClientEventStop[]) => void;
   onSelectStop: (stop: ClientEventStop) => void;
   activeStopId: string | null;
 };
 
-export default function EventSidePanel({eventStops, onReorderStops, onSelectStop, activeStopId} : HangoutSidePanelProps) {
+export default function EventSidePanel({eventStops, onReorderStops, onSelectStop, activeStopId} : EventSidePanelProps) {
   const [activeTab, setActiveTab] = useState<Tab>("Stops");
   const ref = useRef<HTMLUListElement | null>(null);
 

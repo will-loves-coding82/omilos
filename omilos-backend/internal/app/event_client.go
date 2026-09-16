@@ -179,8 +179,8 @@ func (e *EventClient) GetnvitesForUser(clerkId string) ([]Invite, error) {
 	return invites, nil
 }
 
-// CreateNewHangoutTx initializes a new transaction and creates a new
-// hangout in the database. A second query in the same transaction
+// CreateNewEventTx initializes a new transaction and creates a new
+// event in the database. A second query in the same transaction
 // creates new notifications for the members invited to this event
 func (e *EventClient) CreateNewEventTx(ctx context.Context, clerkId string, event Event) (string, error) {
 	fail := func(err error) (string, error) {

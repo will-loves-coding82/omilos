@@ -264,7 +264,7 @@ export default function EventDetailsClient({slug, initialStops}: {slug: string, 
           <>
             { showStopMarkerPopup && (
               <Popup
-                className='hangout-popup flex'
+                className='event-popup flex'
                 anchor='bottom'
                 onClose={()=> setShowStopMarkerPopup(false)}
                 longitude={stopMarkerCoord.lon!}
@@ -292,7 +292,7 @@ export default function EventDetailsClient({slug, initialStops}: {slug: string, 
             <div key={s.mapbox_id}>
               {openStopId === s.mapbox_id && (
                 <Popup
-                  className='hangout-popup flex'
+                  className='event-popup flex'
                   anchor='bottom'
                   onClose={() => {
                     setOpenStopId(null);

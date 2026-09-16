@@ -1,6 +1,6 @@
 "use client";
 
-import { CreateHangoutModal } from "./createEventModal";
+import { CreateEventModal } from "./createEventModal";
 import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -11,31 +11,31 @@ export type EventsClientProps = {
 }
 
 export function EventsClient({events}: EventsClientProps) {
-  const [isCreateHangoutModalOpen, setCreateHangoutModalOpen] = useState(false);
+  const [isCreateEventModalOpen, setCreateEventModalOpen] = useState(false);
   const router = useRouter();
 
   function openCreateModal() {
-      setCreateHangoutModalOpen(true);
+      setCreateEventModalOpen(true);
   }
 
   function closeCreateModal() {
-    setCreateHangoutModalOpen(false);
+    setCreateEventModalOpen(false);
   }
 
   return (
     <section className="flex flex-col w-full h-full max-w-[1700px] mx-auto py-6 gap-16">
-      <CreateHangoutModal isOpen={isCreateHangoutModalOpen} onClose={closeCreateModal}/>
+      <CreateEventModal isOpen={isCreateEventModalOpen} onClose={closeCreateModal}/>
       <section id="header" className="flex justify-between w-full px-4">
-        {/* Hangout search bar  */}
+        {/* Event search bar  */}
         <div></div>
         <div id="options-group" className="flex gap-8">
-          <button id="create-hangout-btn" className="rounded-lg px-4 py-2 bg-bg-secondary font-medium" onClick={()=>openCreateModal()}>Create</button>
+          <button id="create-event-btn" className="rounded-lg px-4 py-2 bg-bg-secondary font-medium" onClick={()=>openCreateModal()}>Create</button>
         </div>
       </section>
       
       <section id="collection" className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 px-4 w-full">
         {events.map(h => (
-          <EventPreviewCard key={h.slug} hangout={h} onClick={() => router.push(`/dashboard/hangouts/${h.slug}`) }/>
+          <EventPreviewCard key={h.slug} event={h} onClick={() => router.push(`/dashboard/events/${h.slug}`) }/>
         ))}
       </section>
     </section>
@@ -43,27 +43,27 @@ export function EventsClient({events}: EventsClientProps) {
 }
 
 
-function EventPreviewCard({ hangout, onClick }: { hangout: ClientEvent, onClick: () => void }) {
+function EventPreviewCard({ event, onClick }: { event: ClientEvent, onClick: () => void }) {
   return (
     <div onClick={onClick} className="hover:cursor-pointer mx-auto w-full max-w-[400px] md:w-full md:max-w-[480px] lg:max-w-full bg-bg-primary border-1 border-border-primary shadow-md rounded-lg overflow-hidden">
       <section className="relative h-[140px] bg-bg-secondary overflow-hidden">
-        {hangout.image_url &&
+        {event.image_url &&
           <Image
             fill
             sizes="(min-width: 1280px) 33vw, (min-width: 1024px) 50vw, 100vw"
             className="object-cover"
-            alt="hangout cover image"
-            src={hangout.image_url}
+            alt="event cover image"
+            src={event.image_url}
           />
         }
       </section>
       <section className="p-4">
-        <h2 className="text-md text-text-primary font-medium">{hangout.title}</h2>
-        <p className="text-sm text-text-secondary">{hangout.description}</p>
+        <h2 className="text-md text-text-primary font-medium">{event.title}</h2>
+        <p className="text-sm text-text-secondary">{event.description}</p>
       </section>
 
       <section className="flex w-full items-center gap-1 p-4">
-        {hangout.members?.map((m) =>
+        {event.members?.map((m) =>
           m.image_url?.length ?
           <Image
             key={m.id}

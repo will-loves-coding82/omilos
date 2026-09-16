@@ -13,12 +13,12 @@ import Cropper, { Area, Point } from "react-easy-crop";
 import { getCroppedImageFile } from "../cropImage";
 import { ClientUser } from "@/app/types/client";
 
-type CreateHangoutModalProps = {
+type CreateEventModalProps = {
   isOpen: boolean,
   onClose: () => void
 }
 
-export function CreateHangoutModal({ isOpen, onClose }: CreateHangoutModalProps) {
+export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
   const router = useRouter();
 
   const initialState: ActionResponse<Partial<APIEvent>> = {
@@ -55,7 +55,7 @@ export function CreateHangoutModal({ isOpen, onClose }: CreateHangoutModalProps)
   const isStep1Valid = detailsResult.success;
 
   const steps = [
-    { id: 1, title: "Give your hangout some details" },
+    { id: 1, title: "Give your event some details" },
     { id: 2, title: "Who do you want to invite?" },
     { id: 3, title: "Add a fun cover image" }
   ]

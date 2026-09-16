@@ -64,7 +64,7 @@ export default function SidebarClient({invites} : SidebarClientProps) {
           </section>
 
           <section className="flex flex-col m-4 gap-2">
-            <SidebarLink pathname={pathname} title={"Hangouts"} isOpen={isOpen} icon={<Calendar size={20}/>} />
+            <SidebarLink pathname={pathname} title={"Events"} isOpen={isOpen} icon={<Calendar size={20}/>} />
             <SidebarLink badgeCount={pendingInvites.length} pathname={pathname} title={"Invitations"} isOpen={isOpen} icon={<Bell size={20}/>} />
             <SidebarLink pathname={pathname} title={"Profile"} isOpen={isOpen} icon={<User size={20}/>} />
           </section>
@@ -99,7 +99,7 @@ export default function SidebarClient({invites} : SidebarClientProps) {
               </section>
 
               <section className="flex flex-col m-4 gap-2">
-                <SidebarLink pathname={pathname} title={"Hangouts"} isOpen={true} icon={<Calendar size={20}/>} onNavigate={() => setIsMobileOpen(false)} />
+                <SidebarLink pathname={pathname} title={"Events"} isOpen={true} icon={<Calendar size={20}/>} onNavigate={() => setIsMobileOpen(false)} />
                 <SidebarLink badgeCount={pendingInvites.length} pathname={pathname} title={"Invitations"} isOpen={true} icon={<Bell size={20}/>} onNavigate={() => setIsMobileOpen(false)} />
                 <SidebarLink pathname={pathname} title={"Profile"} isOpen={true} icon={<User size={20}/>} onNavigate={() => setIsMobileOpen(false)} />
               </section>
@@ -131,7 +131,7 @@ function SidebarLink({pathname, title, isOpen, icon, badgeCount, onNavigate}: Si
     >
       <div className={`flex items-center w-full gap-2 ${isActive ? "text-text-active font-medium" : "text-text-secondary"}`}>
         <span className="shrink-0">{icon}</span>
-        {isOpen ? <span>{title} {badgeCount}</span> : null}
+        {isOpen ? <span>{title} {badgeCount ?? 0 > 0 ? badgeCount : ""}</span> : null}
       </div>
     </Link>
   )

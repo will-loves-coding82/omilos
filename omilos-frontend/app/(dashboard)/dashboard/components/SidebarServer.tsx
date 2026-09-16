@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "@clerk/nextjs/server";
-import { getInvitesForUser } from "../hangouts/actions";
+import { getInvitesForUser } from "../events/actions";
 import SidebarClient from "./SidebarClient";
 import { ClientInvite, RSVPStatus } from "@/app/types/client";
 import { APIInvite } from "@/app/types/api";

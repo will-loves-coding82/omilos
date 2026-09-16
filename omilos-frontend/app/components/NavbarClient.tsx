@@ -62,7 +62,7 @@ function AuthGroup() {
       {isSignedIn ? 
         <section id="auth" className="flex gap-4">
           <UserButton/>
-          <Link href="/dashboard/hangouts">Dashboard</Link>
+          <Link href="/dashboard/events">Dashboard</Link>
         </section>
         :
         <section id="auth" className="flex gap-8">
