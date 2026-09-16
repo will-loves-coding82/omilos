@@ -10,6 +10,8 @@ import (
 	"omilos-backend/internal/server/httpio"
 	"strconv"
 	"time"
+
+	"github.com/clerk/clerk-sdk-go/v2"
 )
 
 type EventHandler struct {
@@ -46,11 +48,12 @@ func (h *EventHandler) CreateNewEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clerkId := r.URL.Query().Get("clerkId")
-	if len(clerkId) == 0 {
-		httpio.BadRequest(w, r, errors.New("clerkId query param is required"))
+	claims, ok := clerk.SessionClaimsFromContext(r.Context())
+	if !ok {
+		httpio.InternalError(w, r, errors.New("no session claims in context"))
 		return
 	}
+	clerkId := claims.Subject
 
 	newSlug, err := h.client.CreateNewEventTx(ctx, clerkId, event)
 	if err != nil {
@@ -63,11 +66,12 @@ func (h *EventHandler) CreateNewEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *EventHandler) GetEventsForUser(w http.ResponseWriter, r *http.Request) {
-	clerkId := r.URL.Query().Get("clerkId")
-	if len(clerkId) == 0 {
-		httpio.BadRequest(w, r, errors.New("clerkId query param is required"))
+	claims, ok := clerk.SessionClaimsFromContext(r.Context())
+	if !ok {
+		httpio.InternalError(w, r, errors.New("no session claims in context"))
 		return
 	}
+	clerkId := claims.Subject
 
 	events, err := h.client.GetEventsForUser(clerkId)
 	if err != nil {
@@ -79,11 +83,12 @@ func (h *EventHandler) GetEventsForUser(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *EventHandler) GetInvitesForUser(w http.ResponseWriter, r *http.Request) {
-	clerkId := r.URL.Query().Get("clerkId")
-	if len(clerkId) == 0 {
-		httpio.BadRequest(w, r, errors.New("userId query param is required"))
+	claims, ok := clerk.SessionClaimsFromContext(r.Context())
+	if !ok {
+		httpio.InternalError(w, r, errors.New("no session claims in context"))
 		return
 	}
+	clerkId := claims.Subject
 
 	invites, err := h.client.GetnvitesForUser(clerkId)
 	if err != nil {
@@ -99,6 +104,12 @@ type GetEventStopsPayload struct {
 }
 
 func (h *EventHandler) GetEventStops(w http.ResponseWriter, r *http.Request) {
+	_, ok := clerk.SessionClaimsFromContext(r.Context())
+	if !ok {
+		httpio.InternalError(w, r, errors.New("no session claims in context"))
+		return
+	}
+
 	eventSlug := r.PathValue("slug")
 	if len(eventSlug) == 0 {
 		httpio.BadRequest(w, r, errors.New("slug path parameter is missing"))
@@ -119,6 +130,12 @@ type AddEventStopPayload struct {
 }
 
 func (h *EventHandler) AddNewEventStop(w http.ResponseWriter, r *http.Request) {
+	_, ok := clerk.SessionClaimsFromContext(r.Context())
+	if !ok {
+		httpio.InternalError(w, r, errors.New("no session claims in context"))
+		return
+	}
+
 	eventSlug := r.PathValue("slug")
 	if len(eventSlug) == 0 {
 		httpio.BadRequest(w, r, errors.New("slug path parameter is missing"))
@@ -149,6 +166,12 @@ func (h *EventHandler) AddNewEventStop(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *EventHandler) ReorderEventStops(w http.ResponseWriter, r *http.Request) {
+	_, ok := clerk.SessionClaimsFromContext(r.Context())
+	if !ok {
+		httpio.InternalError(w, r, errors.New("no session claims in context"))
+		return
+	}
+
 	eventSlug := r.PathValue("slug")
 	if len(eventSlug) == 0 {
 		httpio.BadRequest(w, r, errors.New("slug path parameter is missing"))
@@ -172,6 +195,12 @@ func (h *EventHandler) ReorderEventStops(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *EventHandler) DeleteEventStop(w http.ResponseWriter, r *http.Request) {
+	_, ok := clerk.SessionClaimsFromContext(r.Context())
+	if !ok {
+		httpio.InternalError(w, r, errors.New("no session claims in context"))
+		return
+	}
+
 	eventSlug := r.PathValue("slug")
 	if len(eventSlug) == 0 {
 		httpio.BadRequest(w, r, errors.New("slug path parameter is missing"))

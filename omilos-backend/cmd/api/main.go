@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"omilos-backend/internal/server"
+
+	"github.com/clerk/clerk-sdk-go/v2"
 )
 
 func gracefulShutdown(apiServer *http.Server, done chan bool) {
@@ -40,6 +43,7 @@ func gracefulShutdown(apiServer *http.Server, done chan bool) {
 func main() {
 
 	server := server.NewServer()
+	clerk.SetKey(os.Getenv("CLERK_SECRET_KEY"))
 
 	// Create a done channel to signal when the shutdown is complete
 	done := make(chan bool, 1)

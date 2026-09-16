@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"omilos-backend/internal/app"
@@ -11,6 +12,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/clerk/clerk-sdk-go/v2"
+	clerkhttp "github.com/clerk/clerk-sdk-go/v2/http"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -47,20 +50,40 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 	r.Get("/health", s.healthHandler)
 
 	r.Post("/users", userHandler.CreateNewUser)
-	r.Get("/users", userHandler.SearchUsers)
 
-	r.Post("/events", eventHandler.CreateNewEvent)
-	r.Get("/events", eventHandler.GetEventsForUser)
-	r.Get("/events/invites", eventHandler.GetInvitesForUser)
-	r.Get("/events/{slug}/stops", eventHandler.GetEventStops)
+	r.Group(func(r chi.Router) {
+		r.Use(Middleware)
 
-	r.Post("/events/{slug}/stops", eventHandler.AddNewEventStop)
-	r.Patch("/events/{slug}/stops", eventHandler.ReorderEventStops)
-	r.Delete("/events/{slug}/stops/{stopId}", eventHandler.DeleteEventStop)
+		r.Get("/users", userHandler.SearchUsers)
 
-	r.Get("/presign", awsPresignHandler.GetPresignedURL)
+		r.Post("/events", eventHandler.CreateNewEvent)
+		r.Get("/events", eventHandler.GetEventsForUser)
+		r.Get("/events/invites", eventHandler.GetInvitesForUser)
+		r.Get("/events/{slug}/stops", eventHandler.GetEventStops)
+
+		r.Post("/events/{slug}/stops", eventHandler.AddNewEventStop)
+		r.Patch("/events/{slug}/stops", eventHandler.ReorderEventStops)
+		r.Delete("/events/{slug}/stops/{stopId}", eventHandler.DeleteEventStop)
+
+		r.Get("/presign", awsPresignHandler.GetPresignedURL)
+	})
 
 	return r
+}
+
+func Middleware(next http.Handler) http.Handler {
+	return clerkhttp.RequireHeaderAuthorization()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, ok := clerk.SessionClaimsFromContext(r.Context())
+		if !ok {
+			fmt.Print("middleware failed")
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		// claims.Subject is the Clerk user id — already verified and in context
+		next.ServeHTTP(w, r)
+	}))
+
 }
 
 func (s *Server) HelloWorldHandler(w http.ResponseWriter, r *http.Request) {
