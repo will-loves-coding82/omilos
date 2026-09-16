@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"omilos-backend/internal/database"
 )
 
@@ -102,7 +101,6 @@ func (m *InviteClient) GetPendingInviteCountForUser(clerkId string) (int64, erro
 		return 0, fmt.Errorf("GetPendingInviteCountForUser: %v", err)
 	}
 
-	log.Printf("Got pending invite count: %d\n", count)
 	return count, nil
 }
 

@@ -92,7 +92,7 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
           console.log("Failed to search users")
         }
         console.log("results: " + res.data)
-        setSearchResults(res.data)
+        setSearchResults(res.data.users)
         setIsDropdownOpen(true)
       }
       catch (err) {
