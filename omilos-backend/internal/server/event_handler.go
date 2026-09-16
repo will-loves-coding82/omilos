@@ -10,8 +10,6 @@ import (
 	"omilos-backend/internal/server/httpio"
 	"strconv"
 	"time"
-
-	"github.com/clerk/clerk-sdk-go/v2"
 )
 
 type EventHandler struct {
@@ -44,14 +42,13 @@ func (h *EventHandler) CreateNewEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims, ok := clerk.SessionClaimsFromContext(r.Context())
+	user, ok := UserFromContext(r.Context())
 	if !ok {
-		httpio.InternalError(w, r, errors.New("no session claims in context"))
+		httpio.InternalError(w, r, errors.New("no user in context"))
 		return
 	}
-	clerkId := claims.Subject
 
-	newSlug, err := h.client.CreateNewEventTx(ctx, clerkId, event)
+	newSlug, err := h.client.CreateNewEventTx(ctx, user.Id, event)
 	if err != nil {
 		fmt.Print(err)
 		httpio.InternalError(w, r, err)
@@ -62,14 +59,13 @@ func (h *EventHandler) CreateNewEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *EventHandler) GetEventsForUser(w http.ResponseWriter, r *http.Request) {
-	claims, ok := clerk.SessionClaimsFromContext(r.Context())
+	user, ok := UserFromContext(r.Context())
 	if !ok {
-		httpio.InternalError(w, r, errors.New("no session claims in context"))
+		httpio.InternalError(w, r, errors.New("no user in context"))
 		return
 	}
-	clerkId := claims.Subject
 
-	events, err := h.client.GetEventsForUser(clerkId)
+	events, err := h.client.GetEventsForUser(user.Id)
 	if err != nil {
 		httpio.InternalError(w, r, err)
 		return
@@ -83,9 +79,9 @@ type GetEventStopsPayload struct {
 }
 
 func (h *EventHandler) GetEventStops(w http.ResponseWriter, r *http.Request) {
-	_, ok := clerk.SessionClaimsFromContext(r.Context())
+	_, ok := UserFromContext(r.Context())
 	if !ok {
-		httpio.InternalError(w, r, errors.New("no session claims in context"))
+		httpio.InternalError(w, r, errors.New("no user in context"))
 		return
 	}
 
@@ -109,9 +105,9 @@ type AddEventStopPayload struct {
 }
 
 func (h *EventHandler) AddNewEventStop(w http.ResponseWriter, r *http.Request) {
-	_, ok := clerk.SessionClaimsFromContext(r.Context())
+	_, ok := UserFromContext(r.Context())
 	if !ok {
-		httpio.InternalError(w, r, errors.New("no session claims in context"))
+		httpio.InternalError(w, r, errors.New("no user in context"))
 		return
 	}
 
@@ -145,9 +141,9 @@ func (h *EventHandler) AddNewEventStop(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *EventHandler) ReorderEventStops(w http.ResponseWriter, r *http.Request) {
-	_, ok := clerk.SessionClaimsFromContext(r.Context())
+	_, ok := UserFromContext(r.Context())
 	if !ok {
-		httpio.InternalError(w, r, errors.New("no session claims in context"))
+		httpio.InternalError(w, r, errors.New("no user in context"))
 		return
 	}
 
@@ -174,9 +170,9 @@ func (h *EventHandler) ReorderEventStops(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *EventHandler) DeleteEventStop(w http.ResponseWriter, r *http.Request) {
-	_, ok := clerk.SessionClaimsFromContext(r.Context())
+	_, ok := UserFromContext(r.Context())
 	if !ok {
-		httpio.InternalError(w, r, errors.New("no session claims in context"))
+		httpio.InternalError(w, r, errors.New("no user in context"))
 		return
 	}
 

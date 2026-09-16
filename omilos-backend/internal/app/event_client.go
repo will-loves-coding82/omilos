@@ -129,14 +129,9 @@ func (e *EventClient) GetEventIdForSlug(slug string) (int64, error) {
 	return id, nil
 }
 
-func (e *EventClient) GetEventsForUser(clerkId string) ([]Event, error) {
-	user, err := e.userClient.GetUserByClerkId(clerkId)
-	if err != nil {
-		return nil, fmt.Errorf("GetEventsForUser: %v", err)
-	}
-
+func (e *EventClient) GetEventsForUser(userId int64) ([]Event, error) {
 	events := []Event{}
-	if err := e.db.Conn().Select(&events, getEventsForUserQuery, user.Id); err != nil {
+	if err := e.db.Conn().Select(&events, getEventsForUserQuery, userId); err != nil {
 		if err == sql.ErrNoRows {
 			return make([]Event, 0), nil
 		}
@@ -149,14 +144,9 @@ func (e *EventClient) GetEventsForUser(clerkId string) ([]Event, error) {
 // CreateNewEventTx initializes a new transaction and creates a new
 // event in the database. A second query in the same transaction
 // creates new notifications for the members invited to this event
-func (e *EventClient) CreateNewEventTx(ctx context.Context, clerkId string, event Event) (string, error) {
+func (e *EventClient) CreateNewEventTx(ctx context.Context, hostId int64, event Event) (string, error) {
 	fail := func(err error) (string, error) {
 		return "", fmt.Errorf("CreateNewEventTx: %v", err)
-	}
-
-	host, err := e.userClient.GetUserByClerkId(clerkId)
-	if err != nil {
-		return fail(err)
 	}
 
 	newSlug, err := slug.Generate(16)
@@ -178,7 +168,7 @@ func (e *EventClient) CreateNewEventTx(ctx context.Context, clerkId string, even
 	var eventId int64
 	err = tx.QueryRow(
 		`INSERT INTO events(slug, name, description, date, host_id, image_url) VALUES($1, $2, $3, $4, $5, $6) RETURNING id;`,
-		newSlug, event.Title, event.Description, parsedDate, host.Id, event.ImageURL,
+		newSlug, event.Title, event.Description, parsedDate, hostId, event.ImageURL,
 	).Scan(&eventId)
 	if err != nil {
 		return fail(err)
