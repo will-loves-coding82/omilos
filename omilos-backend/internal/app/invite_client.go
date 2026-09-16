@@ -62,17 +62,15 @@ const getAllInvitesForUserQuery = `
 `
 
 const acceptInviteQuery = `
-	UPDATE event_member em
-	JOIN events e ON em.event_id = e.id
+	UPDATE event_members
 	SET rsvp_status = 'accepted'
-	WHERE em.user_id = $1 AND em.event_id = $2;
+	WHERE user_id = $1 AND event_id = $2;
 `
 
 const declineInviteQuery = `
-	UPDATE event_member em
-	JOIN events e ON em.event_id = e.id
+	UPDATE event_members
 	SET rsvp_status = 'declined'
-	WHERE em.user_id = $1 AND em.event_id = $2;
+	WHERE user_id = $1 AND event_id = $2;
 `
 
 type Invite struct {

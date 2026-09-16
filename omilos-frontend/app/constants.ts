@@ -34,7 +34,8 @@ export const createApiRoutes = (baseUrl: string) => {
       },
       all: {
         list: `${baseUrl}/invites/all`
-      }
+      },
+      update: `${baseUrl}/invites`
     },
     users: {
       create: `${baseUrl}/users`,

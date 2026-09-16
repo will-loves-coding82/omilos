@@ -3,6 +3,7 @@
 import { ClientInvite } from "@/app/types/client";
 import TabButton from "../events/components/tab-button";
 import { useState } from "react";
+import { acceptInvite, declineInvite } from "@/app/actions/invite-actions";
 
 export type InvitationsClientProps = {
   data: {
@@ -15,12 +16,28 @@ export default function InvitationsClient({data} : InvitationsClientProps) {
    const [activeTab, setActiveTab] = useState<string>("Sent");
 
    async function onAcceptInvite(invite: ClientInvite) {
-
+    try {
+      const res = await acceptInvite(invite);
+      if (!res.success) {
+        console.log("Failed to accept invite")
+      }
+    }
+    catch (err) {
+      console.log("Error accepting invite: " + err)
+    }
    }
 
    async function onDeclineInvite(invite: ClientInvite) {
-
-   }
+    try {
+        const res = await declineInvite(invite);
+        if (!res.success) {
+          console.log("Failed to decline invite")
+        }
+      }
+      catch (err) {
+        console.log("Error declining invite: " + err)
+      }
+    }
   
   return (
     <section className="flex flex-col w-full h-full max-w-4xl mx-auto py-6">
@@ -55,7 +72,7 @@ export default function InvitationsClient({data} : InvitationsClientProps) {
             {
               data.received.length > 0 &&
               data.received.map(invite => (
-                <InviteReceivedCard key={invite.event.slug} invite={invite}/>
+                <InviteReceivedCard key={invite.event.slug} invite={invite} onAccept={onAcceptInvite} onDecline={onDeclineInvite}/>
               ))
             }
           </ul>
@@ -65,7 +82,11 @@ export default function InvitationsClient({data} : InvitationsClientProps) {
   )
 }
 
-function InviteSentCard({invite}: {invite: ClientInvite}) {
+type InviteSentCardProps = {
+  invite: ClientInvite
+}
+
+function InviteSentCard({invite}: InviteSentCardProps) {
   return (
     <div className="w-full rounded-lg bg-bg-secondary p-3">
       <p className="text-lg font-medium">You</p>
@@ -74,7 +95,13 @@ function InviteSentCard({invite}: {invite: ClientInvite}) {
   )
 }
 
-function InviteReceivedCard({invite}: {invite: ClientInvite}) {
+type InviteReceivedCardProps = {
+  invite: ClientInvite,
+  onAccept: (invite: ClientInvite) => void,
+  onDecline: (invite: ClientInvite) => void,
+}
+
+function InviteReceivedCard({invite, onAccept, onDecline}: InviteReceivedCardProps) {
   return (
     <div className="flex justify-between items-center w-full rounded-lg bg-bg-secondary p-3">
       <div>
@@ -82,8 +109,8 @@ function InviteReceivedCard({invite}: {invite: ClientInvite}) {
         <p className="text-text-secondary">Invited you to join {invite.event.title}</p>
       </div>
       <span>
-        <button className="py-1 px-3 rounded-md text-red-400">Decline</button>
-        <button className="bg-text-primary text-text-inverse py-1 px-3 rounded-md">Accept</button>
+        <button onClick={async()=>{onDecline(invite)}} className="hover:cursor-pointer py-1 px-3 rounded-md text-red-400">Decline</button>
+        <button onClick={async()=>{onAccept(invite)}} className="hover:cursor-pointer bg-text-primary text-text-inverse py-1 px-3 rounded-md">Accept</button>
       </span>
     </div>
   )

@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { API_ROUTES } from "../constants";
 import { APIInvite } from "../types/api";
 import { ClientInvite } from "../types/client";
@@ -79,9 +80,72 @@ export async function getAllInvitesForUser(clerkId: string | null) : Promise<Act
 }
 
 export async function acceptInvite(invite: ClientInvite) : Promise<ActionResponse<null>> {
+  try {
+    const res = await apiFetch(API_ROUTES.invites.update, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({invite: invite, new_status: "accepted"})
+    })
 
+    if (!res.ok) {
+      return {
+        success: false,
+        data: null,
+        message: "Failed to accept invite status"
+      }
+    }
+
+    const { data } = await res.json();
+    
+    revalidatePath("/dashboard/invites");
+    revalidatePath("/dashboard/events")
+
+    return {
+      success: true,
+      data: data
+    }
+  }
+  catch (err) {
+    return {
+      success: false,
+      data: null,
+      message: err instanceof Error ? err.message : "An unknown error occured"
+    }
+  }
 }
 
 export async function declineInvite(invite: ClientInvite) : Promise<ActionResponse<null>> {
+try {
+    const res = await apiFetch(API_ROUTES.invites.update, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({invite: invite, new_status: "declined"})
+    })
 
+    if (!res.ok) {
+      return {
+        success: false,
+        data: null,
+        message: "Failed to accept invite status"
+      }
+    }
+
+    const { data } = await res.json();
+    revalidatePath("/dashboard/invites");
+    return {
+      success: true,
+      data: data
+    }
+  }
+  catch (err) {
+    return {
+      success: false,
+      data: null,
+      message: err instanceof Error ? err.message : "An unknown error occured"
+    }
+  }
 }

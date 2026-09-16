@@ -58,16 +58,17 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 
 		r.Get("/users", userHandler.SearchUsers)
 
-		r.Post("/events", eventHandler.CreateNewEvent)
 		r.Get("/events", eventHandler.GetEventsForUser)
+		r.Post("/events", eventHandler.CreateNewEvent)
 		r.Get("/events/{slug}/stops", eventHandler.GetEventStops)
 
 		r.Post("/events/{slug}/stops", eventHandler.AddNewEventStop)
 		r.Patch("/events/{slug}/stops", eventHandler.ReorderEventStops)
 		r.Delete("/events/{slug}/stops/{stopId}", eventHandler.DeleteEventStop)
 
-		r.Get("/invites/pending/count", inviteHandler.GetPendingInviteCountForUser)
+		r.Patch("/invites", inviteHandler.UpdateInviteStatus)
 		r.Get("/invites/all", inviteHandler.GetAllInvitesForUser)
+		r.Get("/invites/pending/count", inviteHandler.GetPendingInviteCountForUser)
 
 		r.Get("/presign", awsPresignHandler.GetPresignedURL)
 	})
