@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"omilos-backend/internal/database"
 	"omilos-backend/internal/slug"
@@ -158,6 +159,9 @@ func (e *EventClient) GetEventsForUser(clerkId string) ([]Event, error) {
 
 	events := []Event{}
 	if err := e.db.Conn().Select(&events, getEventsForUserQuery, user.Id); err != nil {
+		if err == sql.ErrNoRows {
+			return make([]Event, 0), nil
+		}
 		return nil, fmt.Errorf("GetEventsForUser: %v", err)
 	}
 
@@ -165,14 +169,17 @@ func (e *EventClient) GetEventsForUser(clerkId string) ([]Event, error) {
 }
 
 // GetnvitesForUser returns all the invites that a user recieved or sent
-func (e *EventClient) GetnvitesForUser(clerkId string) ([]Invite, error) {
+func (e *EventClient) GetInvitesForUser(clerkId string) ([]Invite, error) {
 	user, err := e.userClient.GetUserByClerkId(clerkId)
 	if err != nil {
-		return nil, fmt.Errorf("GetEventsForUser: %v", err)
+		return nil, fmt.Errorf("GetInvitesForUser: %v", err)
 	}
 
 	invites := []Invite{}
 	if err := e.db.Conn().Select(&invites, getInvitesQuery, user.Id); err != nil {
+		if err == sql.ErrNoRows {
+			return make([]Invite, 0), nil
+		}
 		return nil, fmt.Errorf("GetEventsPendingInvitesForUser: %v", err)
 	}
 
@@ -236,6 +243,9 @@ func (e *EventClient) GetEventStops(slug string) ([]EventStop, error) {
 	var eventStops []EventStop
 	err := e.db.Conn().Select(&eventStops, getEventStopsQuery, slug)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return make([]EventStop, 0), nil
+		}
 		return nil, err
 	}
 

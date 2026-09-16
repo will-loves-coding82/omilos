@@ -26,6 +26,10 @@
 
   --color-bg-active: #eefad1;
   --color-text-active: #6ebc29;
+
+  --color-badge-bg: var(--color-danger);
+  --color-badge-border: var(--color-bg-primary);
+  --color-badge-text: #ffffff;
 }
 
 @theme inline {
@@ -53,6 +57,10 @@
 
   --color-bg-active: var(--color-bg-active);
   --color-text-active: var(--color-text-active);
+
+  --color-badge-bg: var(--color-badge-bg);
+  --color-badge-border: var(--color-badge-border);
+  --color-badge-text: var(--color-badge-text);
 }
 
 @media (prefers-color-scheme: dark) {

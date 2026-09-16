@@ -210,11 +210,11 @@ export async function createNewEvent(prevState: ActionResponse<Partial<APIEvent>
       headers: {
         "Content-Type": "application/json"
       },
+      // No need to add host id since this is handled via the clerk token
       body: JSON.stringify({
         title: parsed.data.title,
         description: parsed.data.description,
         image_url: imageUrl,
-        host_id: clerkId,
         date: parsed.data.date,
         member_ids: memberIds,
       })

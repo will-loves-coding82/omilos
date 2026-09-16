@@ -130,9 +130,26 @@ function SidebarLink({pathname, title, isOpen, icon, badgeCount, onNavigate}: Si
       className={`h-[40px] flex items-center ${isActive ? "bg-bg-active" : "bg-transparent"} transition-all duration-200 hover:cursor-pointer px-3 py-2 rounded-md w-full text-text-primary`}
     >
       <div className={`flex items-center w-full gap-2 ${isActive ? "text-text-active font-medium" : "text-text-secondary"}`}>
-        <span className="shrink-0">{icon}</span>
-        {isOpen ? <span>{title} {badgeCount ?? 0 > 0 ? badgeCount : ""}</span> : null}
+        <span className="shrink-0">
+          <SidebarBadge count={badgeCount} />
+          {icon}
+        </span>
+        {isOpen ? <span>{title}</span> : null}
       </div>
     </Link>
+  )
+}
+
+type SidebarBadgeProps = {
+  count?: number,
+}
+
+function SidebarBadge({count}: SidebarBadgeProps) {
+  if (!count || count <= 0) return null;
+
+  return (
+    <p className="h-[20px] w-[20px] absolute border-box translate-x-[8px] translate-y-[-12px] flex justify-center items-center border-2 border-badge-border bg-badge-bg rounded-full text-[10px] text-badge-text">
+      {count}
+    </p>
   )
 }

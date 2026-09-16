@@ -90,7 +90,7 @@ func (h *EventHandler) GetInvitesForUser(w http.ResponseWriter, r *http.Request)
 	}
 	clerkId := claims.Subject
 
-	invites, err := h.client.GetnvitesForUser(clerkId)
+	invites, err := h.client.GetInvitesForUser(clerkId)
 	if err != nil {
 		httpio.InternalError(w, r, err)
 		return
