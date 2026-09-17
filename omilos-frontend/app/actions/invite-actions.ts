@@ -2,9 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { API_ROUTES } from "../constants";
-import { APIInvite } from "../types/api";
-import { ClientInvite } from "../types/client";
-import { ActionResponse, apiFetch } from "./utils";
+import { ClientInvite } from "../types/client-types";
+import { apiFetch } from "./utils";
+import { ActionResponse } from "./action-types";
+import { Invite } from "../types/api-types";
 
 export async function getPendingInviteCountForUser(clerkId: string | null) : Promise<ActionResponse<{count: number}>> {
   if (!clerkId) {
@@ -42,7 +43,7 @@ export async function getPendingInviteCountForUser(clerkId: string | null) : Pro
 
 }
 
-export async function getAllInvitesForUser(clerkId: string | null) : Promise<ActionResponse<{sent: APIInvite[], received: APIInvite[]} | null>> {
+export async function getAllInvitesForUser(clerkId: string | null) : Promise<ActionResponse<{sent: Invite[], received: Invite[]} | null>> {
   if (!clerkId) {
     return { success: false, data: null, message: "Not authenticated" };
   }
@@ -86,7 +87,7 @@ export async function acceptInvite(invite: ClientInvite) : Promise<ActionRespons
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({invite: invite, new_status: "accepted"})
+      body: JSON.stringify({invite, new_status: "accepted"})
     })
 
     if (!res.ok) {
@@ -96,15 +97,13 @@ export async function acceptInvite(invite: ClientInvite) : Promise<ActionRespons
         message: "Failed to accept invite status"
       }
     }
-
-    const { data } = await res.json();
     
     revalidatePath("/dashboard/invites");
     revalidatePath("/dashboard/events")
 
     return {
       success: true,
-      data: data
+      data: null
     }
   }
   catch (err) {
@@ -123,7 +122,7 @@ try {
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({invite: invite, new_status: "declined"})
+      body: JSON.stringify({invite, new_status: "declined"})
     })
 
     if (!res.ok) {
@@ -134,11 +133,43 @@ try {
       }
     }
 
-    const { data } = await res.json();
     revalidatePath("/dashboard/invites");
     return {
       success: true,
-      data: data
+      data: null
+    }
+  }
+  catch (err) {
+    return {
+      success: false,
+      data: null,
+      message: err instanceof Error ? err.message : "An unknown error occured"
+    }
+  }
+}
+
+export async function resendDeclinedInvite(invite: ClientInvite) : Promise<ActionResponse<null>> {
+  try {
+    const res = await apiFetch(API_ROUTES.invites.update, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({invite, new_status: "pending"})
+    })
+
+    if (!res.ok) {
+      return {
+        success: false,
+        data: null,
+        message: "Failed to resend declined invite"
+      }
+    }
+
+    revalidatePath("/dashboard/invites");
+    return {
+      success: true,
+      data: null
     }
   }
   catch (err) {

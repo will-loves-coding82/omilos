@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"omilos-backend/internal/app"
 	"omilos-backend/internal/server/httpio"
@@ -67,6 +68,7 @@ func (h *EventHandler) GetEventsForUser(w http.ResponseWriter, r *http.Request) 
 
 	events, err := h.client.GetEventsForUser(user.Id)
 	if err != nil {
+		log.Printf(err.Error())
 		httpio.InternalError(w, r, err)
 		return
 	}
@@ -78,7 +80,7 @@ type GetEventStopsPayload struct {
 	Stops []app.EventStop `json:"stops"`
 }
 
-func (h *EventHandler) GetEventStops(w http.ResponseWriter, r *http.Request) {
+func (h *EventHandler) GetEventDetails(w http.ResponseWriter, r *http.Request) {
 	_, ok := UserFromContext(r.Context())
 	if !ok {
 		httpio.InternalError(w, r, errors.New("no user in context"))
@@ -91,7 +93,7 @@ func (h *EventHandler) GetEventStops(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stops, err := h.client.GetEventStops(eventSlug)
+	stops, err := h.client.GetEventDetails(eventSlug)
 	if err != nil {
 		httpio.InternalError(w, r, err)
 		return

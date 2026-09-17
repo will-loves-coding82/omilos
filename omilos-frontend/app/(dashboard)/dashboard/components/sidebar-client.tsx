@@ -6,7 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ClientInvite } from "@/app/types/client";
+import { ClientInvite } from "@/app/types/client-types";
 
 export type SidebarClientProps = {
   pendingInviteCount: number

@@ -2,7 +2,7 @@
 
 import { auth } from "@clerk/nextjs/server";
 import InvitationsClient from "./invitations-client";
-import { toClientInvite } from "@/app/types/client";
+import { toClientInvite } from "@/app/types/client-types";
 import { getAllInvitesForUser } from "@/app/actions/invite-actions";
 
 

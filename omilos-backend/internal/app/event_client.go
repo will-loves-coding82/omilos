@@ -4,21 +4,21 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"omilos-backend/internal/database"
 	"omilos-backend/internal/slug"
 	"time"
 )
 
 type Event struct {
-	Id          int64   `json:"id" db:"id"`
-	Title       string  `json:"title" db:"title"`
-	Description string  `json:"description" db:"description"`
-	Slug        string  `json:"slug" db:"slug"`
-	Date        string  `json:"date" db:"date"`
-	HostId      int64   `json:"host_id" db:"host_id"`
-	ImageURL    string  `json:"image_url,omitempty" db:"image_url"`
-	MemberIds   []int64 `json:"member_ids,omitempty" db:"member_ids"` // invitee ids, used only when creating an event
-	Members     []User  `json:"members,omitempty" db:"members"`       // enriched attendees, populated only when reading an event
+	Id          int64         `json:"id" db:"id"`
+	Title       string        `json:"title" db:"title"`
+	Description string        `json:"description" db:"description"`
+	Slug        string        `json:"slug" db:"slug"`
+	Date        string        `json:"date" db:"date"`
+	HostId      int64         `json:"host_id" db:"host_id"`
+	ImageURL    string        `json:"image_url,omitempty" db:"image_url"`
+	MemberIds   []int64       `db:"member_ids"`                       // invitee ids, used only when creating an event
+	Members     []EventMember `json:"members,omitempty" db:"members"` // enriched attendees, populated only when reading an event
+	Stops       []EventStop   `json:"stops,omitempty" db:"stops,omitempty"`
 }
 
 type EventStop struct {
@@ -29,31 +29,23 @@ type EventStop struct {
 	Address             string             `json:"address" db:"address"`
 	Latitude            float64            `json:"latitude" db:"latitude"`
 	Longitude           float64            `json:"longitude" db:"longitude"`
-	MemberStopStatusArr []MemberStopStatus `json:"member_stop_status_arr" db:"member_stop_status_arr"`
+	StopMemberStatusArr []StopMemberStatus `json:"stop_member_status_arr" db:"stop_member_status_arr"`
 }
 
+//tygo:emit export type RSVPStatus = "pending" | "accepted" | "declined"
 type EventMember struct {
-	Member     User   `json:"member" db:"member"`
-	RSVPStatus string `json:"rsvp_status" db:"rsvp_status"`
+	User            User   `json:"user" db:"user"`
+	RSVPStatus      string `json:"rsvp_status" db:"rsvp_status" tstype:"RSVPStatus"`
+	StatusUpdatedAt string `json:"status_updated_at,omitempty" db:"status_updated_at"`
+	CreatedAt       string `json:"created_at" db:"created_at"`
 }
 
-type MemberStopStatus struct {
+//tygo:emit export type StopStatus = "not_started" | "on_the_way" | "arrived" | "no_show"
+type StopMemberStatus struct {
 	User            User   `json:"user" db:"user"`
 	StopId          int64  `json:"stop_id" db:"stop_id"`
-	StopStatus      string `json:"stop_status" db:"stop_status"`
+	StopStatus      string `json:"stop_status" db:"stop_status" tstype:"StopStatus"`
 	StatusUpdatedAt string `json:"status_updated_at" db:"status_updated_at"`
-}
-
-type EventClient struct {
-	db         database.Service
-	userClient *UserClient
-}
-
-func NewEventClient(database database.Service, userClient *UserClient) *EventClient {
-	return &EventClient{
-		db:         database,
-		userClient: userClient,
-	}
 }
 
 const getEventIdForSlug = `
@@ -67,17 +59,22 @@ const getEventsForUserQuery = `
 		e.id, e.slug, e.name AS title, e.description, e.date, e.host_id, e.image_url,
 		COALESCE(
 			(
-				SELECT json_agg(json_build_object(
-					'id', u.id,
-					'clerk_id', u.clerk_id,
-					'first_name', u.first_name,
-					'last_name', u.last_name,
-					'email', u.email,
-					'image_url', u.image_url
-				))
+				SELECT json_agg(
+					jsonb_build_object(
+						'user', json_build_object(
+							'id', u.id,
+							'clerk_id', u.clerk_id,
+							'username', u.username,
+							'first_name', u.first_name,
+							'last_name', u.last_name,
+							'email', u.email,
+							'image_url', u.image_url
+						)
+					)
+				)
 				FROM users u
 				WHERE u.id = e.host_id
-				OR u.id IN (SELECT user_id FROM event_members WHERE event_id = e.id AND rsvp_status = 'accepted')
+				OR u.id IN (SELECT user_id FROM event_members em WHERE event_id = e.id AND em.rsvp_status = 'accepted')
 			),
 			'[]'
 		) AS members
@@ -86,7 +83,7 @@ const getEventsForUserQuery = `
 	OR e.id IN (SELECT event_id FROM event_members em WHERE em.user_id = $1 AND em.rsvp_status = 'accepted');
 `
 
-const getEventStopsQuery = `
+const getEventDetailsQuery = `
 	SELECT
 		es.id, es.event_id, es.sort_id, es.name, es.address, es.longitude, es.latitude
 	FROM event_stops es
@@ -174,7 +171,8 @@ func (e *EventClient) CreateNewEventTx(ctx context.Context, hostId int64, event 
 		return fail(err)
 	}
 
-	// Add event members. Each one has a pending rsvp_status by default
+	// Add event members. Each one has a pending rsvp_status by
+	// default and a default status_updated_at value of NOW()
 	for _, memberId := range event.MemberIds {
 		_, err = tx.Exec(`INSERT INTO event_members(user_id, event_id) VALUES($1, $2);`, memberId, eventId)
 		if err != nil {
@@ -189,9 +187,9 @@ func (e *EventClient) CreateNewEventTx(ctx context.Context, hostId int64, event 
 	return newSlug, nil
 }
 
-func (e *EventClient) GetEventStops(slug string) ([]EventStop, error) {
+func (e *EventClient) GetEventDetails(slug string) ([]EventStop, error) {
 	var eventStops []EventStop
-	err := e.db.Conn().Select(&eventStops, getEventStopsQuery, slug)
+	err := e.db.Conn().Select(&eventStops, getEventDetailsQuery, slug)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return make([]EventStop, 0), nil

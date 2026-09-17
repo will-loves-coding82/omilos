@@ -60,7 +60,8 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 
 		r.Get("/events", eventHandler.GetEventsForUser)
 		r.Post("/events", eventHandler.CreateNewEvent)
-		r.Get("/events/{slug}/stops", eventHandler.GetEventStops)
+
+		r.Get("/events/{slug}", eventHandler.GetEventDetails)
 
 		r.Post("/events/{slug}/stops", eventHandler.AddNewEventStop)
 		r.Patch("/events/{slug}/stops", eventHandler.ReorderEventStops)

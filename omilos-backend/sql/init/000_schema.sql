@@ -1,6 +1,9 @@
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
   clerk_id VARCHAR(255) NOT NULL UNIQUE,
+  -- Clerk Auth is configured to require the following name fields
+  -- so these will never be null
+  username TEXT NOT NULL,
   first_name TEXT NOT NULL,
   last_name TEXT NOT NULL,
   email TEXT UNIQUE NOT NULL,
@@ -41,6 +44,7 @@ CREATE TABLE event_members (
   event_id INTEGER NOT NULL,
   rsvp_status e_rsvp_status DEFAULT 'pending' NOT NULL,
   status_updated_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY(user_id, event_id),
   CONSTRAINT fk_user_id FOREIGN KEY(user_id) REFERENCES users(id),
   CONSTRAINT fk_event_id FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE CASCADE

@@ -10,10 +10,10 @@ import Image from "next/image";
 import { eventDetailsSchema } from "../schemas";
 import Cropper, { Area, Point } from "react-easy-crop";
 import { getCroppedImageFile } from "../crop-image";
-import { ClientUser } from "@/app/types/client";
-import { ActionResponse } from "@/app/actions/utils";
+import { ClientUser } from "@/app/types/client-types";
 import { searchUsers } from "@/app/actions/user-actions";
 import { createNewEvent } from "@/app/actions/event-actions";
+import { ActionResponse } from "@/app/actions/action-types";
 
 type CreateEventModalProps = {
   isOpen: boolean,

@@ -1,7 +1,7 @@
 // Shapes that only exist on the client, before something has been persisted
 // or when a component needs a looser shape than the API returns.
 
-import { APIEventStop, APIInvite } from "./api"
+import { Event, EventMember, EventStop, Invite } from "./api-types"
 import type { SearchBoxRetrieveResponse } from '@mapbox/search-js-core';
 
 export type Coordinates = {
@@ -9,23 +9,16 @@ export type Coordinates = {
   lat?: number
 }
 
-export type ClientUser = {
-  id: number,
-  clerk_id: string,
-  first_name: string,
-  last_name: string,
-  email: string,
-  image_url: string,
-}
-
 export type ClientEvent = {
     id: number,
+    host_id: number,
     title: string,
     description?: string,
     slug: string,
     image_url?: string,
     date: string,
-    members?: ClientUser[],
+    members: ClientEventMember[],
+    stops: ClientEventStop[],
 }
 
 export type ClientEventStop = {
@@ -41,8 +34,10 @@ export type ClientEventStop = {
 export type RSVPStatus = "pending" | "accepted" | "declined";
 
 export type ClientEventMember = {
-  member: ClientUser,
+  user: ClientUser,
   rsvp_status: RSVPStatus,
+  status_updated_at: string,
+  created_at: string
 }
 
 export type ClientInvite = {
@@ -60,19 +55,19 @@ export type ClientStopMemberStatus = {
   status_updated_at: string
 }
 
-// Helper methods to convert API responses to Client objects
-
-export function toClientInvite(invite: APIInvite): ClientInvite {
-  return {
-    ...invite,
-    event_member: {
-      ...invite.event_member,
-      rsvp_status: invite.event_member.rsvp_status as RSVPStatus,
-    }
-  }
+export type ClientUser = {
+  id: number,
+  clerk_id: string,
+  username: string,
+  first_name: string,
+  last_name: string,
+  email: string,
+  image_url?: string,
 }
 
-export function toClientEventStop(stop: APIEventStop): ClientEventStop {
+
+// Helper methods to convert to Client objects
+export function toClientEventStop(stop: EventStop): ClientEventStop {
   return {
     id: stop.id,
     address: stop.address,
@@ -84,7 +79,7 @@ export function toClientEventStop(stop: APIEventStop): ClientEventStop {
   }
 }
 
-export function toEventStop(res: SearchBoxRetrieveResponse): ClientEventStop {
+export function searchResultToClientEventStop(res: SearchBoxRetrieveResponse): ClientEventStop {
   return {
     address: res.features[0].properties.address ?? '',
     name: res.features[0].properties.name ?? '',
@@ -92,5 +87,33 @@ export function toEventStop(res: SearchBoxRetrieveResponse): ClientEventStop {
     latitude: res.features[0].properties.coordinates.latitude,
     longitude: res.features[0].properties.coordinates.longitude,
     stop_member_status_arr: [],
+  }
+}
+
+export function toClientEventMember(member: EventMember): ClientEventMember {
+  // Reading an event/invite always returns a fully-enriched member (user, rsvp_status,
+  // timestamps all populated). The API type marks these optional because the same Go
+  // struct is also used somewhere the fields aren't set yet — safe to assert here.
+  return {
+    user: member.user!,
+    rsvp_status: member.rsvp_status! as RSVPStatus,
+    status_updated_at: member.status_updated_at!,
+    created_at: member.created_at!,
+  }
+}
+
+export function toClientEvent(event: Event): ClientEvent {
+  return {
+    ...event,
+    members: event.members?.map(toClientEventMember) ?? [],
+    stops: event.stops?.map(toClientEventStop) ?? [],
+  }
+}
+
+export function toClientInvite(invite: Invite): ClientInvite {
+  return {
+    ...invite,
+    event: toClientEvent(invite.event),
+    event_member: toClientEventMember(invite.event_member),
   }
 }

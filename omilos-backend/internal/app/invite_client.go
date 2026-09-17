@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"omilos-backend/internal/database"
+	"log"
 )
 
 const getPendingInviteCountForUserQuery = `
@@ -22,7 +22,7 @@ const getAllInvitesForUserQuery = `
 	FROM (
 		SELECT
 			em.user_id = $1 AND em.rsvp_status = 'pending' AS is_pending,
-			e.host_id = $1 AND em.user_id != $1 AND em.rsvp_status = 'pending' AS is_sent,
+			e.host_id = $1 AND em.user_id != $1 AS is_sent,
 			jsonb_build_object(
 				'event', jsonb_build_object(
 					'id', e.id,
@@ -36,21 +36,25 @@ const getAllInvitesForUserQuery = `
 				'host_user', jsonb_build_object(
 					'id', h.id,
 					'clerk_id', h.clerk_id,
+					'username', h.username,
 					'first_name', h.first_name,
 					'last_name', h.last_name,
 					'email', h.email,
 					'image_url', h.image_url
 				),
 				'event_member', jsonb_build_object(
-					'member', jsonb_build_object(
+					'user', jsonb_build_object(
 						'id', m.id,
 						'clerk_id', m.clerk_id,
+						'username', m.username,
 						'first_name', m.first_name,
 						'last_name', m.last_name,
 						'email', m.email,
 						'image_url', m.image_url
 					),
-					'rsvp_status', em.rsvp_status
+					'rsvp_status', em.rsvp_status,
+					'status_updated_at', em.status_updated_at,
+					'created_at', em.created_at
 				)
 			) AS obj
 		FROM events e
@@ -58,18 +62,31 @@ const getAllInvitesForUserQuery = `
 		JOIN event_members em ON e.id = em.event_id
 		JOIN users m ON em.user_id = m.id
 		WHERE em.user_id = $1 OR e.host_id = $1
+		ORDER BY em.status_updated_at DESC
 	) invite;
+`
+
+const resendInviteQuery = `
+	UPDATE event_members
+	SET 
+		rsvp_status = 'pending', 
+		status_updated_at = NOW()
+	WHERE user_id = $1 AND event_id = $2;
 `
 
 const acceptInviteQuery = `
 	UPDATE event_members
-	SET rsvp_status = 'accepted'
+	SET 
+		rsvp_status = 'accepted', 
+		status_updated_at = NOW()
 	WHERE user_id = $1 AND event_id = $2;
 `
 
 const declineInviteQuery = `
 	UPDATE event_members
-	SET rsvp_status = 'declined'
+	SET 
+		rsvp_status = 'declined', 
+		status_updated_at = NOW()
 	WHERE user_id = $1 AND event_id = $2;
 `
 
@@ -84,18 +101,6 @@ type Invite struct {
 type InviteLists struct {
 	Pending []Invite `json:"pending"`
 	Sent    []Invite `json:"sent"`
-}
-
-type InviteClient struct {
-	db         database.Service
-	userClient *UserClient
-}
-
-func NewInviteClient(database database.Service, userClient *UserClient) *InviteClient {
-	return &InviteClient{
-		db:         database,
-		userClient: userClient,
-	}
 }
 
 // GetPendingInvitesForUser gets the invites that a user recieved but hasn't accepted
@@ -144,6 +149,17 @@ func (i *InviteClient) AcceptInvite(userId int64, invite Invite) error {
 func (i *InviteClient) DeclineInvite(userId int64, invite Invite) error {
 	_, err := i.db.Conn().Exec(declineInviteQuery, userId, invite.Event.Id)
 	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (i *InviteClient) ResendInvite(invite Invite) error {
+	log.Printf("Resending invite to member Id: %d\n", invite.EventMember.User.Id)
+	_, err := i.db.Conn().Exec(resendInviteQuery, invite.EventMember.User.Id, invite.Event.Id)
+	if err != nil {
+		log.Println(err.Error())
 		return err
 	}
 

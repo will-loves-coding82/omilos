@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"omilos-backend/internal/app"
 	"omilos-backend/internal/server/httpio"
@@ -89,6 +90,13 @@ func (h *InviteHandler) UpdateInviteStatus(w http.ResponseWriter, r *http.Reques
 	case "declined":
 		err = h.client.DeclineInvite(user.Id, body.Invite)
 		if err != nil {
+			httpio.InternalError(w, r, err)
+			return
+		}
+	case "pending":
+		err = h.client.ResendInvite(body.Invite)
+		if err != nil {
+			log.Print(err)
 			httpio.InternalError(w, r, err)
 			return
 		}

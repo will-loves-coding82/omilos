@@ -5,7 +5,7 @@ import {DragDropProvider} from '@dnd-kit/react';
 import { useSortable } from '@dnd-kit/react/sortable';
 import { move } from '@dnd-kit/helpers';
 import { GripVertical } from "lucide-react";
-import { ClientEventStop } from "@/app/types/client";
+import { ClientEventStop } from "@/app/types/client-types";
 import TabButton from "../../components/tab-button";
 
 const PANEL_WIDTH_DESKTOP = "300px";

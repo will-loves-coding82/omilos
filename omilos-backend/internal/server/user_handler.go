@@ -23,6 +23,7 @@ func NewUserHandler(client *app.UserClient) *UserHandler {
 // payload (UserJSON) needed to create a user.
 type ClerkUserPayload struct {
 	Id             string `json:"id"`
+	UserName       string `json:"username"`
 	FirstName      string `json:"first_name"`
 	LastName       string `json:"last_name"`
 	ImageUrl       string `json:"image_url"`
@@ -49,6 +50,7 @@ func (h *UserHandler) CreateNewUser(w http.ResponseWriter, r *http.Request) {
 
 	user := app.User{
 		ClerkId:   payload.Id,
+		UserName:  payload.UserName,
 		FirstName: payload.FirstName,
 		LastName:  payload.LastName,
 		Email:     payload.PrimaryEmail(),

@@ -7,8 +7,8 @@ import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { environment } from './environments/environment';
 import EventSidePanel from './event-side-panel';
-import { Coordinates, ClientEventStop, toClientEventStop, toEventStop } from '@/app/types/client';
-import { APIEventStop } from '@/app/types/api';
+import { Coordinates, ClientEventStop, ClientEvent, searchResultToClientEventStop } from '@/app/types/client-types';
+
 
 import EventStopSidePanel from './event-stop-side-panel';
 import { addEventStop, reorderEventStops } from '@/app/actions/event-actions';
@@ -35,13 +35,13 @@ const buildingExtrusionLayer: FillExtrusionLayerSpecification = {
   },
 };
 
-export default function EventDetailsClient({slug, initialStops}: {slug: string, initialStops: APIEventStop[]}) {
+export default function EventDetailsClient({slug, event}: {slug: string, event: ClientEvent}) {
   const mapRef = useRef<MapRef>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [mapInstanceReady, setMapInstanceReady] = useState(false);
   const [viewState, setViewState] = useState({ longitude: -74.5, latitude: 40, zoom: 12, pitch: 40});
 
-  const [eventStops, setEventStops] = useState<ClientEventStop[]>(() => initialStops.map(toClientEventStop));
+  const [eventStops, setEventStops] = useState<ClientEventStop[]>(() => event.stops!!);
   
   const [selectedStop, setSelectedStop] = useState<ClientEventStop | null>(null); // Tracks the selected search result stop
   const [stopMarkerCoord, setStopMarkerCoord] = useState<Coordinates|null>(null);
@@ -206,7 +206,7 @@ export default function EventDetailsClient({slug, initialStops}: {slug: string, 
             map={mapRef.current!.getMap()}
             onRetrieve={(res) => {
               console.log(res)
-              setSelectedStop(toEventStop(res));
+              setSelectedStop(searchResultToClientEventStop(res));
             }}
           />
         )}

@@ -4,11 +4,12 @@ import { auth } from "@clerk/nextjs/server";
 import z from "zod";
 import { eventDetailsSchema } from "../(dashboard)/dashboard/events/schemas";
 import { API_ROUTES } from "../constants";
-import { APIEvent, APIInvite, APIEventStop } from "../types/api";
-import { ClientEventStop } from "../types/client";
-import { ActionResponse, apiFetch } from "./utils";
+import { ClientEventStop } from "../types/client-types";
+import { apiFetch } from "./utils";
+import { ActionResponse } from "./action-types";
+import { Event } from "../types/api-types";
 
-export async function getEventsForUser(clerkId: string | null): Promise<ActionResponse<{events: APIEvent[]}>> {
+export async function getEventsForUser(clerkId: string | null): Promise<ActionResponse<{events: Event[]}>> {
   if (!clerkId) {
     return { success: false, data: {events: []}, message: "Not authenticated" };
   }
@@ -41,7 +42,7 @@ export async function getEventsForUser(clerkId: string | null): Promise<ActionRe
   }
 }
 
-export async function createNewEvent(prevState: ActionResponse<Partial<APIEvent>>, formData: FormData): Promise<ActionResponse<Partial<APIEvent>>> {
+export async function createNewEvent(prevState: ActionResponse<Partial<Event>>, formData: FormData): Promise<ActionResponse<Partial<Event>>> {
   const { userId: clerkId } = await auth();
 
   if (!clerkId) {
@@ -154,32 +155,32 @@ export async function createNewEvent(prevState: ActionResponse<Partial<APIEvent>
   }
 }
 
-export async function getEventStops(slug: string): Promise<ActionResponse<{stops: APIEventStop[]}>> {
+export async function getEventDetails(slug: string): Promise<ActionResponse<{event: Event | null}>> {
   try {
-    const res = await apiFetch(API_ROUTES.events.stops.list(slug), {
+    const res = await apiFetch(API_ROUTES.events.detail(slug), {
       method: "GET"
     })
 
     if (!res.ok) {
       const body = await res.text()
-      console.error("Get event stops failed:", res.status, body)
+      console.error("Get event detailed failed:", res.status, body)
       return {
         success: false,
-        data: {stops: []},
-        message: "Failed to fetch stops",
+        data: {event: null},
+        message: "Failed to fetch event details",
       }
     }
 
     const { data } = await res.json()
     return {
       success: true,
-      data: {stops: data.stops ?? []}
+      data: {event: null},
     }
   } catch (err) {
     console.error("Error fetching event stops:", err)
     return {
       success: false,
-      data: {stops: []},
+      data: {event: null},
       message: err instanceof Error ? err.message : "An unknown error occurred",
     }
   }

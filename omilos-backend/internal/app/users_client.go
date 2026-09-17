@@ -1,28 +1,30 @@
 package app
 
-import (
-	"omilos-backend/internal/database"
-)
+// The db:omitempty tag tells Go to ignore the field for
+// INSERT or UPDATE operations if the field holds its Go 'zero value'
 
+// The json:omitempty tag tells Go to exclude the field from
+// the generated JSON output when sending the result to the client
+// For javascript frontend apps, this effectiely makes the field undefined
 type User struct {
 	Id        int64  `db:"id" json:"id"`
 	ClerkId   string `db:"clerk_id" json:"clerk_id"`
+	UserName  string `db:"username" json:"username"`
 	FirstName string `db:"first_name" json:"first_name"`
-	LastName  string `db:"last_name,omitempty" json:"last_name,omitempty"`
-	Email     string `db:"email,omitempty" json:"email,omitempty"`
+	LastName  string `db:"last_name" json:"last_name"`
+	Email     string `db:"email" json:"email"`
 	ImageUrl  string `db:"image_url,omitempty" json:"image_url,omitempty"`
 	CreatedAt string `db:"created_at,omitempty" json:"created_at,omitempty"`
 	UpdatedAt string `db:"updated_at,omitempty" json:"updated_at,omitempty"`
 }
 
-type UserClient struct {
-	db database.Service
-}
-
+// EXCLUDED refers to the row data that originally attempted to insert but
+// was rejected due to a CONFLICT on user's clerk id
 const createNewUserQuery = `
-	INSERT INTO users(clerk_id, first_name, last_name, email, image_url)
-	VALUES($1, $2, $3, $4, $5)
+	INSERT INTO users(clerk_id, username, first_name, last_name, email, image_url)
+	VALUES($1, $2, $3, $4, $5, $6)
 	ON CONFLICT (clerk_id) DO UPDATE SET
+		username = EXCLUDED.username,
 		first_name = EXCLUDED.first_name,
 		last_name = EXCLUDED.last_name,
 		email = EXCLUDED.email,
@@ -30,25 +32,19 @@ const createNewUserQuery = `
 `
 
 const searchUsersQuery = `
-	SELECT id, clerk_id, first_name, last_name, email, image_url
+	SELECT id, clerk_id, username, first_name, last_name, email, image_url
 	FROM users
 	WHERE first_name % $1 OR last_name % $1 OR email % $1;
 `
 
 const getUserByClerkIdQuery = `
-	SELECT id, clerk_id, first_name, last_name, email, image_url
+	SELECT id, clerk_id, username, first_name, last_name, email, image_url
 	FROM users
 	WHERE clerk_id = $1;
 `
 
-func NewUserClient(database database.Service) *UserClient {
-	return &UserClient{
-		db: database,
-	}
-}
-
 func (u *UserClient) CreateNewUser(user User) error {
-	_, err := u.db.Conn().Exec(createNewUserQuery, user.ClerkId, user.FirstName, user.LastName, user.Email, user.ImageUrl)
+	_, err := u.db.Conn().Exec(createNewUserQuery, user.ClerkId, user.UserName, user.FirstName, user.LastName, user.Email, user.ImageUrl)
 	if err != nil {
 		return err
 	}

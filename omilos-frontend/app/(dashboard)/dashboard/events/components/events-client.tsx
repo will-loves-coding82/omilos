@@ -4,7 +4,7 @@ import { CreateEventModal } from "./create-event-modal";
 import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ClientEvent } from "@/app/types/client";
+import { ClientEvent } from "@/app/types/client-types";
 
 export type EventsClientProps = {
   events: ClientEvent[]
@@ -58,23 +58,23 @@ function EventPreviewCard({ event, onClick }: { event: ClientEvent, onClick: () 
         }
       </section>
       <section className="p-4">
-        <h2 className="text-md text-text-primary font-medium">{event.title}</h2>
-        <p className="text-sm text-text-secondary">{event.description}</p>
+        <h2 className="text-md text-primary font-medium">{event.title}</h2>
+        <p className="text-sm text-secondary">{event.description}</p>
       </section>
 
       <section className="flex w-full items-center gap-1 p-4">
         {event.members?.map((m) =>
-          m.image_url?.length ?
+          m.user.image_url?.length ?
           <Image
-            key={m.id}
+            key={m.user.id}
             className="rounded-full w-8 h-8 object-cover"
             height={32}
             width={32}
             alt="user profile"
-            src={m.image_url}/>
+            src={m.user.image_url}/>
           :
-          <div key={m.id} className="h-8 w-8 rounded-full bg-bg-secondary flex items-center justify-center text-xs font-medium text-text-secondary">
-            {m.first_name[0]+ m.last_name[0]}
+          <div key={m.user.id} className="h-8 w-8 rounded-full bg-bg-secondary flex items-center justify-center text-xs font-medium text-secondary">
+            {m.user.first_name[0]+ m.user.last_name[0]}
           </div>
         )}
 

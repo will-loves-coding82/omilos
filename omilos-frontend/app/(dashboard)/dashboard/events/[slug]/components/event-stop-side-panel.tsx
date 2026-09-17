@@ -1,4 +1,4 @@
-import { ClientEventStop } from "@/app/types/client"
+import { ClientEventStop } from "@/app/types/client-types"
 import { X } from "lucide-react"
 
 export type EventStopSidePanelProps = {

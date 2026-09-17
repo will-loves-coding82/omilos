@@ -1,11 +1,12 @@
 "use server";
 
 import { API_ROUTES } from "../constants"
-import { APIUser } from "../types/api"
-import { ActionResponse, apiFetch } from "./utils"
+import { apiFetch } from "./utils"
+import { ActionResponse } from "./action-types";
+import { User } from "../types/api-types";
 
 
-export async function searchUsers(searchQuery: string): Promise<ActionResponse<{users: APIUser[]}>> {
+export async function searchUsers(searchQuery: string): Promise<ActionResponse<{users: User[]}>> {
   if (searchQuery.length === 0) {
     return {
       success: false,

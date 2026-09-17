@@ -1,11 +1,6 @@
-import { auth } from "@clerk/nextjs/server";
+"use server";
 
-export type ActionResponse<T> = {
-  success: boolean,
-  data: T,
-  message?: string | undefined,
-  error?: Record<string, string[]>,
-}
+import { auth } from "@clerk/nextjs/server";
 
 export async function apiFetch(url: string, init: RequestInit = {}) : Promise<Response> {
   const { getToken } = await auth();
