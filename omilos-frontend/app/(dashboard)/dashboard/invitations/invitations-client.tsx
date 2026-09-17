@@ -2,23 +2,43 @@
 
 import { ClientInvite } from "@/app/types/client-types";
 import TabButton from "../events/components/tab-button";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { acceptInvite, declineInvite, resendDeclinedInvite } from "@/app/actions/invite-actions";
 import { formatElapsedTime } from "@/app/utils";
 import { createPortal } from "react-dom";
 import { CircleX } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
 
 export type InvitationsClientProps = {
+  activeTabParam: string,
   data: {
     sent: ClientInvite[],
     received: ClientInvite[]
   }
 }
 
-export default function InvitationsClient({data} : InvitationsClientProps) {
-   const [activeTab, setActiveTab] = useState<string>("Sent");
+export default function InvitationsClient({activeTabParam, data} : InvitationsClientProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const activeTab = searchParams.get("activeTab") ?? activeTabParam;
+
+  useEffect(() => {
+  if (!searchParams.get("activeTab")) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("activeTab", activeTab);
+    router.replace(`${pathname}?${params.toString()}`);
+  }
+}, []);
+
+  function updateActiveTab(tab: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("activeTab", tab);
+    router.push(`${pathname}?${params.toString()}`);
+  }
 
    async function onAcceptInvite(invite: ClientInvite) {
     try {
@@ -48,29 +68,17 @@ export default function InvitationsClient({data} : InvitationsClientProps) {
     <section className="flex flex-col w-full h-full max-w-4xl mx-auto py-6">
       <h1 className="text-primary text-xl font-medium">Your invites</h1>
       <section className="flex items-center gap-4 px-1 py-4 border-b border-border-primary">
-        <TabButton label="Sent" activeTab={activeTab} onClick={setActiveTab} />
         <span className="flex items-center gap-1">
-          <TabButton label="Received" activeTab={activeTab} onClick={setActiveTab} />
+          <TabButton label="Received" activeTab={activeTab} onClick={updateActiveTab} />
           {data.received.length > 0 && 
             <p className={`h-[18px] w-[18px] border-box flex justify-center items-center border-2 border-badge-border bg-badge-bg rounded-full text-[10px] text-badge-text`}>
               {data.received.length}
             </p>
           }
         </span>
+        <TabButton label="Sent" activeTab={activeTab} onClick={updateActiveTab} />
       </section>
       <section>
-        {
-          activeTab === "Sent" && 
-          <ul className="flex flex-col gap-4 py-4">
-            {
-              data.sent.length > 0 &&
-              data.sent.map(invite => (
-                <InviteSentCard key={invite.event.slug} invite={invite}/>
-              ))
-            }
-          </ul>
-        }
-
         {
           activeTab === "Received" && 
           <ul className="flex flex-col gap-4 py-4">
@@ -78,6 +86,18 @@ export default function InvitationsClient({data} : InvitationsClientProps) {
               data.received.length > 0 &&
               data.received.map(invite => (
                 <InviteReceivedCard key={invite.event.slug} invite={invite} onAccept={onAcceptInvite} onDecline={onDeclineInvite}/>
+              ))
+            }
+          </ul>
+        }
+
+        {
+          activeTab === "Sent" && 
+          <ul className="flex flex-col gap-4 py-4">
+            {
+              data.sent.length > 0 &&
+              data.sent.map(invite => (
+                <InviteSentCard key={invite.event.slug} invite={invite}/>
               ))
             }
           </ul>
