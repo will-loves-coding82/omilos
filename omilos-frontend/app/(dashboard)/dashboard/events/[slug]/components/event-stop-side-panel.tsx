@@ -11,7 +11,7 @@ export type EventStopSidePanelProps = {
 export default function EventStopSidePanel({stop, isOpen, onDismiss, onDeleteStop}: EventStopSidePanelProps) {
   return (
     <div
-      className={`absolute inset-y-0 right-0 z-10 w-full bg-bg-primary md:w-[300px] shadow-md transition-transform duration-300 p-3 ${
+      className={`absolute inset-y-0 right-0 z-10 w-full bg-bg-primary md:w-[340px] shadow-md transition-transform duration-300 p-3 ${
         isOpen ? 'translate-x-0' : 'translate-x-full'
       }`}
     >

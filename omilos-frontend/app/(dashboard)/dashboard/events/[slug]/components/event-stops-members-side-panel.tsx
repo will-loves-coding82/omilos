@@ -19,7 +19,7 @@ type EventSidePanelProps = {
   activeStopId: string | null;
 };
 
-export default function EventSidePanel({participants, eventStops, onReorderStops, onSelectStop, activeStopId} : EventSidePanelProps) {
+export default function EventStopsMembersSidePanel({participants, eventStops, onReorderStops, onSelectStop, activeStopId} : EventSidePanelProps) {
   const [activeTab, setActiveTab] = useState<string>("Stops");
   const ref = useRef<HTMLUListElement | null>(null);
 
@@ -46,7 +46,7 @@ export default function EventSidePanel({participants, eventStops, onReorderStops
   }, []);
 
   return (
-<div className="absolute inset-0 z-10 bg-bg-primary md:inset-auto md:top-0 md:h-full md:w-[var(--panel-width)] md:shadow-md transition-[left] duration-300">
+    <div className="absolute inset-0 z-10 bg-bg-primary md:inset-auto md:top-0 md:h-full md:w-[var(--panel-width)] md:shadow-md transition-[left] duration-300">
       <section className="flex items-center gap-4 p-4 border-b border-border-primary">
         <TabButton label="Stops" activeTab={activeTab} onClick={setActiveTab} />
         <TabButton label="Participants" activeTab={activeTab} onClick={setActiveTab} />

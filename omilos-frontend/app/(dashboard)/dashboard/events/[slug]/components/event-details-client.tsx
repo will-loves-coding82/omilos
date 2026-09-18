@@ -6,13 +6,15 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { environment } from './environments/environment';
-import EventSidePanel from './event-side-panel';
+import EventSidePanel from './event-stops-members-side-panel';
 import { Coordinates, ClientEventStop, ClientEvent, searchResultToClientEventStop } from '@/app/types/client-types';
 
 
 import EventStopSidePanel from './event-stop-side-panel';
 import { addEventStop, reorderEventStops } from '@/app/actions/event-actions';
 import { usePageActions } from '../../../components/context/header-actions-context';
+import EventDetailsSidePanel from './event-details-side-panel';
+import EventStopsMembersSidePanel from './event-stops-members-side-panel';
 
 const SearchBox = dynamic(
   () => import("@mapbox/search-js-react").then((mod) => mod.SearchBox),
@@ -54,6 +56,8 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
   const [selectedEventStop, setSelectedEventStop] = useState<ClientEventStop | null>(null); // Tracks which existing stop is shown in the stop details panel
   const [isEventStopPanelOpen, setIsEventStopPanelOpen] = useState(false);
 
+  const [isEventDetailsPanelOpen, setIsEventDetailsPanelOpen] = useState(false);
+
   // Track OS color scheme so the map style can switch with it
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -78,19 +82,6 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
       })
     }
   }, []);
-
-  useEffect(() => {
-  const container = containerRef.current;
-  if (!container) return;
-
-  const resizeObserver = new ResizeObserver(() => {
-    mapRef.current?.getMap().resize();
-  });
-
-  resizeObserver.observe(container);
-
-  return () => resizeObserver.disconnect();
-}, []);
 
   // Update the active marker when user selects on a stop or search result
   useEffect(() => {
@@ -166,22 +157,34 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
     setIsEventStopPanelOpen(prev => !prev)
   }
 
+  function onDismissEventDetailsPanel() {
+    setIsEventDetailsPanelOpen(prev => !prev)
+  }
+
   // Renders custom header actions for this event
   usePageActions(
     <>
-      <button className='bg-button-primary text-white rounded-lg px-3 py-1'>info</button>
+      <button onClick={() => setIsEventDetailsPanelOpen(true)} className='bg-button-primary text-white rounded-lg px-3 py-1'>info</button>
     </>
   )
 
   return (
     <div ref={containerRef} className='absolute inset-0 z-0 w-full h-full'>      
       {/* Left panel that shows all the stops and participants */}
-      <EventSidePanel participants={event.members} eventStops={eventStops} onReorderStops={onReorderEventStops} onSelectStop={selectEventStop} activeStopId={openStopId} />
+      <EventStopsMembersSidePanel participants={event.members} eventStops={eventStops} onReorderStops={onReorderEventStops} onSelectStop={selectEventStop} activeStopId={openStopId} />
 
-      {/* Right panel that shows a selected event details */}
+      {/* Dismissable right panel that shows the event details */}
+
+        <EventDetailsSidePanel event={event} isOpen={isEventDetailsPanelOpen} onDismiss={onDismissEventDetailsPanel}/>
+
+
+
+      {/* Dismissable right panel that shows a selected event details */}
       {selectedEventStop && (
         <EventStopSidePanel stop={selectedEventStop} isOpen={isEventStopPanelOpen} onDeleteStop={onDeleteStop} onDismiss={onDismissEventStopPanel}/>
       )}
+
+
 
       {/* Map overlays elements that need to respond to sidebar and panel resizing  */}
       <div className='max-w-md absolute top-4 z-10 w-full md:left-[calc(var(--panel-width)+1rem)] md:translate-x-0 md:w-88 transition-[left] duration-300'>
@@ -226,11 +229,13 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
       <Map
         ref={mapRef}
         {...viewState}
+        projection={"globe"}
         onMove={evt => setViewState(evt.viewState)}
         onLoad={() => setMapInstanceReady(true)}
         mapboxAccessToken={environment.mapbox.accessToken}
         mapStyle={isDarkMode ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/streets-v11'}
-        style={{ width: '100%', height: '100%' }}
+        style={{ width: '100%', height: '100%', position: 'fixed' }}
+
       >
          <GeolocateControl
           position="top-right"

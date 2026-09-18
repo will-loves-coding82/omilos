@@ -34,6 +34,9 @@
   --color-badge-bg: var(--color-danger);
   --color-badge-border: var(--color-bg-primary);
   --color-badge-text: #ffffff;
+
+  /* Breadcrumb header */
+  --header-height: 3.5rem; /* 56px */
 }
 
 @theme inline {
