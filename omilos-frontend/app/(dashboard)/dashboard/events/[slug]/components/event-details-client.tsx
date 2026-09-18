@@ -6,7 +6,6 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { environment } from './environments/environment';
-import EventSidePanel from './event-stops-members-side-panel';
 import { Coordinates, ClientEventStop, ClientEvent, searchResultToClientEventStop } from '@/app/types/client-types';
 
 
@@ -15,6 +14,7 @@ import { addEventStop, reorderEventStops } from '@/app/actions/event-actions';
 import { usePageActions } from '../../../components/context/header-actions-context';
 import EventDetailsSidePanel from './event-details-side-panel';
 import EventStopsMembersSidePanel from './event-stops-members-side-panel';
+import {  UserButton } from '@clerk/nextjs';
 
 const SearchBox = dynamic(
   () => import("@mapbox/search-js-react").then((mod) => mod.SearchBox),
@@ -68,6 +68,16 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
 
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
+
+
+  useEffect(() => {
+    if (!mapInstanceReady) return;
+    mapRef.current?.getMap().setConfigProperty(
+      'basemap',
+      'lightPreset',
+      isDarkMode ? 'dusk' : 'day'
+    );
+  }, [isDarkMode, mapInstanceReady]);
 
   // When component mounts, the map will center on the user coordinates
   useEffect(() => {
@@ -163,9 +173,10 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
 
   // Renders custom header actions for this event
   usePageActions(
-    <>
-      <button onClick={() => setIsEventDetailsPanelOpen(true)} className='bg-button-primary text-white rounded-lg px-3 py-1'>info</button>
-    </>
+    <span className='flex items-center gap-4'>
+      <UserButton/>
+      <button onClick={() => setIsEventDetailsPanelOpen(true)} className='bg-button-primary hover:cursor-pointer text-white rounded-lg px-4 py-1'>Info</button>
+    </span>
   )
 
   return (
@@ -233,7 +244,7 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
         onMove={evt => setViewState(evt.viewState)}
         onLoad={() => setMapInstanceReady(true)}
         mapboxAccessToken={environment.mapbox.accessToken}
-        mapStyle={isDarkMode ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/streets-v11'}
+        mapStyle={'mapbox://styles/mapbox/standard'}
         style={{ width: '100%', height: '100%', position: 'fixed' }}
 
       >
