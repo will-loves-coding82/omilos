@@ -105,7 +105,7 @@ const getEventDetailsQuery = `
 				)
 				FROM users u
 				LEFT JOIN event_members em ON u.id = em.user_id AND em.event_id = e.id
-				WHERE u.id = e.host_id OR em.event_id = e.id
+				WHERE em.event_id = e.id
 			), '[]'
 		) AS members,
 		COALESCE(
@@ -243,6 +243,12 @@ func (e *EventClient) CreateNewEventTx(ctx context.Context, hostId int64, event 
 		if err != nil {
 			return fail(err)
 		}
+	}
+
+	// Add the host to the event members with a default value of accepted
+	_, err = tx.Exec(`INSERT INTO event_members (user_id, event_id, rsvp_status, status_updated_at) VALUES ($1, $2, 'accepted', NOW());`, hostId, eventId)
+	if err != nil {
+		return fail(err)
 	}
 
 	if err := tx.Commit(); err != nil {
