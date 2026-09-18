@@ -45,7 +45,7 @@ export default function SidebarClient({pendingInviteCount} : SidebarClientProps)
         <Menu size={20} className="text-text-secondary" />
       </button>
 
-      <nav className={`hidden md:flex flex-col h-full relative z-20 ${isOpen ? "min-w-[224px]": "min-w-[80px]"} bg-bg-primary shadow-md transition-all duration-300`}>
+      <nav className={`hidden md:flex flex-col h-full relative z-20 ${isOpen ? "min-w-[224px]": "min-w-[80px]"} bg-bg-secondary border-r border-border-primary transition-all duration-300`}>
         <section className={`h-[64px] flex items-center p-4 ${isOpen ? "justify-between" : "justify-center"}`}>
             {isOpen ? <Link href="/" className="flex items-center gap-3 font-medium text-text-primary"><p className="text-3xl">O</p><p className="text-md">Omilos</p></Link> : null}
             <button

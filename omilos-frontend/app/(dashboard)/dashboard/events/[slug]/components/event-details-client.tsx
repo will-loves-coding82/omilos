@@ -12,6 +12,7 @@ import { Coordinates, ClientEventStop, ClientEvent, searchResultToClientEventSto
 
 import EventStopSidePanel from './event-stop-side-panel';
 import { addEventStop, reorderEventStops } from '@/app/actions/event-actions';
+import { usePageActions } from '../../../components/context/header-actions-context';
 
 const SearchBox = dynamic(
   () => import("@mapbox/search-js-react").then((mod) => mod.SearchBox),
@@ -77,6 +78,19 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
       })
     }
   }, []);
+
+  useEffect(() => {
+  const container = containerRef.current;
+  if (!container) return;
+
+  const resizeObserver = new ResizeObserver(() => {
+    mapRef.current?.getMap().resize();
+  });
+
+  resizeObserver.observe(container);
+
+  return () => resizeObserver.disconnect();
+}, []);
 
   // Update the active marker when user selects on a stop or search result
   useEffect(() => {
@@ -152,8 +166,15 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
     setIsEventStopPanelOpen(prev => !prev)
   }
 
+  // Renders custom header actions for this event
+  usePageActions(
+    <>
+      <button className='bg-button-primary text-white rounded-lg px-3 py-1'>info</button>
+    </>
+  )
+
   return (
-    <div ref={containerRef} className='fixed inset-0 z-0'>
+    <div ref={containerRef} className='absolute inset-0 z-0 w-full h-full'>      
       {/* Left panel that shows all the stops and participants */}
       <EventSidePanel participants={event.members} eventStops={eventStops} onReorderStops={onReorderEventStops} onSelectStop={selectEventStop} activeStopId={openStopId} />
 
@@ -163,7 +184,7 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
       )}
 
       {/* Map overlays elements that need to respond to sidebar and panel resizing  */}
-      <div className='max-w-md absolute top-4 z-10 w-[calc(100%-5rem)] left-1/2 -translate-x-1/2 md:left-[calc(var(--sidebar-width)+var(--panel-width)+1rem)] md:translate-x-0 md:w-80 transition-[left] duration-300'>
+      <div className='max-w-md absolute top-4 z-10 w-full md:left-[calc(var(--panel-width)+1rem)] md:translate-x-0 md:w-88 transition-[left] duration-300'>
         {mapInstanceReady && (
           <SearchBox
           placeholder='Add a stop'

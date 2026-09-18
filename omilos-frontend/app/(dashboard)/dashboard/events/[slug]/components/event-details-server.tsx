@@ -15,6 +15,7 @@ export default async function EventDetailsServer({slug}: {slug: string}) {
     return <EventDetailsError />; // generic error state, see below
   }
 
+  console.log(res.data.event)
   return (
     <EventDetailsClient slug={slug} event={toClientEvent(res.data.event)} />
   )

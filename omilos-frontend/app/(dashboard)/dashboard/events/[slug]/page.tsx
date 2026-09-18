@@ -7,7 +7,7 @@ export default async function Page({params} : {params: Promise<{slug: string}>})
   const { slug } = await params;
 
   return (
-    <div className="flex-1 h-full">
+    <div className="relative w-full h-full">
       <Suspense fallback={<p>Loading...</p>}>
         <EventDetailsServer slug={slug}/>
       </Suspense>
