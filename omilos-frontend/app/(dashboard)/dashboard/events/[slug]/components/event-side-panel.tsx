@@ -5,19 +5,21 @@ import {DragDropProvider} from '@dnd-kit/react';
 import { useSortable } from '@dnd-kit/react/sortable';
 import { move } from '@dnd-kit/helpers';
 import { GripVertical } from "lucide-react";
-import { ClientEventStop } from "@/app/types/client-types";
+import { ClientEventMember, ClientEventStop } from "@/app/types/client-types";
 import TabButton from "../../components/tab-button";
+import Image from "next/image";
 
-const PANEL_WIDTH_DESKTOP = "300px";
+const PANEL_WIDTH_DESKTOP = "340px";
 
 type EventSidePanelProps = {
+  participants: ClientEventMember[];
   eventStops: ClientEventStop[];
   onReorderStops: (stops: ClientEventStop[]) => void;
   onSelectStop: (stop: ClientEventStop) => void;
   activeStopId: string | null;
 };
 
-export default function EventSidePanel({eventStops, onReorderStops, onSelectStop, activeStopId} : EventSidePanelProps) {
+export default function EventSidePanel({participants, eventStops, onReorderStops, onSelectStop, activeStopId} : EventSidePanelProps) {
   const [activeTab, setActiveTab] = useState<string>("Stops");
   const ref = useRef<HTMLUListElement | null>(null);
 
@@ -44,7 +46,7 @@ export default function EventSidePanel({eventStops, onReorderStops, onSelectStop
   }, []);
 
   return (
-    <div className="fixed inset-0 z-10 border-l border-border-primary bg-bg-primary md:inset-auto md:top-0 md:h-full md:w-[300px] md:shadow-md md:left-[var(--sidebar-width)] transition-[left] duration-300">
+    <div className={`fixed inset-0 z-10 border-l border-border-primary bg-bg-primary md:inset-auto md:top-0 md:h-full md:w-[${PANEL_WIDTH_DESKTOP}] md:shadow-md md:left-[var(--sidebar-width)] transition-[left] duration-300`}>
       <section className="flex items-center gap-4 p-4 border-b border-border-primary">
         <TabButton label="Stops" activeTab={activeTab} onClick={setActiveTab} />
         <TabButton label="Participants" activeTab={activeTab} onClick={setActiveTab} />
@@ -67,7 +69,31 @@ export default function EventSidePanel({eventStops, onReorderStops, onSelectStop
             </ul>
           </DragDropProvider>
         }
-        {activeTab === "Participants" && <p className="text-text-secondary">No participants yet.</p>}
+        {
+          activeTab === "Participants" && 
+            <ul className="flex flex-col gap-4">
+              {participants.map((member, index)=> (
+                <div className="flex gap-2" key={member.user.id}>
+                  <div className="w-[24px] h-[24px] pt-1">
+                    <Image
+                      width={24}
+                      height={24}
+                      className="rounded-full"
+                      alt="user profile"
+                      src={member.user.image_url!}
+                    />
+                  </div>
+
+                  <div className="flex flex-col">
+                    <p className="text-text-primary text-md">{member.user.username}</p>
+                    <p className="text-text-secondary text-sm">{member.user.email}</p>
+                  </div>
+                </div>
+              ))
+
+              }
+            </ul>
+        }
       </section>
     </div>
   );

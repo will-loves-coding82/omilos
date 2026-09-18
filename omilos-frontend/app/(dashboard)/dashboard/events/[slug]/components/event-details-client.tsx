@@ -154,10 +154,14 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
 
   return (
     <div ref={containerRef} className='fixed inset-0 z-0'>
-      <EventSidePanel eventStops={eventStops} onReorderStops={onReorderEventStops} onSelectStop={selectEventStop} activeStopId={openStopId} />
+      {/* Left panel that shows all the stops and participants */}
+      <EventSidePanel participants={event.members} eventStops={eventStops} onReorderStops={onReorderEventStops} onSelectStop={selectEventStop} activeStopId={openStopId} />
+
+      {/* Right panel that shows a selected event details */}
       {selectedEventStop && (
         <EventStopSidePanel stop={selectedEventStop} isOpen={isEventStopPanelOpen} onDeleteStop={onDeleteStop} onDismiss={onDismissEventStopPanel}/>
       )}
+
       {/* Map overlays elements that need to respond to sidebar and panel resizing  */}
       <div className='max-w-md absolute top-4 z-10 w-[calc(100%-5rem)] left-1/2 -translate-x-1/2 md:left-[calc(var(--sidebar-width)+var(--panel-width)+1rem)] md:translate-x-0 md:w-80 transition-[left] duration-300'>
         {mapInstanceReady && (
@@ -235,7 +239,7 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
               >
                 <div className='flex flex-col justify-between h-[164px]'>
                   <header className='flex flex-col gap-2'>
-                    <h3 className='text-xl font-semibold text-text-primary'>{selectedStop?.name}</h3>
+                    <h3 className='text-xl font-semibold text-text-black'>{selectedStop?.name}</h3>
                     <p className='text-lg text-text-secondary'>{selectedStop?.address}</p>
                   </header>
                   <button onClick={onAddEventStop} className='bg-black text-white p-2 text-lg rounded-md hover:cursor-pointer'>Add Stop</button>
@@ -266,7 +270,7 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
                 >
                   <div className='flex flex-col justify-between h-[164px]'>
                     <header className='flex flex-col gap-2'>
-                      <h3 className='text-xl font-semibold text-text-primary'>{s.name}</h3>
+                      <h3 className='text-xl font-semibold text-text-black'>{s.name}</h3>
                       <p className='text-lg text-text-secondary'>{s.address}</p>
                     </header>
                     <button onClick={()=> { setSelectedEventStop(s); setIsEventStopPanelOpen(true); }} className='bg-black text-white p-2 text-lg rounded-md hover:cursor-pointer'>View</button>

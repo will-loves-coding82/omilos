@@ -267,7 +267,7 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
                         type="button"
                         onClick={nextStep}
                         disabled={!isStep1Valid}
-                        className="bg-bg-secondary text-text-inverse px-4 py-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="bg-button-primary text-white px-4 py-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         Continue
                       </button>
@@ -366,7 +366,7 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
                           type="button"
                           onClick={nextStep}
                           disabled={!isStep1Valid}
-                          className="bg-bg-secondary text-text-inverse p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed mt-12"
+                          className="bg-button-primary text-white p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed mt-12"
                         >
                           Continue
                         </button>
@@ -470,7 +470,7 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
                               <button
                                 type="button"
                                 onClick={confirmCrop}
-                                className="bg-text-primary text-text-inverse px-4 py-2 rounded-md"
+                                className="bg-button-primary text-white px-4 py-2 rounded-md"
                               >
                                 Confirm crop
                               </button>
@@ -486,7 +486,7 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
                         <button
                           type="submit"
                           disabled={pending}
-                          className="bg-bg-secondary text-text-inverse p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="bg-button-primary text-white p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           {pending ? "...Submitting" : "Submit"}
                         </button>
