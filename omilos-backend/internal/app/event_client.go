@@ -103,9 +103,9 @@ const getEventDetailsQuery = `
 						'created_at', em.created_at
 					)
 				)
-				FROM event_members em
-				JOIN users u ON u.id = em.user_id
-				WHERE em.event_id = e.id
+				FROM users u
+				LEFT JOIN event_members em ON u.id = em.user_id AND em.event_id = e.id
+				WHERE u.id = e.host_id OR em.event_id = e.id
 			), '[]'
 		) AS members,
 		COALESCE(
