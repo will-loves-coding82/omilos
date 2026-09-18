@@ -44,7 +44,7 @@ export default function EventSidePanel({eventStops, onReorderStops, onSelectStop
   }, []);
 
   return (
-    <div className="fixed inset-0 z-10 bg-bg-primary md:inset-auto md:top-0 md:h-full md:w-[300px] md:shadow-md md:left-[var(--sidebar-width)] transition-[left] duration-300">
+    <div className="fixed inset-0 z-10 border-l border-border-primary bg-bg-primary md:inset-auto md:top-0 md:h-full md:w-[300px] md:shadow-md md:left-[var(--sidebar-width)] transition-[left] duration-300">
       <section className="flex items-center gap-4 p-4 border-b border-border-primary">
         <TabButton label="Stops" activeTab={activeTab} onClick={setActiveTab} />
         <TabButton label="Participants" activeTab={activeTab} onClick={setActiveTab} />

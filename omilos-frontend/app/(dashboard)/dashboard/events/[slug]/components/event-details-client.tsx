@@ -78,19 +78,6 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
     }
   }, []);
 
-  //Initialize the map and attach a resize observer
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    const resizeObserver = new ResizeObserver(() => {
-      mapRef.current?.getMap().resize();
-    });
-    resizeObserver.observe(containerRef.current);
-
-    return () => resizeObserver.disconnect();
-  }, []);
-
-
   // Update the active marker when user selects on a stop or search result
   useEffect(() => {
     if (selectedStop) {

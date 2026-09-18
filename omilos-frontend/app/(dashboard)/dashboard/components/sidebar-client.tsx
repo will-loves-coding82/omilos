@@ -38,7 +38,7 @@ export default function SidebarClient({pendingInviteCount} : SidebarClientProps)
   return (
     <>
       <button
-        className="md:hidden fixed top-4 left-4 z-40 bg-bg-primary border-right-1 border-border-primary shadow-md rounded-lg p-2 text-text-primary hover:cursor-pointer"
+        className="md:hidden fixed top-4 left-4 z-40 bg-bg-primary shadow-md rounded-lg p-2 text-text-primary hover:cursor-pointer"
         onClick={() => setIsMobileOpen(true)}
         aria-label="Open navigation"
       >
