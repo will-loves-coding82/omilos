@@ -12,9 +12,9 @@ export interface Event {
   date: string;
   host_id: number /* int64 */;
   image_url?: string;
-  MemberIds: number /* int64 */[]; // invitee ids, used only when creating an event
-  members?: EventMember[]; // enriched attendees, populated only when reading an event
-  stops?: EventStop[];
+  member_ids?: number /* int64 */[]; // used only when creating an event
+  members?: JSONSlice<EventMember>; // enriched attendees, populated only when reading an event
+  stops?: JSONSlice<EventStop>;
 }
 export interface EventStop {
   id: number /* int64 */;
@@ -24,7 +24,7 @@ export interface EventStop {
   address: string;
   latitude: number /* float64 */;
   longitude: number /* float64 */;
-  stop_member_status_arr: StopMemberStatus[];
+  stop_member_status_arr: JSONSlice<StopMemberStatus>;
 }
 export type RSVPStatus = "pending" | "accepted" | "declined"
 
@@ -37,7 +37,7 @@ export interface EventMember {
 export type StopStatus = "not_started" | "on_the_way" | "arrived" | "no_show"
 
 export interface StopMemberStatus {
-  user: User;
+  user_id: number /* int64 */;
   stop_id: number /* int64 */;
   stop_status: StopStatus;
   status_updated_at: string;
@@ -79,3 +79,11 @@ export interface User {
   created_at?: string;
   updated_at?: string;
 }
+
+//////////
+// source: utils.go
+
+/**
+ * JSONSlice lets a []T field scan directly from a json/jsonb column.
+ */
+export type JSONSlice<T extends any> = T[];

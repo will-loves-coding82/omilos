@@ -49,7 +49,7 @@ export type ClientInvite = {
 export type ClientStopStatus = "not_started" | "on_the_way" | "arrived" | "no_show";
 
 export type ClientStopMemberStatus = {
-  user: ClientUser,
+  user_id: number,
   stop_id:  number,
   stop_status: ClientStopStatus,
   status_updated_at: string

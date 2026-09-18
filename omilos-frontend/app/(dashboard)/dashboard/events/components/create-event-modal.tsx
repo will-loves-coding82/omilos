@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from "motion/react";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
-import { APIEvent } from "@/app/types/api";
 import DatePicker from "@/app/components/date-picker";
 import Image from "next/image";
 import { eventDetailsSchema } from "../schemas";
@@ -14,6 +13,7 @@ import { ClientUser } from "@/app/types/client-types";
 import { searchUsers } from "@/app/actions/user-actions";
 import { createNewEvent } from "@/app/actions/event-actions";
 import { ActionResponse } from "@/app/actions/action-types";
+import { Event } from "@/app/types/api-types";
 
 type CreateEventModalProps = {
   isOpen: boolean,
@@ -23,7 +23,7 @@ type CreateEventModalProps = {
 export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
   const router = useRouter();
 
-  const initialState: ActionResponse<Partial<APIEvent>> = {
+  const initialState: ActionResponse<Partial<Event>> = {
     success: false,
     data: {},
   }
@@ -267,7 +267,7 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
                         type="button"
                         onClick={nextStep}
                         disabled={!isStep1Valid}
-                        className="bg-text-primary text-text-inverse px-4 py-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="bg-bg-secondary text-text-inverse px-4 py-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         Continue
                       </button>
@@ -366,15 +366,15 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
                           type="button"
                           onClick={nextStep}
                           disabled={!isStep1Valid}
-                          className="bg-text-primary text-text-inverse p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed mt-12"
+                          className="bg-bg-secondary text-text-inverse p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed mt-12"
                         >
-                          Next
+                          Continue
                         </button>
                         <button
                           type="button"
                           onClick={prevStep}
                           disabled={!isStep1Valid}
-                          className="bg-bg-secondary text-text-primary p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="text-text-danger p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           Back
                         </button>
@@ -486,14 +486,14 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
                         <button
                           type="submit"
                           disabled={pending}
-                          className="bg-text-primary text-text-inverse p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="bg-bg-secondary text-text-inverse p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           {pending ? "...Submitting" : "Submit"}
                         </button>
                         <button
                           type="button"
                           onClick={prevStep}
-                          className="bg-bg-secondary text-text-primary p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="text-text-danger p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           Back
                         </button>

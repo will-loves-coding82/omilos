@@ -27,7 +27,7 @@ const getAllInvitesForUserQuery = `
 				'event', jsonb_build_object(
 					'id', e.id,
 					'slug', e.slug,
-					'title', e.name,
+					'title', e.title,
 					'description', e.description,
 					'date', e.date,
 					'host_id', e.host_id,

@@ -68,7 +68,7 @@ func (h *EventHandler) GetEventsForUser(w http.ResponseWriter, r *http.Request) 
 
 	events, err := h.client.GetEventsForUser(user.Id)
 	if err != nil {
-		log.Printf(err.Error())
+		log.Print(err)
 		httpio.InternalError(w, r, err)
 		return
 	}
@@ -76,8 +76,8 @@ func (h *EventHandler) GetEventsForUser(w http.ResponseWriter, r *http.Request) 
 	httpio.JSON(w, r, http.StatusOK, EventsForUserPayload{Events: events})
 }
 
-type GetEventStopsPayload struct {
-	Stops []app.EventStop `json:"stops"`
+type GetEventPayload struct {
+	Event app.Event `json:"event"`
 }
 
 func (h *EventHandler) GetEventDetails(w http.ResponseWriter, r *http.Request) {
@@ -93,13 +93,13 @@ func (h *EventHandler) GetEventDetails(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stops, err := h.client.GetEventDetails(eventSlug)
+	event, err := h.client.GetEventDetails(eventSlug)
 	if err != nil {
 		httpio.InternalError(w, r, err)
 		return
 	}
 
-	httpio.JSON(w, r, http.StatusOK, GetEventStopsPayload{Stops: stops})
+	httpio.JSON(w, r, http.StatusOK, GetEventPayload{Event: event})
 }
 
 type AddEventStopPayload struct {

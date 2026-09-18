@@ -14,12 +14,12 @@ CREATE TABLE users (
 
 CREATE TABLE events (
   id SERIAL PRIMARY KEY,
-  slug VARCHAR(255) NOT NULL UNIQUE,
   host_id INTEGER NOT NULL,
-  image_url TEXT,
   active_stop_id INTEGER, -- this can be null
-  name TEXT NOT NULL,
+  slug VARCHAR(255) NOT NULL UNIQUE,
+  title TEXT NOT NULL,
   description TEXT,
+  image_url TEXT,
   date DATE NOT NULL, 
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT fk_host_id FOREIGN KEY(host_id) REFERENCES users(id)

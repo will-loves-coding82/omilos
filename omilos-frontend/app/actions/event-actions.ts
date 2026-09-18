@@ -157,30 +157,26 @@ export async function createNewEvent(prevState: ActionResponse<Partial<Event>>, 
 
 export async function getEventDetails(slug: string): Promise<ActionResponse<{event: Event | null}>> {
   try {
-    const res = await apiFetch(API_ROUTES.events.detail(slug), {
-      method: "GET"
-    })
+    const res = await apiFetch(API_ROUTES.events.detail(slug), { method: "GET" })
+
+    if (res.status === 404) {
+      return { success: false, data: { event: null }, message: "not_found" }
+    }
 
     if (!res.ok) {
       const body = await res.text()
       console.error("Get event detailed failed:", res.status, body)
-      return {
-        success: false,
-        data: {event: null},
-        message: "Failed to fetch event details",
-      }
+      return { success: false, data: { event: null }, message: "Failed to fetch event details" }
     }
 
     const { data } = await res.json()
-    return {
-      success: true,
-      data: {event: null},
-    }
+    return { success: true, data: { event: data.event } }
   } catch (err) {
-    console.error("Error fetching event stops:", err)
+    const isAbort = err instanceof Error && (err.name === "AbortError" || err.message.includes("aborted"))
+    if (!isAbort) console.error("Error fetching event details:", err)
     return {
       success: false,
-      data: {event: null},
+      data: { event: null },
       message: err instanceof Error ? err.message : "An unknown error occurred",
     }
   }
