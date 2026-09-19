@@ -5,6 +5,8 @@ import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ClientEvent } from "@/app/types/client-types";
+import { usePageActions } from "../../components/context/header-actions-context";
+import { UserButton } from "@clerk/nextjs";
 
 export type EventsClientProps = {
   events: ClientEvent[]
@@ -21,6 +23,13 @@ export function EventsClient({events}: EventsClientProps) {
   function closeCreateModal() {
     setCreateEventModalOpen(false);
   }
+
+   // Renders custom header actions for this event
+  usePageActions(
+    <span className='flex items-center gap-4'>
+      <UserButton/>
+    </span>
+  )
 
   return (
     <section className="flex flex-col w-full h-full max-w-[1700px] mx-auto py-6 gap-16">

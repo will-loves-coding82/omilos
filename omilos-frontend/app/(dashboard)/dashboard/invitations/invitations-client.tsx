@@ -9,6 +9,8 @@ import { createPortal } from "react-dom";
 import { CircleX } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { UserButton } from "@clerk/nextjs";
+import { usePageActions } from "../components/context/header-actions-context";
 
 
 export type InvitationsClientProps = {
@@ -40,30 +42,36 @@ export default function InvitationsClient({activeTabParam, data} : InvitationsCl
     router.push(`${pathname}?${params.toString()}`);
   }
 
-   async function onAcceptInvite(invite: ClientInvite) {
-    try {
-      const res = await acceptInvite(invite);
+  async function onAcceptInvite(invite: ClientInvite) {
+  try {
+    const res = await acceptInvite(invite);
+    if (!res.success) {
+      console.log("Failed to accept invite")
+    }
+  }
+  catch (err) {
+    console.log("Error accepting invite: " + err)
+  }
+  }
+
+  async function onDeclineInvite(invite: ClientInvite) {
+  try {
+      const res = await declineInvite(invite);
       if (!res.success) {
-        console.log("Failed to accept invite")
+        console.log("Failed to decline invite")
       }
     }
     catch (err) {
-      console.log("Error accepting invite: " + err)
+      console.log("Error declining invite: " + err)
     }
-   }
+  }
 
-   async function onDeclineInvite(invite: ClientInvite) {
-    try {
-        const res = await declineInvite(invite);
-        if (!res.success) {
-          console.log("Failed to decline invite")
-        }
-      }
-      catch (err) {
-        console.log("Error declining invite: " + err)
-      }
-    }
-  
+  usePageActions(
+    <span className='flex items-center gap-4'>
+      <UserButton/>
+    </span>
+  )
+    
   return (
     <section className="flex flex-col w-full h-full max-w-4xl mx-auto py-6">
       <h1 className="text-primary text-xl font-medium">Your invites</h1>
