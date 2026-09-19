@@ -237,6 +237,9 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
           />
         )}
       </div>
+      {/* Fixed to the viewport so the map itself never shifts or resizes when
+          the dashboard sidebar or these overlay panels expand/collapse. */}
+      <div className='fixed z-0 top-[var(--header-height)] right-0 bottom-0 left-0'>
       <Map
         ref={mapRef}
         {...viewState}
@@ -245,8 +248,7 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
         onLoad={() => setMapInstanceReady(true)}
         mapboxAccessToken={environment.mapbox.accessToken}
         mapStyle={'mapbox://styles/mapbox/standard'}
-        style={{ width: '100%', height: '100%', position: 'fixed' }}
-
+        style={{ width: '100%', height: '100%' }}
       >
          <GeolocateControl
           position="top-right"
@@ -328,6 +330,7 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
         }
         <NavigationControl position='bottom-right' />
       </Map>
+      </div>
     </div>
   )
 }
