@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import {DragDropProvider} from '@dnd-kit/react';
 import { useSortable } from '@dnd-kit/react/sortable';
 import { move } from '@dnd-kit/helpers';
-import { GripVertical } from "lucide-react";
+import { Check, GripVertical, RotateCcwClock, X } from "lucide-react";
 import { ClientEventMember, ClientEventStop } from "@/app/types/client-types";
 import TabButton from "../../components/tab-button";
 import Image from "next/image";
@@ -72,22 +72,32 @@ export default function EventStopsMembersSidePanel({participants, eventStops, on
         {
           activeTab === "Participants" && 
             <ul className="flex flex-col gap-4">
-              {participants.map((member, index)=> (
-                <div className="flex gap-2" key={member.user.id}>
-                  <div className="w-[24px] h-[24px] pt-1">
-                    <Image
-                      width={24}
-                      height={24}
-                      className="rounded-full"
-                      alt="user profile"
-                      src={member.user.image_url!}
-                    />
+
+              {/* TODO: Only the host can see which people declined or is pending */}
+              {participants.sort((a,b) => a.rsvp_status.localeCompare(b.rsvp_status)).map((member, index)=> (
+                <div className="flex justify-between items-center w-full" key={member.user.id}>
+                  
+                  <div className="flex gap-2">
+                    <div className="w-[24px] h-[24px] pt-1">
+                      <Image
+                        width={24}
+                        height={24}
+                        className="rounded-full"
+                        alt="user profile"
+                        src={member.user.image_url!}
+                      />
+                    </div>
+
+                    <div className="flex flex-col">
+                      <p className="text-text-primary text-md">{member.user.username}</p>
+                      <p className="text-text-secondary text-sm">{member.user.email}</p>
+                    </div>
                   </div>
 
-                  <div className="flex flex-col">
-                    <p className="text-text-primary text-md">{member.user.username}</p>
-                    <p className="text-text-secondary text-sm">{member.user.email}</p>
-                  </div>
+                  {/* TODO: Only the host can see these status icons */}
+                  { member.rsvp_status === "pending" && <div className="w-[20px] h-[20px] flex justify-center items-center flex justify-between p-1 bg-bg-warning/50 rounded-full"><RotateCcwClock className="text-text-warning" strokeWidth={3}  size={14}/></div> }
+                  { member.rsvp_status === "accepted" && <div className="w-[20px] h-[20px] flex justify-center items-center p-1 bg-bg-success/50 rounded-full"><Check className="text-text-success" strokeWidth={4} size={14}/></div> }
+                  { member.rsvp_status === "declined" && <div className="w-[20px] h-[20px] flex justify-center items-center bg-bg-danger/50 rounded-full"><X className="text-text-danger" strokeWidth={3} size={12}/></div> }
                 </div>
               ))
               }
