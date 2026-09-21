@@ -29,6 +29,7 @@
   --color-success: #ace92a;
   
   --color-border-primary: #ededed;
+  --color-border-transparent: transparent;
   --color-button-primary: #000000;
   
   --color-badge-bg: var(--color-danger);
@@ -69,6 +70,7 @@
   /* Utility colors */
   --color-button-primary: var(--color-button-primary);
   --color-border-primary: var(--color-border-primary);
+  --color-border-transparent: var(--color-border-transparent);
 
   /* Icon badge colors */
   --color-badge-bg: var(--color-badge-bg);
@@ -94,6 +96,7 @@
     --color-bg-skeleton: #2e2e2e;
 
     --color-border-primary: #2e2e2e;
+    --color-border-transparent: var(--color-border-primary);
     --color-button-primary: #171717;
   }
 }
