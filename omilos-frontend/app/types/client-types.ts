@@ -12,6 +12,7 @@ export type Coordinates = {
 export type ClientEvent = {
     id: number,
     host_id: number,
+    active_stop_id?: number,
     title: string,
     description?: string,
     slug: string,
@@ -28,7 +29,7 @@ export type ClientEventStop = {
   mapbox_id: string,
   latitude: number,
   longitude: number,
-  stop_member_status_arr: ClientStopMemberStatus[]
+  stop_member_status_arr?: ClientStopMemberStatus[]
 }
 
 export type RSVPStatus = "pending" | "accepted" | "declined";

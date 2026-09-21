@@ -9,16 +9,17 @@ import (
 )
 
 type Event struct {
-	Id          int64                  `json:"id" db:"id"`
-	Title       string                 `json:"title" db:"title"`
-	Description string                 `json:"description" db:"description"`
-	Slug        string                 `json:"slug" db:"slug"`
-	Date        string                 `json:"date" db:"date"`
-	HostId      int64                  `json:"host_id" db:"host_id"`
-	ImageURL    string                 `json:"image_url,omitempty" db:"image_url"`
-	MemberIds   []int64                `json:"member_ids,omitempty" db:"member_ids"` // used only when creating an event
-	Members     JSONSlice[EventMember] `json:"members,omitempty" db:"members"`       // enriched attendees, populated only when reading an event
-	Stops       JSONSlice[EventStop]   `json:"stops,omitempty" db:"stops"`
+	Id           int64                  `json:"id" db:"id"`
+	Title        string                 `json:"title" db:"title"`
+	Description  string                 `json:"description" db:"description"`
+	Slug         string                 `json:"slug" db:"slug"`
+	Date         string                 `json:"date" db:"date"`
+	HostId       int64                  `json:"host_id" db:"host_id"`
+	ActiveStopId int64                  `json:"active_stop_id,omitempty" db:"active_stop_id"`
+	ImageURL     string                 `json:"image_url,omitempty" db:"image_url"`
+	MemberIds    []int64                `json:"member_ids,omitempty" db:"member_ids"` // used only when creating an event
+	Members      JSONSlice[EventMember] `json:"members,omitempty" db:"members"`       // enriched attendees, populated only when reading an event
+	Stops        JSONSlice[EventStop]   `json:"stops,omitempty" db:"stops"`
 }
 
 type EventStop struct {
@@ -56,7 +57,7 @@ const getEventIdForSlug = `
 
 const getEventsForUserQuery = `
 	SELECT
-		e.id, e.slug, e.title, e.description, e.date, e.host_id, e.image_url,
+		e.id, e.slug, e.title, e.description, e.date, e.host_id, COALESCE(e.active_stop_id, 0) AS active_stop_id, e.image_url,
 		COALESCE(
 			(
 				SELECT json_agg(
@@ -84,7 +85,7 @@ const getEventsForUserQuery = `
 
 const getEventDetailsQuery = `
 	SELECT
-		e.id, e.title, e.description, e.slug, e.date, e.host_id, e.image_url,
+		e.id, e.title, e.description, e.slug, e.date, e.host_id, COALESCE(e.active_stop_id, 0) AS active_stop_id, e.image_url,
 		COALESCE(
 			(
 				SELECT json_agg(

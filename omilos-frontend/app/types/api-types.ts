@@ -11,6 +11,7 @@ export interface Event {
   slug: string;
   date: string;
   host_id: number /* int64 */;
+  active_stop_id?: number /* int64 */;
   image_url?: string;
   member_ids?: number /* int64 */[]; // used only when creating an event
   members?: JSONSlice<EventMember>; // enriched attendees, populated only when reading an event
@@ -24,7 +25,7 @@ export interface EventStop {
   address: string;
   latitude: number /* float64 */;
   longitude: number /* float64 */;
-  stop_member_status_arr: JSONSlice<StopMemberStatus>;
+  stop_member_status_arr?: JSONSlice<StopMemberStatus>;
 }
 export type RSVPStatus = "pending" | "accepted" | "declined"
 
