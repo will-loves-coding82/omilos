@@ -175,7 +175,7 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
   usePageActions(
     <span className='flex items-center gap-4'>
       <UserButton/>
-      <button onClick={() => setIsEventDetailsPanelOpen(true)} className='bg-button-primary hover:cursor-pointer text-white rounded-lg px-4 py-1'>Info</button>
+      <button onClick={() => setIsEventDetailsPanelOpen(true)} className='bg-button-primary hover:cursor-pointer border-1 border-border-transparent text-white rounded-lg px-5 py-1'>Info</button>
     </span>
   )
 
@@ -185,16 +185,12 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
       <EventStopsMembersSidePanel participants={event.members} eventStops={eventStops} onReorderStops={onReorderEventStops} onSelectStop={selectEventStop} activeStopId={openStopId} />
 
       {/* Dismissable right panel that shows the event details */}
-
-        <EventDetailsSidePanel event={event} isOpen={isEventDetailsPanelOpen} onDismiss={onDismissEventDetailsPanel}/>
-
-
+      <EventDetailsSidePanel event={event} isOpen={isEventDetailsPanelOpen} onDismiss={onDismissEventDetailsPanel}/>
 
       {/* Dismissable right panel that shows a selected event details */}
       {selectedEventStop && (
         <EventStopSidePanel stop={selectedEventStop} isOpen={isEventStopPanelOpen} onDeleteStop={onDeleteStop} onDismiss={onDismissEventStopPanel}/>
       )}
-
 
 
       {/* Map overlays elements that need to respond to sidebar and panel resizing  */}
@@ -251,17 +247,7 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
         style={{ width: '100%', height: '100%' }}
       >
          <GeolocateControl
-          position="top-right"
-          style={{
-            marginTop: "1rem",
-            height: "38px",
-            width: "38px",
-            display: "flex",
-            justifyContent:"center",
-            alignItems: "center",
-            borderColor: "none",
-            borderRadius: "6px"
-          }}
+          position="bottom-right"
           trackUserLocation={true}
           showUserLocation={true}
         />
