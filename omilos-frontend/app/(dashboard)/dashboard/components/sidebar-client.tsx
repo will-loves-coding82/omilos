@@ -1,18 +1,20 @@
 "use client";
 
 
-import { Calendar, User, PanelLeft, Bell, Menu, X } from "lucide-react";
+import { Calendar, User, PanelLeft, Bell, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ClientInvite } from "@/app/types/client-types";
+import { SidebarProvider } from "./context/sidebar-context";
 
 export type SidebarClientProps = {
   pendingInviteCount: number
+  children: ReactNode
 }
 
-export default function SidebarClient({pendingInviteCount} : SidebarClientProps) {
+export default function SidebarClient({pendingInviteCount, children} : SidebarClientProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(true);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -36,15 +38,7 @@ export default function SidebarClient({pendingInviteCount} : SidebarClientProps)
   }, [isOpen]);
 
   return (
-    <>
-      <button
-        className="md:hidden fixed top-4 left-4 z-40 bg-bg-primary shadow-md rounded-lg p-2 text-text-primary hover:cursor-pointer"
-        onClick={() => setIsMobileOpen(true)}
-        aria-label="Open navigation"
-      >
-        <Menu size={20} className="text-text-secondary" />
-      </button>
-
+    <SidebarProvider openMobileMenu={() => setIsMobileOpen(true)}>
       <nav className={`hidden md:flex flex-col h-full relative z-20 ${isOpen ? "min-w-[224px]": "min-w-[80px]"} bg-bg-secondary border-r border-border-primary transition-all duration-300`}>
         <section className={`h-[64px] flex items-center p-4 ${isOpen ? "justify-between" : "justify-center"}`}>
             {isOpen ? <Link href="/" className="flex items-center gap-3 font-medium text-text-primary"><p className="text-3xl">O</p><p className="text-md">Omilos</p></Link> : null}
@@ -103,7 +97,9 @@ export default function SidebarClient({pendingInviteCount} : SidebarClientProps)
           </>
         )}
       </AnimatePresence>
-    </>
+
+      {children}
+    </SidebarProvider>
   )
 }
 
