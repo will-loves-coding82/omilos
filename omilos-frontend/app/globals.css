@@ -20,13 +20,13 @@
   --color-text-secondary: #737373;
   --color-text-disabled: rgb(0 0 0 / 20%);
   --color-text-inverse: #ffffff;
-  --color-text-active: #6ebc29;
+  --color-text-active: #71ba32;
   --color-text-danger: var(--color-danger);
   
   --color-danger: #f34c4c;
   --color-info: #0662db;
   --color-warning: #ffcb20;
-  --color-success: #ace92a;
+  --color-success: #93bb3c;
   
   --color-border-primary: #ededed;
   --color-border-transparent: transparent;

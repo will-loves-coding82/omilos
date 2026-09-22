@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {DragDropProvider} from '@dnd-kit/react';
+import { DragDropProvider } from '@dnd-kit/react';
 import { useSortable } from '@dnd-kit/react/sortable';
 import { move } from '@dnd-kit/helpers';
-import { Check, GripVertical, RotateCcwClock, X } from "lucide-react";
+import { Check, CircleCheck, GripVertical, RotateCcwClock, X } from "lucide-react";
 import { ClientEventMember, ClientEventStop } from "@/app/types/client-types";
 import TabButton from "../../components/tab-button";
 import Image from "next/image";
@@ -17,9 +17,10 @@ type EventSidePanelProps = {
   onReorderStops: (stops: ClientEventStop[]) => void;
   onSelectStop: (stop: ClientEventStop) => void;
   activeStopId: string | null;
+  activeEventStopId?: number;
 };
 
-export default function EventStopsMembersSidePanel({participants, eventStops, onReorderStops, onSelectStop, activeStopId} : EventSidePanelProps) {
+export default function EventStopsMembersSidePanel({ participants, eventStops, onReorderStops, onSelectStop, activeStopId, activeEventStopId }: EventSidePanelProps) {
   const [activeTab, setActiveTab] = useState<string>("Stops");
   const ref = useRef<HTMLUListElement | null>(null);
 
@@ -64,44 +65,51 @@ export default function EventStopsMembersSidePanel({participants, eventStops, on
           >
             <ul ref={ref} className="flex flex-col gap-2">
               {eventStops.map((stop, index) => (
-                <SortableStop key={stop.mapbox_id} stop={stop} index={index} onSelectStop={onSelectStop} isSelected={activeStopId === stop.mapbox_id}/>
+                <SortableStop
+                  key={stop.mapbox_id}
+                  stop={stop}
+                  index={index}
+                  onSelectStop={onSelectStop}
+                  isSelected={activeStopId === stop.mapbox_id}
+                  isActive={stop.id !== undefined && stop.id === activeEventStopId}
+                />
               ))}
             </ul>
           </DragDropProvider>
         }
         {
-          activeTab === "Participants" && 
-            <ul className="flex flex-col gap-4">
+          activeTab === "Participants" &&
+          <ul className="flex flex-col gap-4">
 
-              {/* TODO: Only the host can see which people declined or is pending */}
-              {participants.sort((a,b) => a.rsvp_status.localeCompare(b.rsvp_status)).map((member, index)=> (
-                <div className="flex justify-between items-center w-full" key={member.user.id}>
-                  
-                  <div className="flex gap-2">
-                    <div className="w-[24px] h-[24px] pt-1">
-                      <Image
-                        width={24}
-                        height={24}
-                        className="rounded-full"
-                        alt="user profile"
-                        src={member.user.image_url!}
-                      />
-                    </div>
+            {/* TODO: Only the host can see which people declined or is pending */}
+            {participants.sort((a, b) => a.rsvp_status.localeCompare(b.rsvp_status)).map((member, index) => (
+              <div className="flex justify-between items-center w-full" key={member.user.id}>
 
-                    <div className="flex flex-col">
-                      <p className="text-text-primary text-md">{member.user.username}</p>
-                      <p className="text-text-secondary text-sm">{member.user.email}</p>
-                    </div>
+                <div className="flex gap-2">
+                  <div className="w-[24px] h-[24px] pt-1">
+                    <Image
+                      width={24}
+                      height={24}
+                      className="rounded-full"
+                      alt="user profile"
+                      src={member.user.image_url!}
+                    />
                   </div>
 
-                  {/* TODO: Only the host can see these status icons */}
-                  { member.rsvp_status === "pending" && <div className="w-[20px] h-[20px] flex justify-center items-center flex justify-between p-1 bg-bg-warning/50 rounded-full"><RotateCcwClock className="text-text-warning" strokeWidth={3}  size={14}/></div> }
-                  { member.rsvp_status === "accepted" && <div className="w-[20px] h-[20px] flex justify-center items-center p-1 bg-bg-success/50 rounded-full"><Check className="text-text-success" strokeWidth={4} size={14}/></div> }
-                  { member.rsvp_status === "declined" && <div className="w-[20px] h-[20px] flex justify-center items-center bg-bg-danger/50 rounded-full"><X className="text-text-danger" strokeWidth={3} size={12}/></div> }
+                  <div className="flex flex-col">
+                    <p className="text-text-primary text-md">{member.user.username}</p>
+                    <p className="text-text-secondary text-sm">{member.user.email}</p>
+                  </div>
                 </div>
-              ))
-              }
-            </ul>
+
+                {/* TODO: Only the host can see these status icons */}
+                {member.rsvp_status === "pending" && <div className="w-[20px] h-[20px] flex justify-center items-center flex justify-between p-1 bg-bg-warning/50 rounded-full"><RotateCcwClock className="text-text-warning" strokeWidth={3} size={14} /></div>}
+                {member.rsvp_status === "accepted" && <div className="w-[20px] h-[20px] flex justify-center items-center p-1 bg-bg-success/50 rounded-full"><Check className="text-text-success" strokeWidth={4} size={14} /></div>}
+                {member.rsvp_status === "declined" && <div className="w-[20px] h-[20px] flex justify-center items-center bg-bg-danger/50 rounded-full"><X className="text-text-danger" strokeWidth={3} size={12} /></div>}
+              </div>
+            ))
+            }
+          </ul>
         }
       </section>
     </div>
@@ -113,25 +121,34 @@ type SortableStopProps = {
   index: number;
   onSelectStop: (stop: ClientEventStop) => void;
   isSelected: boolean;
+  isActive: boolean;
 };
 
-function SortableStop({stop, index, onSelectStop, isSelected}: SortableStopProps) {
+function SortableStop({ stop, index, onSelectStop, isSelected, isActive }: SortableStopProps) {
   const id = stop.mapbox_id
   const handleRef = useRef<HTMLButtonElement | null>(null);
-  const { ref, isDragging } = useSortable({id, index, handle: handleRef});
+  const { ref, isDragging } = useSortable({ id, index, handle: handleRef });
 
   return (
     <li
       ref={ref}
       onClick={() => onSelectStop(stop)}
-      className={`hover:cursor-pointer min-h-24 max-h-32 transition-colors duration-100 ease-in ${isSelected ? "bg-bg-active" : "bg-bg-secondary"} p-3 flex justify-between gap-1 rounded-lg ${isDragging ? 'opacity-50' : ''}`}
+      className={`hover:cursor-pointer h-[108px] transition-colors duration-100 ease-in ${isSelected ? "bg-bg-active" : "bg-bg-secondary"} p-3 flex justify-between gap-1 rounded-lg ${isDragging ? 'opacity-50' : ''}`}
     >
-      <div className="flex flex-col">
-        <h3 className={`text-lg font-semibold transition-colors duration-100 ease-in ${isSelected ? "text-text-active" : "text-text-primary"}`}>{stop.name}</h3>
-        <p className={`text-md transition-colors duration-100 ease-in ${isSelected ? "text-text-active" : "text-text-secondary"}`}>{stop.address}</p>
+      <div className="flex flex-col justify-between gap-1">
+        <div className="flex flex-col">
+          <h3 className={`text-lg font-semibold transition-colors duration-100 ease-in ${isSelected ? "text-text-active" : "text-text-primary"}`}>{stop.name}</h3>
+          <p className={`text-md transition-colors duration-100 ease-in ${isSelected ? "text-text-active" : "text-text-secondary"}`}>{stop.address}</p>
+        </div>
+        {isActive && (
+          <span className="w-fit flex items-center gap-1 bg-bg-success/50 text-text-success text-xs font-medium rounded-full px-2 py-0.5">
+            <CircleCheck size={12} strokeWidth={3} />
+            Active now
+          </span>
+        )}
       </div>
       <button ref={handleRef} className="cursor-grab hover:cursor-pointer active:cursor-grabbing">
-        <GripVertical size={20} className="my-auto"/>
+        <GripVertical size={20} className="my-auto" />
       </button>
     </li>
   )

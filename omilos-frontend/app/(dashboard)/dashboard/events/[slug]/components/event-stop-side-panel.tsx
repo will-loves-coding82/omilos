@@ -1,14 +1,18 @@
+"use client";
+
 import { ClientEventStop } from "@/app/types/client-types"
-import { Trash, X } from "lucide-react"
+import { CircleCheck, Trash, X } from "lucide-react"
 
 export type EventStopSidePanelProps = {
   stop: ClientEventStop,
   isOpen: boolean,
+  isActive: boolean,
   onDismiss: () => void,
-  onDeleteStop: (stopId: number) => void  
+  onDeleteStop: (stopId: number) => void,
+  onToggleActive: (isActive: boolean) => void,
 }
 
-export default function EventStopSidePanel({stop, isOpen, onDismiss, onDeleteStop}: EventStopSidePanelProps) {
+export default function EventStopSidePanel({stop, isOpen, isActive, onDismiss, onDeleteStop, onToggleActive}: EventStopSidePanelProps) {
   return (
     <div
       className={`absolute inset-y-0 right-0 z-10 w-full bg-bg-primary md:w-[380px] shadow-md transition-transform duration-300 ${
@@ -30,12 +34,28 @@ export default function EventStopSidePanel({stop, isOpen, onDismiss, onDeleteSto
           <>
           <div className="bg-bg-secondary w-full rounded-lg flex items-center justify-between p-3">
             <p className="text-text-secondary">Active Status</p>
-            <button
-              onClick={() => {}}
-              className="hover:cursor-pointer"
-              >
-              
-            </button>
+            <div className="flex items-center gap-2">
+              {isActive && (
+                <span className="flex items-center gap-1 bg-bg-success/50 text-text-success text-xs font-medium rounded-full px-2 py-0.5">
+                  <CircleCheck size={12} strokeWidth={3}/>
+                  Active
+                </span>
+              )}
+              <button
+                onClick={() => onToggleActive(!isActive)}
+                aria-pressed={isActive}
+                aria-label="Toggle active status"
+                className={`hover:cursor-pointer relative w-9 h-5 rounded-full transition-colors duration-200 ${
+                  isActive ? 'bg-black' : 'bg-bg-tertiary'
+                }`}
+                >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 ${
+                    isActive ? 'translate-x-4' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
           </div>
 
           <div className="bg-bg-secondary w-full rounded-lg flex items-center justify-between p-3">

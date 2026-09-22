@@ -10,7 +10,7 @@ import { Coordinates, ClientEventStop, ClientEvent, searchResultToClientEventSto
 
 
 import EventStopSidePanel from './event-stop-side-panel';
-import { addEventStop, reorderEventStops } from '@/app/actions/event-actions';
+import { addEventStop, reorderEventStops, setActiveEventStop } from '@/app/actions/event-actions';
 import { usePageActions } from '../../../components/context/header-actions-context';
 import EventDetailsSidePanel from './event-details-side-panel';
 import EventStopsMembersSidePanel from './event-stops-members-side-panel';
@@ -45,7 +45,8 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
   const [viewState, setViewState] = useState({ longitude: -74.5, latitude: 40, zoom: 12, pitch: 40});
 
   const [eventStops, setEventStops] = useState<ClientEventStop[]>(() => event.stops!!);
-  
+  const [activeStopId, setActiveStopId] = useState<number | undefined>(event.active_stop_id);
+
   const [selectedStop, setSelectedStop] = useState<ClientEventStop | null>(null); // Tracks the selected search result stop
   const [stopMarkerCoord, setStopMarkerCoord] = useState<Coordinates|null>(null);
   const [showStopMarkerPopup, setShowStopMarkerPopup] = useState(false); 
@@ -122,7 +123,7 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
 
       // Sync with database
       try {
-        const res = await addEventStop(slug, selectedStop)
+        const res = await addEventStop(event.id, selectedStop)
         if (!res.success || !res.data) {
           console.log("Failed to add stop to database")
         } else {
@@ -140,6 +141,26 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
 
   }
 
+  async function onToggleActiveStop(stopId: number, isActive: boolean) {
+    const previousActiveStopId = activeStopId;
+    const nextActiveStopId = isActive ? stopId : undefined;
+
+    // Optimistically update before the request resolves
+    setActiveStopId(nextActiveStopId);
+
+    try {
+      const res = await setActiveEventStop(event.id, nextActiveStopId ?? null);
+      if (!res.success) {
+        console.log("Failed to update active stop")
+        setActiveStopId(previousActiveStopId);
+      }
+    }
+    catch(err) {
+      console.log("Error updating active stop: " + err)
+      setActiveStopId(previousActiveStopId);
+    }
+  }
+
   async function onReorderEventStops(stops: ClientEventStop[]) {
     const orderUnchanged = stops.length === eventStops.length
       && stops.every((s, i) => s.mapbox_id === eventStops[i].mapbox_id);
@@ -152,7 +173,7 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
     const persistedStops = stops.filter((s): s is ClientEventStop & { id: number } => s.id !== undefined);
 
     try {
-      const res = await reorderEventStops(slug, persistedStops);
+      const res = await reorderEventStops(event.id, persistedStops);
       if (!res.success) {
         console.log("Failed to reorder event stops")
       }
@@ -175,21 +196,28 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
   usePageActions(
     <span className='flex items-center gap-4'>
       <UserButton/>
-      <button onClick={() => setIsEventDetailsPanelOpen(true)} className='bg-button-primary hover:cursor-pointer border-1 border-border-transparent text-white rounded-lg px-5 py-1'>Info</button>
+      <button onClick={() => setIsEventDetailsPanelOpen(true)} className='bg-button-primary hover:cursor-pointer border-1 border-border-transparent text-white text-sm rounded-lg px-5 py-1'>Info</button>
     </span>
   )
 
   return (
     <div ref={containerRef} className='absolute inset-0 z-0 w-full h-full'>      
       {/* Left panel that shows all the stops and participants */}
-      <EventStopsMembersSidePanel participants={event.members} eventStops={eventStops} onReorderStops={onReorderEventStops} onSelectStop={selectEventStop} activeStopId={openStopId} />
+      <EventStopsMembersSidePanel participants={event.members} eventStops={eventStops} onReorderStops={onReorderEventStops} onSelectStop={selectEventStop} activeStopId={openStopId} activeEventStopId={activeStopId} />
 
       {/* Dismissable right panel that shows the event details */}
       <EventDetailsSidePanel event={event} isOpen={isEventDetailsPanelOpen} onDismiss={onDismissEventDetailsPanel}/>
 
       {/* Dismissable right panel that shows a selected event details */}
       {selectedEventStop && (
-        <EventStopSidePanel stop={selectedEventStop} isOpen={isEventStopPanelOpen} onDeleteStop={onDeleteStop} onDismiss={onDismissEventStopPanel}/>
+        <EventStopSidePanel
+          stop={selectedEventStop}
+          isOpen={isEventStopPanelOpen}
+          onDeleteStop={onDeleteStop}
+          onDismiss={onDismissEventStopPanel}
+          isActive={selectedEventStop.id !== undefined && selectedEventStop.id === activeStopId}
+          onToggleActive={(isActive) => selectedEventStop.id !== undefined && onToggleActiveStop(selectedEventStop.id, isActive)}
+        />
       )}
 
 
