@@ -21,7 +21,7 @@ export default function EventStopSidePanel({stop, isOpen, isActive, onDismiss, o
     >
       <div className="flex justify-between w-full border-b-1 p-3 border-border-primary">
         <h3 className="text-lg font-semibold text-text-primary">Stop Details</h3>
-        <button onClick={onDismiss} id="dismiss-btn" className="hover:bg-bg-secondary hover:cursor-pointer rounded-md p-1 w-7 h-7 flex justify-center items-center"><X size={16}/></button>
+        <button onClick={onDismiss} id="dismiss-btn" className="bg-button-secondary hover:cursor-pointer rounded-md p-1 w-7 h-7 flex justify-center items-center"><X size={16}/></button>
       </div>
 
       <div className="p-3">
@@ -35,18 +35,18 @@ export default function EventStopSidePanel({stop, isOpen, isActive, onDismiss, o
           <div className="bg-bg-secondary w-full rounded-lg flex items-center justify-between p-3">
             <p className="text-text-secondary">Active Status</p>
             <div className="flex items-center gap-2">
-              {isActive && (
+              {/* {isActive && (
                 <span className="flex items-center gap-1 bg-bg-success/50 text-text-success text-xs font-medium rounded-full px-2 py-0.5">
                   <CircleCheck size={12} strokeWidth={3}/>
                   Active
                 </span>
-              )}
+              )} */}
               <button
                 onClick={() => onToggleActive(!isActive)}
                 aria-pressed={isActive}
                 aria-label="Toggle active status"
                 className={`hover:cursor-pointer relative w-9 h-5 rounded-full transition-colors duration-200 ${
-                  isActive ? 'bg-black' : 'bg-bg-tertiary'
+                  isActive ? 'bg-bg-success' : 'bg-bg-tertiary'
                 }`}
                 >
                 <span

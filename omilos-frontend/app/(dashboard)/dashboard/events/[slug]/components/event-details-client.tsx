@@ -15,6 +15,7 @@ import { usePageActions } from '../../../components/context/header-actions-conte
 import EventDetailsSidePanel from './event-details-side-panel';
 import EventStopsMembersSidePanel from './event-stops-members-side-panel';
 import {  UserButton } from '@clerk/nextjs';
+import { Maximize2 } from 'lucide-react';
 
 const SearchBox = dynamic(
   () => import("@mapbox/search-js-react").then((mod) => mod.SearchBox),
@@ -321,12 +322,38 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
                   longitude={s.longitude}
                   latitude={s.latitude}
                 >
-                  <div className='flex flex-col justify-between h-[164px]'>
-                    <header className='flex flex-col gap-2'>
-                      <h3 className='text-xl font-semibold text-text-black'>{s.name}</h3>
+                  <div className='flex flex-col justify-between h-full'>
+                    <button
+                      onClick={() => { setSelectedEventStop(s); setIsEventStopPanelOpen(true); }}
+                      className='self-start hover:cursor-pointer bg-button-secondary hover:bg-button-tertiary rounded-md p-2 transition-colors'
+                      aria-label='View stop details'
+                    >
+                      <Maximize2 size={16} className='text-text-secondary'/>
+                    </button>
+
+                    <header className='flex flex-col gap-1 mt-4'>
+                      <h3 className='text-xl font-medium text-text-primary'>{s.name}</h3>
                       <p className='text-lg text-text-secondary'>{s.address}</p>
                     </header>
-                    <button onClick={()=> { setSelectedEventStop(s); setIsEventStopPanelOpen(true); }} className='bg-black text-white p-2 text-lg rounded-md hover:cursor-pointer'>View</button>
+
+                    {(() => {
+                      const total = event.members.length;
+                      const arrivedCount = s.stop_member_status_arr?.filter(m => m.stop_status === 'arrived').length ?? 0;
+                      return (
+                        <div className='flex flex-col gap-1.5 mt-4'>
+                          <div className='flex justify-end items-baseline gap-1.5'>
+                            <span className='text-lg font-medium text-text-primary'>{arrivedCount}/{total}</span>
+                            <span className='text-lg text-text-secondary'>Arrived</span>
+                          </div>
+                          <div className='w-full h-2 bg-bg-tertiary rounded-full overflow-hidden'>
+                            <div
+                              className='h-full bg-bg-info rounded-full transition-all duration-300'
+                              style={{ width: total > 0 ? `${(arrivedCount / total) * 100}%` : '0%' }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </Popup>
               )}
