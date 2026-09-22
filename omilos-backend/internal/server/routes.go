@@ -55,17 +55,19 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 
 	r.Group(func(r chi.Router) {
 		r.Use(UserMiddleware(userClient))
-
 		r.Get("/users", userHandler.SearchUsers)
 
 		r.Get("/events", eventHandler.GetEventsForUser)
 		r.Post("/events", eventHandler.CreateNewEvent)
+		r.Get("/events/details/{slug}", eventHandler.GetEventDetails)
 
-		r.Get("/events/{slug}", eventHandler.GetEventDetails)
-
-		r.Post("/events/{slug}/stops", eventHandler.AddNewEventStop)
-		r.Patch("/events/{slug}/stops", eventHandler.ReorderEventStops)
-		r.Delete("/events/{slug}/stops/{stopId}", eventHandler.DeleteEventStop)
+		r.Route("/events/{eventId}", func(r chi.Router) {
+			r.Use(EventMembershipMiddleware(eventClient))
+			r.Post("/stops", eventHandler.AddNewEventStop)
+			r.Patch("/stops", eventHandler.ReorderEventStops)
+			r.Delete("/stops/{stopId}", eventHandler.DeleteEventStop)
+			r.Patch("/stops/active", eventHandler.UpdateActiveStop)
+		})
 
 		r.Patch("/invites", inviteHandler.UpdateInviteStatus)
 		r.Get("/invites/all", inviteHandler.GetAllInvitesForUser)
@@ -107,6 +109,40 @@ func UserMiddleware(userClient *app.UserClient) func(http.Handler) http.Handler 
 			ctx := context.WithValue(r.Context(), userContextKey, user)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		}))
+	}
+}
+
+// EventMembershipMiddleware requires that the authenticated user (attached to
+// context by UserMiddleware, which must run before this) is the host or an
+// accepted member of the event named by the {eventId} path parameter.
+func EventMembershipMiddleware(eventClient *app.EventClient) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			user, ok := UserFromContext(r.Context())
+			if !ok {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+
+			eventId, err := parseEventIdPathValue(r)
+			if err != nil {
+				log.Println(err)
+				http.Error(w, "bad request", http.StatusBadRequest)
+				return
+			}
+
+			isMember, err := eventClient.IsEventMember(eventId, user.Id)
+			if err != nil {
+				http.Error(w, "internal error", http.StatusInternalServerError)
+				return
+			}
+			if !isMember {
+				http.Error(w, "forbidden", http.StatusForbidden)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
 	}
 }
 

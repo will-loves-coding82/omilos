@@ -169,6 +169,24 @@ const deleteEventStopQuery = `
 		WHERE id=$1 and event_id=$2;
 `
 
+const updateActiveStopQuery = `
+	UPDATE events
+	SET active_stop_id = $1
+	WHERE id = $2;
+`
+
+const isEventMemberQuery = `
+	SELECT EXISTS (
+		SELECT 1
+		FROM events e
+		WHERE e.id = $1
+		AND (
+			e.host_id = $2
+			OR e.id IN (SELECT event_id FROM event_members em WHERE em.user_id = $2 AND em.rsvp_status = 'accepted')
+		)
+	);
+`
+
 func (e *EventClient) GetEventIdForSlug(slug string) (int64, error) {
 	var id int64
 	err := e.db.Conn().Get(&id, getEventIdForSlug, slug)
@@ -177,6 +195,17 @@ func (e *EventClient) GetEventIdForSlug(slug string) (int64, error) {
 	}
 
 	return id, nil
+}
+
+// IsEventMember reports whether userId is the host of eventId or an accepted member of it.
+func (e *EventClient) IsEventMember(eventId int64, userId int64) (bool, error) {
+	var isMember bool
+	err := e.db.Conn().Get(&isMember, isEventMemberQuery, eventId, userId)
+	if err != nil {
+		return false, fmt.Errorf("IsEventMember: %v", err)
+	}
+
+	return isMember, nil
 }
 
 func (e *EventClient) GetEventsForUser(userId int64) ([]Event, error) {
@@ -259,14 +288,9 @@ func (e *EventClient) CreateNewEventTx(ctx context.Context, hostId int64, event 
 	return newSlug, nil
 }
 
-func (e *EventClient) AddEventStop(slug string, stop EventStop) (int64, error) {
-	eventId, err := e.GetEventIdForSlug(slug)
-	if err != nil {
-		return 0, err
-	}
-
+func (e *EventClient) AddEventStop(eventId int64, stop EventStop) (int64, error) {
 	var id int64
-	err = e.db.Conn().Get(
+	err := e.db.Conn().Get(
 		&id, addEventStopQuery,
 		eventId, stop.Name, stop.Address, stop.Latitude, stop.Longitude,
 	)
@@ -277,12 +301,7 @@ func (e *EventClient) AddEventStop(slug string, stop EventStop) (int64, error) {
 	return id, nil
 }
 
-func (e *EventClient) ReorderEventStops(slug string, reorderedStops []EventStop) error {
-	eventId, err := e.GetEventIdForSlug(slug)
-	if err != nil {
-		return err
-	}
-
+func (e *EventClient) ReorderEventStops(eventId int64, reorderedStops []EventStop) error {
 	ids := make([]int32, len(reorderedStops))
 	sortOrders := make([]int32, len(reorderedStops))
 	for i, stop := range reorderedStops {
@@ -290,7 +309,7 @@ func (e *EventClient) ReorderEventStops(slug string, reorderedStops []EventStop)
 		sortOrders[i] = int32(i)
 	}
 
-	_, err = e.db.Conn().Exec(reorderEventStopsQuery, ids, sortOrders, eventId)
+	_, err := e.db.Conn().Exec(reorderEventStopsQuery, ids, sortOrders, eventId)
 	if err != nil {
 		return fmt.Errorf("ReorderEventStops: %v", err)
 	}
@@ -298,13 +317,18 @@ func (e *EventClient) ReorderEventStops(slug string, reorderedStops []EventStop)
 	return nil
 }
 
-func (e *EventClient) DeleteEventStop(slug string, stopId int64) error {
-	eventId, err := e.GetEventIdForSlug(slug)
+// UpdateActiveStop sets the event's currently active stop. A nil stopId clears it.
+func (e *EventClient) UpdateActiveStop(eventId int64, stopId *int64) error {
+	_, err := e.db.Conn().Exec(updateActiveStopQuery, stopId, eventId)
 	if err != nil {
-		return err
+		return fmt.Errorf("UpdateActiveStop: %v", err)
 	}
 
-	_, err = e.db.Conn().Exec(deleteEventStopQuery, stopId, eventId)
+	return nil
+}
+
+func (e *EventClient) DeleteEventStop(eventId int64, stopId int64) error {
+	_, err := e.db.Conn().Exec(deleteEventStopQuery, stopId, eventId)
 	if err != nil {
 		return fmt.Errorf("DeleteEventStop: %v", err)
 	}

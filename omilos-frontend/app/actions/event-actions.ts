@@ -157,7 +157,7 @@ export async function createNewEvent(prevState: ActionResponse<Partial<Event>>, 
 
 export async function getEventDetails(slug: string): Promise<ActionResponse<{event: Event | null}>> {
   try {
-    const res = await apiFetch(API_ROUTES.events.detail(slug), { method: "GET" })
+    const res = await apiFetch(API_ROUTES.events.details(slug), { method: "GET" })
 
     if (res.status === 404) {
       return { success: false, data: { event: null }, message: "not_found" }
@@ -182,9 +182,9 @@ export async function getEventDetails(slug: string): Promise<ActionResponse<{eve
   }
 }
 
-export async function addEventStop(slug: string, stop: ClientEventStop) : Promise<ActionResponse<{ id: number } | null>> {
+export async function addEventStop(eventId: number, stop: ClientEventStop) : Promise<ActionResponse<{ id: number } | null>> {
   try {
-    const res = await apiFetch(API_ROUTES.events.stops.create(slug), {
+    const res = await apiFetch(API_ROUTES.events.stops.create(eventId), {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -217,9 +217,9 @@ export async function addEventStop(slug: string, stop: ClientEventStop) : Promis
   }
 }
 
-export async function reorderEventStops(slug: string, stops: ClientEventStop[]) : Promise<ActionResponse<null>> {
+export async function reorderEventStops(eventId: number, stops: ClientEventStop[]) : Promise<ActionResponse<null>> {
   try {
-    const res = await apiFetch(API_ROUTES.events.stops.update(slug), {
+    const res = await apiFetch(API_ROUTES.events.stops.update(eventId), {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json"
@@ -251,9 +251,43 @@ export async function reorderEventStops(slug: string, stops: ClientEventStop[]) 
   }
 }
 
-export async function deleteEventStop(slug: string, stopId: number) : Promise<ActionResponse<null>> {
+export async function setActiveEventStop(eventId: number, stopId: number | null) : Promise<ActionResponse<null>> {
   try {
-    const res = await apiFetch(API_ROUTES.events.stops.delete(slug, stopId), {
+    const res = await apiFetch(API_ROUTES.events.stops.active(eventId), {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ stop_id: stopId }),
+    })
+
+    if (!res.ok) {
+      const body = await res.text()
+      console.error("Set active event stop failed:", res.status, body)
+      return {
+        success: false,
+        data: null,
+        message: "Failed to set active stop",
+      }
+    }
+
+    return {
+      success: true,
+      data: null,
+    }
+  } catch (err) {
+    console.error("Error setting active event stop:", err)
+    return {
+      success: false,
+      data: null,
+      message: err instanceof Error ? err.message : "An unknown error occurred",
+    }
+  }
+}
+
+export async function deleteEventStop(eventId: number, stopId: number) : Promise<ActionResponse<null>> {
+  try {
+    const res = await apiFetch(API_ROUTES.events.stops.delete(eventId, stopId), {
       method: "DELETE"
     })
 

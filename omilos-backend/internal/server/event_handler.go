@@ -81,7 +81,7 @@ type GetEventPayload struct {
 }
 
 func (h *EventHandler) GetEventDetails(w http.ResponseWriter, r *http.Request) {
-	_, ok := UserFromContext(r.Context())
+	user, ok := UserFromContext(r.Context())
 	if !ok {
 		httpio.InternalError(w, r, errors.New("no user in context"))
 		return
@@ -90,6 +90,22 @@ func (h *EventHandler) GetEventDetails(w http.ResponseWriter, r *http.Request) {
 	eventSlug := r.PathValue("slug")
 	if len(eventSlug) == 0 {
 		httpio.BadRequest(w, r, errors.New("slug path parameter is missing"))
+		return
+	}
+
+	eventId, err := h.client.GetEventIdForSlug(eventSlug)
+	if err != nil {
+		httpio.Error(w, r, http.StatusNotFound, "not found", errors.New("event not found"))
+		return
+	}
+
+	isMember, err := h.client.IsEventMember(eventId, user.Id)
+	if err != nil {
+		httpio.InternalError(w, r, err)
+		return
+	}
+	if !isMember {
+		httpio.Error(w, r, http.StatusNotFound, "not found", errors.New("event not found"))
 		return
 	}
 
@@ -113,13 +129,14 @@ func (h *EventHandler) AddNewEventStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	eventSlug := r.PathValue("slug")
-	if len(eventSlug) == 0 {
-		httpio.BadRequest(w, r, errors.New("slug path parameter is missing"))
+	eventId, err := parseEventIdPathValue(r)
+	if err != nil {
+		httpio.BadRequest(w, r, err)
+		return
 	}
 
 	var stop app.EventStop
-	err := json.NewDecoder(r.Body).Decode(&stop)
+	err = json.NewDecoder(r.Body).Decode(&stop)
 	if err != nil {
 		httpio.BadRequest(w, r, err)
 		return
@@ -133,7 +150,7 @@ func (h *EventHandler) AddNewEventStop(w http.ResponseWriter, r *http.Request) {
 		Longitude: stop.Longitude,
 	}
 
-	id, err := h.client.AddEventStop(eventSlug, eventStop)
+	id, err := h.client.AddEventStop(eventId, eventStop)
 	if err != nil {
 		httpio.InternalError(w, r, err)
 		return
@@ -149,20 +166,53 @@ func (h *EventHandler) ReorderEventStops(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	eventSlug := r.PathValue("slug")
-	if len(eventSlug) == 0 {
-		httpio.BadRequest(w, r, errors.New("slug path parameter is missing"))
-		return
-	}
-
-	var reorderedStops []app.EventStop
-	err := json.NewDecoder(r.Body).Decode(&reorderedStops)
+	eventId, err := parseEventIdPathValue(r)
 	if err != nil {
 		httpio.BadRequest(w, r, err)
 		return
 	}
 
-	err = h.client.ReorderEventStops(eventSlug, reorderedStops)
+	var reorderedStops []app.EventStop
+	err = json.NewDecoder(r.Body).Decode(&reorderedStops)
+	if err != nil {
+		httpio.BadRequest(w, r, err)
+		return
+	}
+
+	err = h.client.ReorderEventStops(eventId, reorderedStops)
+	if err != nil {
+		httpio.InternalError(w, r, err)
+		return
+	}
+
+	httpio.JSON(w, r, http.StatusOK, nil)
+}
+
+type UpdateActiveStopPayload struct {
+	StopId *int64 `json:"stop_id"`
+}
+
+func (h *EventHandler) UpdateActiveStop(w http.ResponseWriter, r *http.Request) {
+	_, ok := UserFromContext(r.Context())
+	if !ok {
+		httpio.InternalError(w, r, errors.New("no user in context"))
+		return
+	}
+
+	eventId, err := parseEventIdPathValue(r)
+	if err != nil {
+		httpio.BadRequest(w, r, err)
+		return
+	}
+
+	var payload UpdateActiveStopPayload
+	err = json.NewDecoder(r.Body).Decode(&payload)
+	if err != nil {
+		httpio.BadRequest(w, r, err)
+		return
+	}
+
+	err = h.client.UpdateActiveStop(eventId, payload.StopId)
 	if err != nil {
 		httpio.InternalError(w, r, err)
 		return
@@ -178,9 +228,9 @@ func (h *EventHandler) DeleteEventStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	eventSlug := r.PathValue("slug")
-	if len(eventSlug) == 0 {
-		httpio.BadRequest(w, r, errors.New("slug path parameter is missing"))
+	eventId, err := parseEventIdPathValue(r)
+	if err != nil {
+		httpio.BadRequest(w, r, err)
 		return
 	}
 
@@ -195,11 +245,25 @@ func (h *EventHandler) DeleteEventStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.client.DeleteEventStop(eventSlug, intStopId)
+	err = h.client.DeleteEventStop(eventId, intStopId)
 	if err != nil {
 		httpio.InternalError(w, r, err)
 		return
 	}
 
 	httpio.JSON(w, r, http.StatusOK, nil)
+}
+
+func parseEventIdPathValue(r *http.Request) (int64, error) {
+	eventId := r.PathValue("eventId")
+	if len(eventId) == 0 {
+		return 0, errors.New("eventId path parameter is missing")
+	}
+
+	id, err := strconv.ParseInt(eventId, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("could not convert eventId path parameter to integer: %v", err)
+	}
+
+	return id, nil
 }
