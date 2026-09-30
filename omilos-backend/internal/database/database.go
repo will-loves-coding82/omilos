@@ -59,6 +59,20 @@ func New() Service {
 	return dbInstance
 }
 
+func NewCustom(customHost string, customPort string) Service {
+	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable&search_path=%s", username, password, customHost, customPort, database, schema)
+	log.Print(connStr)
+	db, err := sqlx.Open("pgx", connStr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	dbInstance = &service{
+		db: db,
+	}
+
+	return dbInstance
+}
+
 func (s *service) Conn() *sqlx.DB {
 	return s.db
 }

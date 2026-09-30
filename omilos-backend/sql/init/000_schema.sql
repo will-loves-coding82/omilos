@@ -39,10 +39,14 @@ CREATE TABLE event_stops (
 CREATE TYPE e_rsvp_status 
 AS ENUM ('pending', 'accepted', 'declined');
 
+CREATE TYPE e_permissions
+AS ENUM ('can_edit', 'view_only');
+
 CREATE TABLE event_members (
   user_id INTEGER NOT NULL,
   event_id INTEGER NOT NULL,
   rsvp_status e_rsvp_status DEFAULT 'pending' NOT NULL,
+  permissions e_permissions DEFAULT 'view_only',
   status_updated_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY(user_id, event_id),
@@ -51,7 +55,7 @@ CREATE TABLE event_members (
 );
 
 CREATE TYPE e_stop_status
-AS ENUM ('not_started', 'on_the_way', 'arrived', 'no_show');
+AS ENUM ('not_started', 'in_progress', 'arrived', 'no_show');
 
 CREATE TABLE stop_member_status (
   user_id INTEGER NOT NULL,
