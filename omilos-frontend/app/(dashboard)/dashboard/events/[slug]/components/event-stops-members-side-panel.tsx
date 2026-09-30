@@ -141,9 +141,9 @@ function SortableStop({ stop, index, onSelectStop, isSelected, isActive }: Sorta
           <p className={`text-md transition-colors duration-100 ease-in ${isSelected ? "text-text-active" : "text-text-secondary"}`}>{stop.address}</p>
         </div>
         {isActive && (
-          <span className="w-fit flex items-center gap-1 bg-bg-success/50 text-text-success text-xs font-medium rounded-full px-2 py-0.5">
+          <span className="w-fit flex items-center gap-1 bg-bg-success/50 text-text-success text-xs font-medium rounded-md px-2 py-0.5">
             <CircleCheck size={12} strokeWidth={3} />
-            Active now
+            Active
           </span>
         )}
       </div>

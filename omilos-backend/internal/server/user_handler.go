@@ -1,21 +1,32 @@
 package server
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"omilos-backend/internal/app"
 	"omilos-backend/internal/server/httpio"
 )
 
 type UserHandler struct {
-	client *app.UserClient
+	client                *app.UserClient
+	internalWebhookSecret string
 }
 
-func NewUserHandler(client *app.UserClient) *UserHandler {
+// NewUserHandler builds a UserHandler. internalWebhookSecret guards
+// CreateNewUser, which is called only by our own Next.js server after IT has
+// already verified the request genuinely came from Clerk (via Clerk's own
+// Svix-based verifyWebhook helper). Clerk's Svix signature can't be checked
+// here directly — this endpoint receives a new, unsigned server-to-server
+// call from Next.js, not a forwarded copy of the original Clerk webhook — so
+// a shared secret is the trust mechanism for this internal hop instead.
+func NewUserHandler(client *app.UserClient, internalWebhookSecret string) *UserHandler {
 	return &UserHandler{
-		client: client,
+		client:                client,
+		internalWebhookSecret: internalWebhookSecret,
 	}
 }
 
@@ -40,15 +51,33 @@ func (p ClerkUserPayload) PrimaryEmail() string {
 }
 
 func (h *UserHandler) CreateNewUser(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		httpio.BadRequest(w, r, err)
+		return
+	}
+
+	// Verify this internal call actually came from our own Next.js server —
+	// Clerk's original webhook signature was already checked there (via
+	// Clerk's verifyWebhook), so this endpoint only needs to confirm the
+	// caller knows the shared secret, not re-verify a Clerk signature that
+	// was never attached to this hop in the first place.
+	providedSecret := r.Header.Get("X-Internal-Webhook-Secret")
+	if h.internalWebhookSecret == "" || providedSecret == "" ||
+		subtle.ConstantTimeCompare([]byte(providedSecret), []byte(h.internalWebhookSecret)) != 1 {
+		httpio.Error(w, r, http.StatusUnauthorized, "invalid secret", errors.New("missing or invalid internal webhook secret"))
+		return
+	}
+
 	var payload ClerkUserPayload
-	err := json.NewDecoder(r.Body).Decode(&payload)
+	err = json.Unmarshal(body, &payload)
 	if err != nil {
 		fmt.Println(err)
 		httpio.BadRequest(w, r, err)
 		return
 	}
 
-	user := app.User{
+	newUser := app.User{
 		ClerkId:   payload.Id,
 		UserName:  payload.UserName,
 		FirstName: payload.FirstName,
@@ -57,7 +86,7 @@ func (h *UserHandler) CreateNewUser(w http.ResponseWriter, r *http.Request) {
 		ImageUrl:  payload.ImageUrl,
 	}
 
-	err = h.client.CreateNewUser(user)
+	err = h.client.CreateNewUser(newUser)
 	if err != nil {
 		fmt.Print(err)
 		httpio.InternalError(w, r, err)

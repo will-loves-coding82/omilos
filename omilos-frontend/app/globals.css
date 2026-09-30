@@ -84,6 +84,12 @@
   --color-badge-text: var(--color-badge-text);
 }
 
+@theme {
+  --text-lg: 1.15rem;
+  --text-md: 1rem;
+  --text-sm: 0.85rem;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
@@ -133,8 +139,9 @@ body {
 
 .event-popup .mapboxgl-popup-content {
   background: var(--color-bg-primary);
-  width: 300px;
-  height: 216px;
+  width: 364px;
+  height: fit-content;
+  min-height: 264px;
   color: #000000;
   border-radius: 12px;
   padding: 1rem;

@@ -32,11 +32,16 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 	awsPresignClient := s3.NewPresignClient(awsS3Client)
 	awsPresignHandler := NewPresignHandler(awsPresignClient, os.Getenv("OMILOS_S3_BUCKET"))
 
+	internalWebhookSecret := os.Getenv("INTERNAL_WEBHOOK_SECRET")
+	if internalWebhookSecret == "" {
+		log.Fatal("INTERNAL_WEBHOOK_SECRET must be set")
+	}
+
 	userClient := app.NewUserClient(database)
 	eventClient := app.NewEventClient(database, userClient)
 	inviteClient := app.NewInviteClient(database, userClient)
 
-	userHandler := NewUserHandler(userClient)
+	userHandler := NewUserHandler(userClient, internalWebhookSecret)
 	eventHandler := NewEventHandler(eventClient)
 	inviteHandler := NewInviteHandler(inviteClient)
 
@@ -67,6 +72,7 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 			r.Patch("/stops", eventHandler.ReorderEventStops)
 			r.Delete("/stops/{stopId}", eventHandler.DeleteEventStop)
 			r.Patch("/stops/active", eventHandler.UpdateActiveStop)
+			r.Patch("/stops/{stopId}/member-status", eventHandler.UpdateStopMemberStatus)
 		})
 
 		r.Patch("/invites", inviteHandler.UpdateInviteStatus)

@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import z from "zod";
 import { eventDetailsSchema } from "../(dashboard)/dashboard/events/schemas";
 import { API_ROUTES } from "../constants";
-import { ClientEventStop } from "../types/client-types";
+import { ClientEventStop, ClientStopStatus } from "../types/client-types";
 import { apiFetch } from "./utils";
 import { ActionResponse } from "./action-types";
 import { Event } from "../types/api-types";
@@ -277,6 +277,40 @@ export async function setActiveEventStop(eventId: number, stopId: number | null)
     }
   } catch (err) {
     console.error("Error setting active event stop:", err)
+    return {
+      success: false,
+      data: null,
+      message: err instanceof Error ? err.message : "An unknown error occurred",
+    }
+  }
+}
+
+export async function updateStopMemberStatus(eventId: number, stopId: number, status: ClientStopStatus) : Promise<ActionResponse<null>> {
+  try {
+    const res = await apiFetch(API_ROUTES.events.stops.memberStatus(eventId, stopId), {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ stop_status: status }),
+    })
+
+    if (!res.ok) {
+      const body = await res.text()
+      console.error("Update stop member status failed:", res.status, body)
+      return {
+        success: false,
+        data: null,
+        message: "Failed to update stop status",
+      }
+    }
+
+    return {
+      success: true,
+      data: null,
+    }
+  } catch (err) {
+    console.error("Error updating stop member status:", err)
     return {
       success: false,
       data: null,

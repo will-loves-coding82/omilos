@@ -234,19 +234,59 @@ func (h *EventHandler) DeleteEventStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stopId := r.PathValue("stopId")
-	if len(stopId) == 0 {
-		httpio.BadRequest(w, r, errors.New("stop path parameter is missing"))
-	}
-
-	intStopId, err := strconv.ParseInt(stopId, 10, 64)
+	stopId, err := parseStopIdPathValue(r)
 	if err != nil {
-		httpio.InternalError(w, r, fmt.Errorf("Could not convert stopId path parameter to integer: %v", err))
+		httpio.BadRequest(w, r, err)
 		return
 	}
 
-	err = h.client.DeleteEventStop(eventId, intStopId)
+	err = h.client.DeleteEventStop(eventId, stopId)
 	if err != nil {
+		httpio.InternalError(w, r, err)
+		return
+	}
+
+	httpio.JSON(w, r, http.StatusOK, nil)
+}
+
+type UpdateStopMemberStatusPayload struct {
+	StopStatus string `json:"stop_status"`
+}
+
+func (h *EventHandler) UpdateStopMemberStatus(w http.ResponseWriter, r *http.Request) {
+	user, ok := UserFromContext(r.Context())
+	if !ok {
+		httpio.InternalError(w, r, errors.New("no user in context"))
+		return
+	}
+
+	eventId, err := parseEventIdPathValue(r)
+	if err != nil {
+		httpio.BadRequest(w, r, err)
+		return
+	}
+
+	stopId, err := parseStopIdPathValue(r)
+	if err != nil {
+		httpio.BadRequest(w, r, err)
+		return
+	}
+
+	var payload UpdateStopMemberStatusPayload
+	err = json.NewDecoder(r.Body).Decode(&payload)
+	if err != nil {
+		httpio.BadRequest(w, r, err)
+		return
+	}
+
+	// user.Id comes from the verified session (via UserFromContext), never
+	// from the request body — a client can only ever update its own status.
+	err = h.client.UpdateStopMemberStatus(eventId, stopId, user.Id, payload.StopStatus)
+	if err != nil {
+		if errors.Is(err, app.ErrStopNotFound) {
+			httpio.Error(w, r, http.StatusNotFound, "not found", err)
+			return
+		}
 		httpio.InternalError(w, r, err)
 		return
 	}
@@ -263,6 +303,20 @@ func parseEventIdPathValue(r *http.Request) (int64, error) {
 	id, err := strconv.ParseInt(eventId, 10, 64)
 	if err != nil {
 		return 0, fmt.Errorf("could not convert eventId path parameter to integer: %v", err)
+	}
+
+	return id, nil
+}
+
+func parseStopIdPathValue(r *http.Request) (int64, error) {
+	stopId := r.PathValue("stopId")
+	if len(stopId) == 0 {
+		return 0, errors.New("stopId path parameter is missing")
+	}
+
+	id, err := strconv.ParseInt(stopId, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("could not convert stopId path parameter to integer: %v", err)
 	}
 
 	return id, nil

@@ -3,19 +3,19 @@
 import Map, { NavigationControl, MapRef, GeolocateControl, Marker, Popup, Layer } from 'react-map-gl/mapbox';
 import type { FillExtrusionLayerSpecification } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { useEffect, useRef, useState } from 'react';
+import { ReactEventHandler, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { environment } from './environments/environment';
-import { Coordinates, ClientEventStop, ClientEvent, searchResultToClientEventStop } from '@/app/types/client-types';
+import { Coordinates, ClientEventStop, ClientEvent, searchResultToClientEventStop, ClientStopStatus, ClientStopMemberStatus } from '@/app/types/client-types';
 
 
 import EventStopSidePanel from './event-stop-side-panel';
-import { addEventStop, reorderEventStops, setActiveEventStop } from '@/app/actions/event-actions';
+import { addEventStop, reorderEventStops, setActiveEventStop, updateStopMemberStatus } from '@/app/actions/event-actions';
 import { usePageActions } from '../../../components/context/header-actions-context';
 import EventDetailsSidePanel from './event-details-side-panel';
 import EventStopsMembersSidePanel from './event-stops-members-side-panel';
-import {  UserButton } from '@clerk/nextjs';
-import { Maximize2 } from 'lucide-react';
+import {  UserAvatar, UserButton, useUser } from '@clerk/nextjs';
+import { ChevronDown, Maximize2 } from 'lucide-react';
 
 const SearchBox = dynamic(
   () => import("@mapbox/search-js-react").then((mod) => mod.SearchBox),
@@ -40,11 +40,11 @@ const buildingExtrusionLayer: FillExtrusionLayerSpecification = {
 };
 
 export default function EventDetailsClient({slug, event}: {slug: string, event: ClientEvent}) {
+  const { user: clerkUser } = useUser();
   const mapRef = useRef<MapRef>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [mapInstanceReady, setMapInstanceReady] = useState(false);
   const [viewState, setViewState] = useState({ longitude: -74.5, latitude: 40, zoom: 12, pitch: 40});
-
   const [eventStops, setEventStops] = useState<ClientEventStop[]>(() => event.stops!!);
   const [activeStopId, setActiveStopId] = useState<number | undefined>(event.active_stop_id);
 
@@ -184,6 +184,50 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
     }
   }
 
+  async function onUpdateUserStopStatus(stopId: number, status: ClientStopStatus) {
+    const clerkId = clerkUser?.id;
+    if (clerkId === undefined) {
+      console.log("Could not resolve current user's clerk id")
+      return;
+    }
+
+    const previousEventStops = eventStops;
+
+    // Optimistically update before the request resolves. The DB user_id
+    // isn't known/needed here — the server derives it from the verified
+    // session — so this entry is matched and identified by clerk_id alone.
+    setEventStops(prev => prev.map(stop => {
+      if (stop.id !== stopId) return stop;
+
+      const statusArr = stop.stop_member_status_arr ?? [];
+      const existingIndex = statusArr.findIndex(s => s.clerk_id === clerkId);
+      const updatedStatus: ClientStopMemberStatus = {
+        user_id: existingIndex === -1 ? undefined : statusArr[existingIndex].user_id,
+        clerk_id: clerkId,
+        stop_id: stopId,
+        stop_status: status,
+        status_updated_at: new Date().toISOString(),
+      };
+
+      const nextStatusArr = existingIndex === -1
+        ? [...statusArr, updatedStatus]
+        : statusArr.map((s, i) => i === existingIndex ? updatedStatus : s);
+
+      return { ...stop, stop_member_status_arr: nextStatusArr };
+    }));
+
+    try {
+      const res = await updateStopMemberStatus(event.id, stopId, status);
+      if (!res.success) {
+        console.log("Failed to update stop status")
+        setEventStops(previousEventStops);
+      }
+    }
+    catch(err) {
+      console.log("Error updating stop status: " + err)
+      setEventStops(previousEventStops);
+    }
+  }
 
   function onDismissEventStopPanel() {
     setIsEventStopPanelOpen(prev => !prev)
@@ -210,16 +254,24 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
       <EventDetailsSidePanel event={event} isOpen={isEventDetailsPanelOpen} onDismiss={onDismissEventDetailsPanel}/>
 
       {/* Dismissable right panel that shows a selected event details */}
-      {selectedEventStop && (
-        <EventStopSidePanel
-          stop={selectedEventStop}
-          isOpen={isEventStopPanelOpen}
-          onDeleteStop={onDeleteStop}
-          onDismiss={onDismissEventStopPanel}
-          isActive={selectedEventStop.id !== undefined && selectedEventStop.id === activeStopId}
-          onToggleActive={(isActive) => selectedEventStop.id !== undefined && onToggleActiveStop(selectedEventStop.id, isActive)}
-        />
-      )}
+      {selectedEventStop && (() => {
+        // Look up the live version from eventStops rather than the frozen
+        // snapshot taken when the stop was selected, so status updates made
+        // elsewhere (e.g. the map popup) are reflected here too.
+        const currentSelectedStop = eventStops.find(s => s.mapbox_id === selectedEventStop.mapbox_id) ?? selectedEventStop;
+
+        return (
+          <EventStopSidePanel
+            stop={currentSelectedStop}
+            members={event.members}
+            isOpen={isEventStopPanelOpen}
+            onDeleteStop={onDeleteStop}
+            onDismiss={onDismissEventStopPanel}
+            isActive={currentSelectedStop.id !== undefined && currentSelectedStop.id === activeStopId}
+            onToggleActive={(isActive) => currentSelectedStop.id !== undefined && onToggleActiveStop(currentSelectedStop.id, isActive)}
+          />
+        );
+      })()}
 
 
       {/* Map overlays elements that need to respond to sidebar and panel resizing  */}
@@ -293,10 +345,10 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
               >
                 <div className='flex flex-col justify-between h-[164px]'>
                   <header className='flex flex-col gap-2'>
-                    <h3 className='text-xl font-semibold text-text-black'>{selectedStop?.name}</h3>
+                    <h3 className='text-xl font-semibold text-text-primary'>{selectedStop?.name}</h3>
                     <p className='text-lg text-text-secondary'>{selectedStop?.address}</p>
                   </header>
-                  <button onClick={onAddEventStop} className='bg-black text-white p-2 text-lg rounded-md hover:cursor-pointer'>Add Stop</button>
+                  <button onClick={onAddEventStop} className='bg-button-primary text-text-primary p-2 text-lg rounded-md hover:cursor-pointer'>Add Stop</button>
                 </div>
 
               </Popup>
@@ -322,26 +374,28 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
                   longitude={s.longitude}
                   latitude={s.latitude}
                 >
-                  <div className='flex flex-col justify-between h-full'>
-                    <button
-                      onClick={() => { setSelectedEventStop(s); setIsEventStopPanelOpen(true); }}
-                      className='self-start hover:cursor-pointer bg-button-secondary hover:bg-button-tertiary rounded-md p-2 transition-colors'
-                      aria-label='View stop details'
-                    >
-                      <Maximize2 size={16} className='text-text-secondary'/>
-                    </button>
+                  <div className='flex flex-col gap-8 justify-between'>
+                    <div className='flex justify-between gap-2 pr-9 w-full'>
+                       <header className='flex flex-col gap-1'>
+                        <h3 className='text-xl font-medium text-text-primary'>{s.name}</h3>
+                        <p className='text-lg text-text-secondary'>{s.address}</p>
+                      </header>
+                      <button
+                        onClick={() => { setSelectedEventStop(s); setIsEventStopPanelOpen(true); }}
+                        className='self-start hover:cursor-pointer bg-button-secondary hover:bg-button-tertiary rounded-lg p-2 transition-colors'
+                        aria-label='View stop details'
+                      >
+                        <Maximize2 size={16} className='text-text-secondary'/>
+                      </button>
+                    </div>
 
-                    <header className='flex flex-col gap-1 mt-4'>
-                      <h3 className='text-xl font-medium text-text-primary'>{s.name}</h3>
-                      <p className='text-lg text-text-secondary'>{s.address}</p>
-                    </header>
 
                     {(() => {
-                      const total = event.members.length;
+                      const total = event.members.filter(m => m.rsvp_status === "accepted").length;
                       const arrivedCount = s.stop_member_status_arr?.filter(m => m.stop_status === 'arrived').length ?? 0;
                       return (
-                        <div className='flex flex-col gap-1.5 mt-4'>
-                          <div className='flex justify-end items-baseline gap-1.5'>
+                        <div className='flex flex-col justify-center gap-1.5 p-3 rounded-lg min-h-24 bg-bg-secondary'>
+                          <div className='flex justify-end gap-1.5'>
                             <span className='text-lg font-medium text-text-primary'>{arrivedCount}/{total}</span>
                             <span className='text-lg text-text-secondary'>Arrived</span>
                           </div>
@@ -354,6 +408,27 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
                         </div>
                       );
                     })()}
+
+                    <div className='flex items-center w-fit gap-2' >
+                      <UserAvatar/>
+                      <div className='relative'>
+                        <select
+                          value={s.stop_member_status_arr?.find(m => m.clerk_id === clerkUser?.id)?.stop_status ?? "not_started"}
+                          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                            if (s.id === undefined) return;
+                            onUpdateUserStopStatus(s.id, e.target.value as ClientStopStatus);
+                          }}
+                          className='appearance-none bg-bg-secondary w-36 py-2 pl-4 pr-9 rounded-md text-text-primary text-md'
+                        >
+                          <option value="not_started">Not started</option>
+                          <option value="in_progress">In Progress</option>
+                          <option value="arrived">Arrived</option>
+                          <option value="no_show">No Show</option>
+                        </select>
+                        <ChevronDown size={16} className='pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary'/>
+                      </div>
+                    </div>
+
                   </div>
                 </Popup>
               )}

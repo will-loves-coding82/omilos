@@ -3,10 +3,15 @@ package app
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"omilos-backend/internal/slug"
 	"time"
 )
+
+// ErrStopNotFound is returned when a stop id doesn't belong to the event id
+// it was requested under.
+var ErrStopNotFound = errors.New("stop not found for this event")
 
 type Event struct {
 	Id           int64                  `json:"id" db:"id"`
@@ -41,9 +46,10 @@ type EventMember struct {
 	CreatedAt       string `json:"created_at" db:"created_at"`
 }
 
-//tygo:emit export type StopStatus = "not_started" | "on_the_way" | "arrived" | "no_show"
+//tygo:emit export type StopStatus = "not_started" | "in_progress" | "arrived" | "no_show"
 type StopMemberStatus struct {
 	UserId          int64  `json:"user_id" db:"user_id"`
+	ClerkId         string `json:"clerk_id" db:"clerk_id"`
 	StopId          int64  `json:"stop_id" db:"stop_id"`
 	StopStatus      string `json:"stop_status" db:"stop_status" tstype:"StopStatus"`
 	StatusUpdatedAt string `json:"status_updated_at" db:"status_updated_at"`
@@ -125,12 +131,14 @@ const getEventDetailsQuery = `
 								SELECT json_agg(
 									jsonb_build_object(
 										'user_id', sms.user_id,
+										'clerk_id', u.clerk_id,
 										'stop_id', sms.stop_id,
 										'stop_status', sms.stop_status,
 										'status_updated_at', sms.status_updated_at
 									)
 								)
 								FROM stop_member_status sms
+								JOIN users u ON u.id = sms.user_id
 								WHERE sms.stop_id = es.id
 							), '[]'
 						)
@@ -173,6 +181,16 @@ const updateActiveStopQuery = `
 	UPDATE events
 	SET active_stop_id = $1
 	WHERE id = $2;
+`
+
+const upsertStopMemberStatusQuery = `
+	INSERT INTO stop_member_status(user_id, stop_id, stop_status, status_updated_at)
+	SELECT $1, es.id, $3, NOW()
+	FROM event_stops es
+	WHERE es.id = $2 AND es.event_id = $4
+	ON CONFLICT (user_id, stop_id) DO UPDATE SET
+		stop_status = EXCLUDED.stop_status,
+		status_updated_at = EXCLUDED.status_updated_at;
 `
 
 const isEventMemberQuery = `
@@ -322,6 +340,26 @@ func (e *EventClient) UpdateActiveStop(eventId int64, stopId *int64) error {
 	_, err := e.db.Conn().Exec(updateActiveStopQuery, stopId, eventId)
 	if err != nil {
 		return fmt.Errorf("UpdateActiveStop: %v", err)
+	}
+
+	return nil
+}
+
+// UpdateStopMemberStatus upserts userId's status for stopId. stopId must
+// belong to eventId — if it doesn't, no row is written and ErrStopNotFound
+// is returned.
+func (e *EventClient) UpdateStopMemberStatus(eventId int64, stopId int64, userId int64, status string) error {
+	res, err := e.db.Conn().Exec(upsertStopMemberStatusQuery, userId, stopId, status, eventId)
+	if err != nil {
+		return fmt.Errorf("UpdateStopMemberStatus: %v", err)
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("UpdateStopMemberStatus: %v", err)
+	}
+	if rowsAffected == 0 {
+		return ErrStopNotFound
 	}
 
 	return nil

@@ -1,10 +1,12 @@
 "use client";
 
-import { ClientEventStop } from "@/app/types/client-types"
-import { CircleCheck, Trash, X } from "lucide-react"
+import { ClientEventMember, ClientEventStop, ClientStopStatus } from "@/app/types/client-types"
+import { Car, CircleCheck, Clock, Trash, X, XCircle } from "lucide-react"
+import Image from "next/image"
 
 export type EventStopSidePanelProps = {
   stop: ClientEventStop,
+  members: ClientEventMember[],
   isOpen: boolean,
   isActive: boolean,
   onDismiss: () => void,
@@ -12,7 +14,14 @@ export type EventStopSidePanelProps = {
   onToggleActive: (isActive: boolean) => void,
 }
 
-export default function EventStopSidePanel({stop, isOpen, isActive, onDismiss, onDeleteStop, onToggleActive}: EventStopSidePanelProps) {
+const STOP_STATUS_CONFIG: Record<ClientStopStatus, { label: string, icon: typeof Clock, className: string }> = {
+  not_started: { label: "Not started", icon: Clock, className: "bg-bg-tertiary/50 text-text-secondary" },
+  in_progress: { label: "On the way", icon: Car, className: "bg-bg-info/20 text-text-info" },
+  arrived: { label: "Arrived", icon: CircleCheck, className: "bg-bg-success/50 text-text-success" },
+  no_show: { label: "No show", icon: XCircle, className: "bg-bg-danger/20 text-text-danger" },
+}
+
+export default function EventStopSidePanel({stop, members, isOpen, isActive, onDismiss, onDeleteStop, onToggleActive}: EventStopSidePanelProps) {
   return (
     <div
       className={`absolute inset-y-0 right-0 z-10 w-full bg-bg-primary md:w-[380px] shadow-md transition-transform duration-300 ${
@@ -73,8 +82,39 @@ export default function EventStopSidePanel({stop, isOpen, isActive, onDismiss, o
 
       <div className="flex flex-col gap-4 mt-4 p-3">
         <h3 className="text-md text-text-primary font-medium">Member Status</h3>
-        <ul className="bg-bg-secondary rounded-lg p-2 min-h-[400px]">
+        <ul className="bg-bg-secondary rounded-lg p-2 min-h-[400px] flex flex-col gap-1">
+          {members.filter(m => m.rsvp_status === "accepted").map(member => {
+            const memberStatus = stop.stop_member_status_arr?.find(s => s.clerk_id === member.user.clerk_id);
+            const { label, icon: Icon, className } = STOP_STATUS_CONFIG[memberStatus?.stop_status ?? "not_started"];
 
+            return (
+              <div key={member.user.clerk_id} className="flex justify-between items-center w-full p-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-[24px] h-[24px]">
+                    {member.user.image_url ? (
+                      <Image
+                        width={24}
+                        height={24}
+                        className="rounded-full"
+                        alt="user profile"
+                        src={member.user.image_url}
+                      />
+                    ) : (
+                      <div className="h-6 w-6 rounded-full bg-bg-tertiary flex items-center justify-center text-[10px] font-medium text-text-secondary">
+                        {member.user.first_name[0] + member.user.last_name[0]}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-text-primary text-sm">{member.user.username}</p>
+                </div>
+
+                <div className={`flex items-center gap-1 text-xs font-medium rounded-full px-2 py-0.5 ${className}`}>
+                  <Icon size={12} strokeWidth={3}/>
+                  {label}
+                </div>
+              </div>
+            );
+          })}
         </ul>
       </div>
     </div>

@@ -47,10 +47,11 @@ export type ClientInvite = {
   event_member: ClientEventMember,
 }
 
-export type ClientStopStatus = "not_started" | "on_the_way" | "arrived" | "no_show";
+export type ClientStopStatus = "not_started" | "in_progress" | "arrived" | "no_show";
 
 export type ClientStopMemberStatus = {
-  user_id: number,
+  user_id?: number, // unknown client-side until the server confirms a new entry
+  clerk_id: string,
   stop_id:  number,
   stop_status: ClientStopStatus,
   status_updated_at: string

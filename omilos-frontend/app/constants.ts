@@ -27,6 +27,7 @@ export const createApiRoutes = (baseUrl: string) => {
         update: (eventId: number) => `${baseUrl}/events/${eventId}/stops`,
         delete: (eventId: number, stopId: number) => `${baseUrl}/events/${eventId}/stops/${stopId}`,
         active: (eventId: number) => `${baseUrl}/events/${eventId}/stops/active`,
+        memberStatus: (eventId: number, stopId: number) => `${baseUrl}/events/${eventId}/stops/${stopId}/member-status`,
       },
     },
     invites: {

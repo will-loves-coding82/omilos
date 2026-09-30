@@ -25,7 +25,12 @@ export async function POST(req: NextRequest) {
           const res = await fetch(API_ROUTES.users.create, {
             method: "POST",
             headers: {
-              "Content-Type": "application/json"
+              "Content-Type": "application/json",
+              // Clerk's webhook signature was already verified above (via
+              // verifyWebhook) — this is now a fresh, unsigned internal call
+              // from this server to the Go backend, so it's authenticated
+              // with a separate shared secret instead.
+              "X-Internal-Webhook-Secret": process.env.INTERNAL_WEBHOOK_SECRET ?? ""
             },
             body: JSON.stringify(evt.data)
           })
@@ -39,8 +44,8 @@ export async function POST(req: NextRequest) {
           console.error('Error reaching backend to sync user:', err)
           // backend unreachable - retryable, let Clerk retry the webhook
           return new Response('Error syncing user', { status: 502 })
-        }
 
+        }
     
         return new Response('User successfully synced', {status: 200})
       }

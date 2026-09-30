@@ -35,10 +35,11 @@ export interface EventMember {
   status_updated_at?: string;
   created_at: string;
 }
-export type StopStatus = "not_started" | "on_the_way" | "arrived" | "no_show"
+export type StopStatus = "not_started" | "in_progress" | "arrived" | "no_show"
 
 export interface StopMemberStatus {
   user_id: number /* int64 */;
+  clerk_id: string;
   stop_id: number /* int64 */;
   stop_status: StopStatus;
   status_updated_at: string;
