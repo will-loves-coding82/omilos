@@ -13,52 +13,86 @@ import (
 // it was requested under.
 var ErrStopNotFound = errors.New("stop not found for this event")
 
+type MemberRole = string
+
+const (
+	MemberRoleHost   MemberRole = "host"
+	MemberRoleEditor MemberRole = "editor"
+	MemberRoleViewer MemberRole = "viewer"
+)
+
 type Event struct {
-	Id           int64                  `json:"id" db:"id"`
-	Title        string                 `json:"title" db:"title"`
-	Description  string                 `json:"description" db:"description"`
-	Slug         string                 `json:"slug" db:"slug"`
-	Date         string                 `json:"date" db:"date"`
-	HostId       int64                  `json:"host_id" db:"host_id"`
-	ActiveStopId int64                  `json:"active_stop_id,omitempty" db:"active_stop_id"`
-	ImageURL     string                 `json:"image_url,omitempty" db:"image_url"`
-	MemberIds    []int64                `json:"member_ids,omitempty" db:"member_ids"` // used only when creating an event
-	Members      JSONSlice[EventMember] `json:"members,omitempty" db:"members"`       // enriched attendees, populated only when reading an event
-	Stops        JSONSlice[EventStop]   `json:"stops,omitempty" db:"stops"`
+	Id           int64  `json:"id" db:"id"`
+	Title        string `json:"title" db:"title"`
+	Description  string `json:"description" db:"description"`
+	Slug         string `json:"slug" db:"slug"`
+	Date         string `json:"date" db:"date"`
+	HostId       int64  `json:"host_id" db:"host_id"`
+	ActiveStopId int64  `json:"active_stop_id,omitempty" db:"active_stop_id"`
+	ImageURL     string `json:"image_url,omitempty" db:"image_url"`
+
+	// Custom fields for HTTP response payloads
+	MemberIds  []int64                `json:"member_ids,omitempty" db:"member_ids"` // Used only when creating an event
+	Members    JSONSlice[EventMember] `json:"members,omitempty" db:"members"`       // Enriched attendee information
+	Stops      JSONSlice[EventStop]   `json:"stops,omitempty" db:"stops"`
+	MemberRole MemberRole             `json:"member_role" db:"member_role"` // The user's role for a specific event
 }
 
 type EventStop struct {
-	Id                  int64                       `json:"id" db:"id"`
-	EventId             int64                       `json:"event_id" db:"event_id"`
-	SortId              int64                       `json:"sort_id" db:"sort_id"`
-	Name                string                      `json:"name" db:"name"`
-	Address             string                      `json:"address" db:"address"`
-	Latitude            float64                     `json:"latitude" db:"latitude"`
-	Longitude           float64                     `json:"longitude" db:"longitude"`
+	Id        int64   `json:"id" db:"id"`
+	EventId   int64   `json:"event_id" db:"event_id"`
+	SortId    int64   `json:"sort_id" db:"sort_id"`
+	Name      string  `json:"name" db:"name"`
+	Address   string  `json:"address" db:"address"`
+	Latitude  float64 `json:"latitude" db:"latitude"`
+	Longitude float64 `json:"longitude" db:"longitude"`
+
+	// Custom fields for HTTP response payloads
 	StopMemberStatusArr JSONSlice[StopMemberStatus] `json:"stop_member_status_arr,omitempty" db:"stop_member_status_arr"`
 }
 
-//tygo:emit export type RSVPStatus = "pending" | "accepted" | "declined"
+type RSVPStatus = string
+
+const (
+	RSVPStatusPending  RSVPStatus = "pending"
+	RSVPStatusAccepted RSVPStatus = "accepted"
+	RSVPStatusDeclined RSVPStatus = "declined"
+)
+
 type EventMember struct {
-	User            User   `json:"user" db:"user"`
-	RSVPStatus      string `json:"rsvp_status" db:"rsvp_status" tstype:"RSVPStatus"`
-	StatusUpdatedAt string `json:"status_updated_at,omitempty" db:"status_updated_at"`
-	CreatedAt       string `json:"created_at" db:"created_at"`
+	User            User       `json:"user" db:"user"`
+	RSVPStatus      RSVPStatus `json:"rsvp_status" db:"rsvp_status"`
+	MemberRole      MemberRole `json:"member_role" db:"member_role"`
+	StatusUpdatedAt string     `json:"status_updated_at,omitempty" db:"status_updated_at"`
+	CreatedAt       string     `json:"created_at" db:"created_at"`
 }
 
-//tygo:emit export type StopStatus = "not_started" | "in_progress" | "arrived" | "no_show"
+type StopStatus string
+
+const (
+	NotStarted = "not_started"
+	InProgress = "in_progress"
+	Arrived    = "arrived"
+	NoShow     = "no_show"
+)
+
 type StopMemberStatus struct {
-	UserId          int64  `json:"user_id" db:"user_id"`
-	ClerkId         string `json:"clerk_id" db:"clerk_id"`
-	StopId          int64  `json:"stop_id" db:"stop_id"`
-	StopStatus      string `json:"stop_status" db:"stop_status" tstype:"StopStatus"`
-	StatusUpdatedAt string `json:"status_updated_at" db:"status_updated_at"`
+	UserId          int64      `json:"user_id" db:"user_id"`
+	ClerkId         string     `json:"clerk_id" db:"clerk_id"`
+	StopId          int64      `json:"stop_id" db:"stop_id"`
+	StopStatus      string     `json:"stop_status" db:"stop_status" tstype:"StopStatus"`
+	StatusUpdatedAt StopStatus `json:"status_updated_at" db:"status_updated_at"`
 }
 
 const getEventIdForSlug = `
 	SELECT id
 	FROM events
 	WHERE slug=$1;
+`
+
+const createEventQuery = `
+	INSERT INTO events(slug, title, description, date, host_id, image_url) 
+	VALUES($1, $2, $3, $4, $5, $6) RETURNING id;
 `
 
 const getEventsForUserQuery = `
@@ -91,7 +125,8 @@ const getEventsForUserQuery = `
 
 const getEventDetailsQuery = `
 	SELECT
-		e.id, e.title, e.description, e.slug, e.date, e.host_id, COALESCE(e.active_stop_id, 0) AS active_stop_id, e.image_url,
+		e.id, e.title, e.description, e.slug, e.date, e.host_id, e.image_url, em.member_role AS member_role,
+		COALESCE(e.active_stop_id, 0) AS active_stop_id, 
 		COALESCE(
 			(
 				SELECT json_agg(
@@ -105,6 +140,7 @@ const getEventDetailsQuery = `
 							'email', u.email,
 							'image_url', u.image_url
 						),
+						'member_role', em.member_role,
 						'rsvp_status', em.rsvp_status,
 						'status_updated_at', em.status_updated_at,
 						'created_at', em.created_at
@@ -150,7 +186,8 @@ const getEventDetailsQuery = `
 			), '[]'
 		) AS stops
 	FROM events e
-	WHERE e.slug = $1;
+	JOIN event_members em ON e.id = em.event_id
+	WHERE em.user_id = $1 AND e.id = $2;
 `
 
 const addEventStopQuery = `
@@ -238,9 +275,9 @@ func (e *EventClient) GetEventsForUser(userId int64) ([]Event, error) {
 	return events, nil
 }
 
-func (e *EventClient) GetEventDetails(slug string) (Event, error) {
+func (e *EventClient) GetEventDetails(eventId int64, userId int64) (Event, error) {
 	var event Event
-	err := e.db.Conn().Get(&event, getEventDetailsQuery, slug)
+	err := e.db.Conn().Get(&event, getEventDetailsQuery, userId, eventId)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return Event{}, nil
@@ -276,25 +313,22 @@ func (e *EventClient) CreateNewEventTx(ctx context.Context, hostId int64, event 
 	}
 
 	var eventId int64
-	err = tx.QueryRow(
-		`INSERT INTO events(slug, title, description, date, host_id, image_url) VALUES($1, $2, $3, $4, $5, $6) RETURNING id;`,
-		newSlug, event.Title, event.Description, parsedDate, hostId, event.ImageURL,
-	).Scan(&eventId)
+	err = tx.QueryRow(createEventQuery, newSlug, event.Title, event.Description, parsedDate, hostId, event.ImageURL).Scan(&eventId)
 	if err != nil {
 		return fail(err)
 	}
 
-	// Add invited event members. Each one has a pending rsvp_status by
-	// default and a default status_updated_at value of NOW()
+	// Add invited event members. Each one has a pending rsvp_status with a 'viewer'
+	// role by default and a default status_updated_at value of NOW()
 	for _, memberId := range event.MemberIds {
-		_, err = tx.Exec(`INSERT INTO event_members(user_id, event_id) VALUES($1, $2);`, memberId, eventId)
+		_, err = tx.Exec(`INSERT INTO event_members(user_id, event_id, member_role) VALUES($1, $2, 'viewer');`, memberId, eventId)
 		if err != nil {
 			return fail(err)
 		}
 	}
 
-	// Add the host to the event members with a default value of accepted
-	_, err = tx.Exec(`INSERT INTO event_members (user_id, event_id, rsvp_status, status_updated_at) VALUES ($1, $2, 'accepted', NOW());`, hostId, eventId)
+	// Add the host to the event members with an accepted RSVP status and a 'host' role
+	_, err = tx.Exec(`INSERT INTO event_members (user_id, event_id, rsvp_status, member_role, status_updated_at) VALUES ($1, $2, 'accepted', 'host', NOW());`, hostId, eventId)
 	if err != nil {
 		return fail(err)
 	}

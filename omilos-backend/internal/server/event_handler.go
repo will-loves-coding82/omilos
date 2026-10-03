@@ -109,7 +109,7 @@ func (h *EventHandler) GetEventDetails(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	event, err := h.client.GetEventDetails(eventSlug)
+	event, err := h.client.GetEventDetails(eventId, user.Id)
 	if err != nil {
 		httpio.InternalError(w, r, err)
 		return

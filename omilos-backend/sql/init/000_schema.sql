@@ -39,14 +39,17 @@ CREATE TABLE event_stops (
 CREATE TYPE e_rsvp_status 
 AS ENUM ('pending', 'accepted', 'declined');
 
-CREATE TYPE e_permissions
-AS ENUM ('can_edit', 'view_only');
+-- Roles are kept as an enum since they are static values in the app
+-- They are not dynamically created by users
+CREATE TYPE e_member_role
+AS ENUM ('host', 'editor', 'viewer');
 
 CREATE TABLE event_members (
   user_id INTEGER NOT NULL,
   event_id INTEGER NOT NULL,
   rsvp_status e_rsvp_status DEFAULT 'pending' NOT NULL,
-  permissions e_permissions DEFAULT 'view_only',
+  --Unless otherwise specified, new members have view-only privileges
+  member_role e_member_role DEFAULT 'viewer' NOT NULL,
   status_updated_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY(user_id, event_id),

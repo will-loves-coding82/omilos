@@ -1,7 +1,9 @@
 // Shapes that only exist on the client, before something has been persisted
 // or when a component needs a looser shape than the API returns.
+// Mixing of API and Client types is allowed on specific use cases,
+// especially when using type literals
 
-import { Event, EventMember, EventStop, Invite } from "./api-types"
+import { Event, EventMember, EventStop, Invite, MemberRole, RSVPStatus, StopStatus } from "./api-types"
 import type { SearchBoxRetrieveResponse } from '@mapbox/search-js-core';
 
 export type Coordinates = {
@@ -20,6 +22,7 @@ export type ClientEvent = {
     date: string,
     members: ClientEventMember[],
     stops: ClientEventStop[],
+    member_role: MemberRole,
 }
 
 export type ClientEventStop = {
@@ -32,7 +35,6 @@ export type ClientEventStop = {
   stop_member_status_arr?: ClientStopMemberStatus[]
 }
 
-export type RSVPStatus = "pending" | "accepted" | "declined";
 
 export type ClientEventMember = {
   user: ClientUser,
@@ -47,13 +49,11 @@ export type ClientInvite = {
   event_member: ClientEventMember,
 }
 
-export type ClientStopStatus = "not_started" | "in_progress" | "arrived" | "no_show";
-
 export type ClientStopMemberStatus = {
   user_id?: number, // unknown client-side until the server confirms a new entry
   clerk_id: string,
   stop_id:  number,
-  stop_status: ClientStopStatus,
+  stop_status: StopStatus,
   status_updated_at: string
 }
 
@@ -69,6 +69,16 @@ export type ClientUser = {
 
 
 // Helper methods to convert to Client objects
+
+export function toClientEvent(event: Event): ClientEvent {
+  return {
+    ...event,
+    members: event.members?.map(toClientEventMember) ?? [],
+    stops: event.stops?.map(toClientEventStop) ?? [],
+    member_role: event.member_role,
+  }
+}
+
 export function toClientEventStop(stop: EventStop): ClientEventStop {
   return {
     id: stop.id,
@@ -101,14 +111,6 @@ export function toClientEventMember(member: EventMember): ClientEventMember {
     rsvp_status: member.rsvp_status! as RSVPStatus,
     status_updated_at: member.status_updated_at!,
     created_at: member.created_at!,
-  }
-}
-
-export function toClientEvent(event: Event): ClientEvent {
-  return {
-    ...event,
-    members: event.members?.map(toClientEventMember) ?? [],
-    stops: event.stops?.map(toClientEventStop) ?? [],
   }
 }
 
