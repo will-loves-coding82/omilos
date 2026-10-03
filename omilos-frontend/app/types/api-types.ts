@@ -24,7 +24,7 @@ export interface Event {
   member_ids?: number /* int64 */[]; // Used only when creating an event
   members?: JSONSlice<EventMember>; // Enriched attendee information
   stops?: JSONSlice<EventStop>;
-  member_role: MemberRole; // Enforces permissions for a specific event
+  member_role: MemberRole; // The user's role for a specific event
 }
 export interface EventStop {
   id: number /* int64 */;
@@ -46,6 +46,7 @@ export type RSVPStatus = typeof RSVPStatusPending | typeof RSVPStatusAccepted | 
 export interface EventMember {
   user: User;
   rsvp_status: RSVPStatus;
+  member_role: MemberRole;
   status_updated_at?: string;
   created_at: string;
 }

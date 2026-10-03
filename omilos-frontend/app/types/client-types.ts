@@ -40,6 +40,7 @@ export type ClientEventMember = {
   user: ClientUser,
   rsvp_status: RSVPStatus,
   status_updated_at: string,
+  member_role: MemberRole,
   created_at: string
 }
 
@@ -109,6 +110,7 @@ export function toClientEventMember(member: EventMember): ClientEventMember {
   return {
     user: member.user!,
     rsvp_status: member.rsvp_status! as RSVPStatus,
+    member_role: member.member_role,
     status_updated_at: member.status_updated_at!,
     created_at: member.created_at!,
   }

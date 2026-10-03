@@ -3,6 +3,7 @@ import { getEventDetails } from "@/app/actions/event-actions";
 import EventDetailsClient from "./event-details-client";
 import { toClientEvent } from "@/app/types/client-types";
 import { notFound } from "next/navigation";
+import { EventAbilityWrapper } from "@/app/providers/ability-provider";
 
 export default async function EventDetailsServer({slug}: {slug: string}) {
   const res = await getEventDetails(slug);
@@ -15,9 +16,13 @@ export default async function EventDetailsServer({slug}: {slug: string}) {
     return <EventDetailsError />; // generic error state, see below
   }
 
-  console.log(res.data.event)
+  // console.log(res.data.event)
+  const memberRole = res.data.event.member_role;
+
   return (
-    <EventDetailsClient slug={slug} event={toClientEvent(res.data.event)} />
+    <EventAbilityWrapper role={memberRole}>
+      <EventDetailsClient slug={slug} event={toClientEvent(res.data.event)} />
+    </EventAbilityWrapper>
   )
 }
 

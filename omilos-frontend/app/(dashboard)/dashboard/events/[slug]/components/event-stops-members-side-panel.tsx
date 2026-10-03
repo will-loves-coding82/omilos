@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { DragDropProvider } from '@dnd-kit/react';
 import { useSortable } from '@dnd-kit/react/sortable';
 import { move } from '@dnd-kit/helpers';
-import { Check, CircleCheck, GripVertical, RotateCcwClock, X } from "lucide-react";
+import { Check, ChevronDown, CircleCheck, Ellipsis, EllipsisVertical, GripVertical, RotateCcwClock, X } from "lucide-react";
 import { ClientEventMember, ClientEventStop } from "@/app/types/client-types";
 import TabButton from "../../components/tab-button";
 import Image from "next/image";
+import { Can, useAbility } from "@casl/react";
 
 const PANEL_WIDTH_DESKTOP = "340px";
 
@@ -23,6 +24,7 @@ type EventSidePanelProps = {
 export default function EventStopsMembersSidePanel({ participants, eventStops, onReorderStops, onSelectStop, activeStopId, activeEventStopId }: EventSidePanelProps) {
   const [activeTab, setActiveTab] = useState<string>("Stops");
   const ref = useRef<HTMLUListElement | null>(null);
+  const ability = useAbility();
 
   // Expose this panel's width as a CSS variable (desktop only, since on
   // mobile it's a full-screen overlay and doesn't need to offset anything)
@@ -82,9 +84,8 @@ export default function EventStopsMembersSidePanel({ participants, eventStops, o
           <ul className="flex flex-col gap-4">
 
             {/* TODO: Only the host can see which people declined or is pending */}
-            {participants.sort((a, b) => a.rsvp_status.localeCompare(b.rsvp_status)).map((member, index) => (
+            {participants.sort((a, b) => a.rsvp_status.localeCompare(b.rsvp_status)).map((member, _) => (
               <div className="flex justify-between items-center w-full" key={member.user.id}>
-
                 <div className="flex gap-2">
                   <div className="w-[24px] h-[24px] pt-1">
                     <Image
@@ -102,10 +103,36 @@ export default function EventStopsMembersSidePanel({ participants, eventStops, o
                   </div>
                 </div>
 
-                {/* TODO: Only the host can see these status icons */}
-                {member.rsvp_status === "pending" && <div className="w-[20px] h-[20px] flex justify-center items-center flex justify-between p-1 bg-bg-warning/50 rounded-full"><RotateCcwClock className="text-text-warning" strokeWidth={3} size={14} /></div>}
+                
+                <span className="flex gap-2">
+                  {member.member_role === "host" && <div className="w-fit h-fit flex justify-center items-center bg-bg-tertiary px-3 py-1 rounded-lg text-sm text-text-secondary">Host</div>}
+                  <button
+                    onClick={()=>{}}
+                    className="bg-bg-secondary hover:bg-bg-tertiary hover:cursor-pointer w-fit h-fit p-1 rounded-md"
+                    >
+                    <EllipsisVertical size={18}/>
+                  </button>
+                </span>
+
+                {/* {(member.member_role == "viewer" ||  member.member_role == "editor") && 
+                  <div className='relative'>
+                    <select 
+                      disabled={ability.cannot('update', 'Role')} 
+                      value={member.member_role}
+                      onChange={()=>{}}
+                      className='appearance-none bg-bg-secondary w-fit py-1 pl-2 pr-9 rounded-md text-text-primary text-md'
+                      // className="w-fit h-fit flex justify-center items-center bg-bg-tertiary px-2 py-1 rounded-md text-sm text-text-secondary"
+                    >
+                      <option>viewer</option> 
+                      <option>editor</option>
+                    </select>
+                    <ChevronDown size={16} className='pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary'/>
+                  </div>
+                } */}
+
+                {/* {member.rsvp_status === "pending" && <div className="w-[20px] h-[20px] flex justify-center items-center flex justify-between p-1 bg-bg-warning/50 rounded-full"><RotateCcwClock className="text-text-warning" strokeWidth={3} size={14} /></div>}
                 {member.rsvp_status === "accepted" && <div className="w-[20px] h-[20px] flex justify-center items-center p-1 bg-bg-success/50 rounded-full"><Check className="text-text-success" strokeWidth={4} size={14} /></div>}
-                {member.rsvp_status === "declined" && <div className="w-[20px] h-[20px] flex justify-center items-center bg-bg-danger/50 rounded-full"><X className="text-text-danger" strokeWidth={3} size={12} /></div>}
+                {member.rsvp_status === "declined" && <div className="w-[20px] h-[20px] flex justify-center items-center bg-bg-danger/50 rounded-full"><X className="text-text-danger" strokeWidth={3} size={12} /></div>} */}
               </div>
             ))
             }

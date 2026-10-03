@@ -350,7 +350,6 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
                   </header>
                   <button onClick={onAddEventStop} className='bg-button-primary text-text-primary p-2 text-lg rounded-md hover:cursor-pointer'>Add Stop</button>
                 </div>
-
               </Popup>
             )}
             <Marker onClick={(e) => {
