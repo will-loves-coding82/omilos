@@ -6,16 +6,18 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { ReactEventHandler, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { environment } from './environments/environment';
-import { Coordinates, ClientEventStop, ClientEvent, searchResultToClientEventStop, ClientStopStatus, ClientStopMemberStatus } from '@/app/types/client-types';
+import { Coordinates, ClientEventStop, ClientEvent, searchResultToClientEventStop, ClientStopMemberStatus } from '@/app/types/client-types';
 
 
 import EventStopSidePanel from './event-stop-side-panel';
 import { addEventStop, reorderEventStops, setActiveEventStop, updateStopMemberStatus } from '@/app/actions/event-actions';
 import { usePageActions } from '../../../components/context/header-actions-context';
 import EventDetailsSidePanel from './event-details-side-panel';
-import EventStopsMembersSidePanel from './event-stops-members-side-panel';
+import EventStopsMembersSidePanel from './event-management-side-panel';
 import {  UserAvatar, UserButton, useUser } from '@clerk/nextjs';
 import { ChevronDown, Maximize2 } from 'lucide-react';
+import { StopStatus } from '@/app/types/api-types';
+import EventManagementSidePanel from './event-management-side-panel';
 
 const SearchBox = dynamic(
   () => import("@mapbox/search-js-react").then((mod) => mod.SearchBox),
@@ -184,7 +186,7 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
     }
   }
 
-  async function onUpdateUserStopStatus(stopId: number, status: ClientStopStatus) {
+  async function onUpdateUserStopStatus(stopId: number, status: StopStatus) {
     const clerkId = clerkUser?.id;
     if (clerkId === undefined) {
       console.log("Could not resolve current user's clerk id")
@@ -247,8 +249,8 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
 
   return (
     <div ref={containerRef} className='absolute inset-0 z-0 w-full h-full'>      
-      {/* Left panel that shows all the stops and participants */}
-      <EventStopsMembersSidePanel participants={event.members} eventStops={eventStops} onReorderStops={onReorderEventStops} onSelectStop={selectEventStop} activeStopId={openStopId} activeEventStopId={activeStopId} />
+      {/* Left panel that manages all the stops and participants */}
+      <EventManagementSidePanel members={event.members} eventStops={eventStops} onReorderStops={onReorderEventStops} onSelectStop={selectEventStop} activeStopId={openStopId} activeEventStopId={activeStopId} />
 
       {/* Dismissable right panel that shows the event details */}
       <EventDetailsSidePanel event={event} isOpen={isEventDetailsPanelOpen} onDismiss={onDismissEventDetailsPanel}/>
@@ -278,8 +280,8 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
       <div className='max-w-md absolute top-4 z-10 w-full md:left-[calc(var(--panel-width)+1rem)] md:translate-x-0 md:w-88 transition-[left] duration-300'>
         {mapInstanceReady && (
           <SearchBox
-          placeholder='Add a stop'
-          onChange={(s)=>{
+            placeholder='Add a stop'
+            onChange={(s)=>{
             if (s.length === 0) {
               setStopMarkerCoord(null);
                 setShowStopMarkerPopup(false);
@@ -415,7 +417,7 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
                           value={s.stop_member_status_arr?.find(m => m.clerk_id === clerkUser?.id)?.stop_status ?? "not_started"}
                           onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                             if (s.id === undefined) return;
-                            onUpdateUserStopStatus(s.id, e.target.value as ClientStopStatus);
+                            onUpdateUserStopStatus(s.id, e.target.value as StopStatus);
                           }}
                           className='appearance-none bg-bg-secondary w-36 py-2 pl-4 pr-9 rounded-md text-text-primary text-md'
                         >

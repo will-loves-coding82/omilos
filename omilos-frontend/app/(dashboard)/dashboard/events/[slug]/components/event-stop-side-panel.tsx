@@ -1,8 +1,10 @@
 "use client";
 
-import { ClientEventMember, ClientEventStop, ClientStopStatus } from "@/app/types/client-types"
-import { Car, CircleCheck, Clock, Trash, X, XCircle } from "lucide-react"
+import { ClientEventMember, ClientEventStop} from "@/app/types/client-types"
+import {  Car, CircleCheck, Clock, Trash, X, XCircle } from "lucide-react"
 import Image from "next/image"
+import { Can, useAbility } from "@casl/react";
+import { StopStatus } from "@/app/types/api-types";
 
 export type EventStopSidePanelProps = {
   stop: ClientEventStop,
@@ -14,7 +16,7 @@ export type EventStopSidePanelProps = {
   onToggleActive: (isActive: boolean) => void,
 }
 
-const STOP_STATUS_CONFIG: Record<ClientStopStatus, { label: string, icon: typeof Clock, className: string }> = {
+const STOP_STATUS_CONFIG: Record<StopStatus, { label: string, icon: typeof Clock, className: string }> = {
   not_started: { label: "Not started", icon: Clock, className: "bg-bg-tertiary/50 text-text-secondary" },
   in_progress: { label: "On the way", icon: Car, className: "bg-bg-info/20 text-text-info" },
   arrived: { label: "Arrived", icon: CircleCheck, className: "bg-bg-success/50 text-text-success" },
@@ -41,41 +43,39 @@ export default function EventStopSidePanel({stop, members, isOpen, isActive, onD
       <div className="flex flex-col gap-2 px-3">      
         {stop.id !== undefined && (
           <>
-          <div className="bg-bg-secondary w-full rounded-lg flex items-center justify-between p-3">
-            <p className="text-text-secondary">Active Status</p>
-            <div className="flex items-center gap-2">
-              {/* {isActive && (
-                <span className="flex items-center gap-1 bg-bg-success/50 text-text-success text-xs font-medium rounded-full px-2 py-0.5">
-                  <CircleCheck size={12} strokeWidth={3}/>
-                  Active
-                </span>
-              )} */}
-              <button
-                onClick={() => onToggleActive(!isActive)}
-                aria-pressed={isActive}
-                aria-label="Toggle active status"
-                className={`hover:cursor-pointer relative w-9 h-5 rounded-full transition-colors duration-200 ${
-                  isActive ? 'bg-bg-success' : 'bg-bg-tertiary'
-                }`}
-                >
-                <span
-                  className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 ${
-                    isActive ? 'translate-x-4' : 'translate-x-0'
+          <Can I='edit' a='Stop'>    
+            <div className="bg-bg-secondary w-full rounded-lg flex items-center justify-between p-3">
+              <p className="text-text-secondary">Active Status</p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onToggleActive(!isActive)}
+                  aria-pressed={isActive}
+                  aria-label="Toggle active status"
+                  className={`hover:cursor-pointer relative w-9 h-5 rounded-full transition-colors duration-200 ${
+                    isActive ? 'bg-bg-success' : 'bg-bg-tertiary'
                   }`}
-                />
+                  >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 ${
+                      isActive ? 'translate-x-4' : 'translate-x-0'
+                    }`}
+                    />
+                </button>
+              </div>
+            </div>
+          </Can>
+
+          <Can I='delete' a='Stop'>    
+            <div className="bg-bg-secondary w-full rounded-lg flex items-center justify-between p-3">
+              <p className="text-text-secondary">Delete stop</p>
+              <button
+                onClick={() => onDeleteStop(stop.id!)}
+                className="hover:cursor-pointer"
+                >
+                <Trash size={16} className="text-text-danger"/>
               </button>
             </div>
-          </div>
-
-          <div className="bg-bg-secondary w-full rounded-lg flex items-center justify-between p-3">
-            <p className="text-text-secondary">Delete stop</p>
-            <button
-              onClick={() => onDeleteStop(stop.id!)}
-              className="hover:cursor-pointer"
-              >
-              <Trash size={16} className="text-text-danger"/>
-            </button>
-          </div>
+          </Can>
           </>
         )}
       </div>

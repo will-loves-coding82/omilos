@@ -200,7 +200,7 @@ function EventPreviewCard({ event, onClick }: { event: ClientEvent, onClick: () 
             <AnimatePresence>
               {isMenuOpen && (
                 <motion.div
-                  className="absolute right-0 bottom-full mb-2 w-44 bg-bg-primary border border-border-transparent shadow-md rounded-xl py-1 z-10"
+                  className="absolute right-0 bottom-full mb-2 w-44 bg-bg-primary border border-border-transparent shadow-md rounded-xl z-10"
                   initial={{ opacity: 0, scale: 0.95, y: 4 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: 4 }}
@@ -211,7 +211,7 @@ function EventPreviewCard({ event, onClick }: { event: ClientEvent, onClick: () 
                       e.stopPropagation();
                       setIsMembersModalOpen(true);
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:bg-bg-secondary hover:cursor-pointer"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary rounded-t-xl hover:bg-bg-secondary hover:cursor-pointer"
                   >
                     <UserGroup size={16}/>
                     Members
@@ -226,7 +226,7 @@ function EventPreviewCard({ event, onClick }: { event: ClientEvent, onClick: () 
                     <SquareArrowOutUpRight size={16}/>
                     View details
                   </button>
-                  <button onClick={(e) => e.stopPropagation()} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-danger hover:bg-bg-secondary hover:cursor-pointer">
+                  <button onClick={(e) => e.stopPropagation()} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-danger rounded-b-xl hover:bg-bg-secondary hover:cursor-pointer">
                     <Trash2 size={16}/>
                     Delete
                   </button>
