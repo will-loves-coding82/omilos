@@ -5,10 +5,6 @@
 //////////
 // source: event_client.go
 
-export const MemberRoleHost = "host";
-export const MemberRoleEditor = "editor";
-export const MemberRoleViewer = "viewer";
-export type MemberRole = typeof MemberRoleHost | typeof MemberRoleEditor | typeof MemberRoleViewer;
 export interface Event {
   id: number /* int64 */;
   title: string;
@@ -29,7 +25,8 @@ export interface Event {
 export interface EventStop {
   id: number /* int64 */;
   event_id: number /* int64 */;
-  sort_id: number /* int64 */;
+  sort_id: number /* int64 */; // This is automatically handled by backend queries
+  mapbox_id: string;
   name: string;
   address: string;
   latitude: number /* float64 */;
@@ -61,6 +58,32 @@ export interface StopMemberStatus {
   stop_id: number /* int64 */;
   stop_status: StopStatus;
   status_updated_at: StopStatus;
+}
+
+//////////
+// source: event_policies.go
+
+export const MemberRoleHost = "host";
+export const MemberRoleEditor = "editor";
+export const MemberRoleViewer = "viewer";
+export type MemberRole = typeof MemberRoleHost | typeof MemberRoleEditor | typeof MemberRoleViewer;
+export const ResourceSubjectAll = "all";
+export const ResourceSubjectEvent = "Event";
+export const ResourceSubjectStop = "Stop";
+export const ResourceSubjectStopStatus = "StopStatus";
+export const ResourceSubjectMember = "Member";
+export const ResourceSubjectRole = "Role";
+export type ResourceSubject = typeof ResourceSubjectAll | typeof ResourceSubjectEvent | typeof ResourceSubjectStop | typeof ResourceSubjectStopStatus | typeof ResourceSubjectMember | typeof ResourceSubjectRole;
+export const ActionVerbManage = "manage"; // Full CRUD access
+export const ActionVerbCreate = "create";
+export const ActionVerbRead = "read";
+export const ActionVerbUpdate = "update";
+export const ActionVerbDelete = "delete";
+export type ActionVerb = typeof ActionVerbManage | typeof ActionVerbCreate | typeof ActionVerbRead | typeof ActionVerbUpdate | typeof ActionVerbDelete;
+export interface PolicyRule {
+  Role: MemberRole;
+  Subject: ResourceSubject;
+  Action: ActionVerb;
 }
 
 //////////

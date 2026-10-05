@@ -4,18 +4,22 @@ import { useEffect, useRef, useState } from "react";
 import { DragDropProvider } from '@dnd-kit/react';
 import { useSortable } from '@dnd-kit/react/sortable';
 import { move } from '@dnd-kit/helpers';
-import { CheckIcon, ChevronDown, ChevronDownIcon, CircleCheck, EllipsisVertical, GripVertical, Trash2, UserCircle, X } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, CircleCheck, EllipsisVertical, GripVertical, Trash2, UserCircle, X } from "lucide-react";
 import { ClientEventMember, ClientEventStop } from "@/app/types/client-types";
 import TabButton from "../../components/tab-button";
 import Image from "next/image";
-import { Can, useAbility } from "@casl/react";
+import { useAbility } from "@casl/react";
 import { AnimatePresence, motion } from "motion/react";
 import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from '@headlessui/react'
 import clsx from 'clsx'
+import { AppAbility, Can } from "@/app/providers/ability-provider";
+import { MemberRole } from "@/app/types/api-types";
+import { updateEventMemberRole } from "@/app/actions/event-actions";
 
 const PANEL_WIDTH_DESKTOP = "374px";
 
 type EventSidePanelProps = {
+  eventId: number,
   members: ClientEventMember[];
   eventStops: ClientEventStop[];
   onReorderStops: (stops: ClientEventStop[]) => void;
@@ -24,7 +28,7 @@ type EventSidePanelProps = {
   activeEventStopId?: number;
 };
 
-export default function EventManagementSidePanel({ members, eventStops, onReorderStops, onSelectStop, activeStopId, activeEventStopId }: EventSidePanelProps) {
+export default function EventManagementSidePanel({ eventId, members, eventStops, onReorderStops, onSelectStop, activeStopId, activeEventStopId }: EventSidePanelProps) {
   const [activeTab, setActiveTab] = useState<string>("Stops");
   const ref = useRef<HTMLUListElement | null>(null);
 
@@ -86,7 +90,7 @@ export default function EventManagementSidePanel({ members, eventStops, onReorde
           <ul className="flex flex-col gap-4">
             {
               members.sort((a, b) => a.rsvp_status.localeCompare(b.rsvp_status)).map((member, _) => (
-                <MemberCard key={member.user.id} member={member}/>
+                <MemberCard  eventId={eventId} key={member.user.id} member={member}/>
               ))
             }
           </ul>
@@ -96,10 +100,12 @@ export default function EventManagementSidePanel({ members, eventStops, onReorde
   );
 }
 
-function MemberCard({member}: {member: ClientEventMember}) {
+function MemberCard({eventId, member}: {eventId: number, member: ClientEventMember}) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [selectedRole, setSelectedRole] = useState<Omit<MemberRole, 'host'>>(member.member_role);
+
     const menuRef = useRef<HTMLButtonElement>(null);
-    const ability = useAbility();
+    const ability = useAbility<AppAbility>();
 
     useEffect(() => {
       if (!isMenuOpen) return;
@@ -114,6 +120,21 @@ function MemberCard({member}: {member: ClientEventMember}) {
       return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [isMenuOpen]);
 
+    
+    async function onUpdateRole(newRole: Omit<MemberRole, 'host'>) {
+      try {
+        const res = await updateEventMemberRole(eventId, member.user.id, newRole)
+        if (!res.success) {
+          console.log("Failed to update member role")
+        }
+        else {
+          setSelectedRole(newRole);
+        }
+      }
+      catch(err) {
+        console.log("Error updating member role: " + err)
+      }
+    }
 
     return (
       <div className="flex justify-between items-center w-full" key={member.user.id}>
@@ -145,18 +166,18 @@ function MemberCard({member}: {member: ClientEventMember}) {
 
 
             {member.member_role !== "host" && 
-              <Listbox value={member.member_role} onChange={()=> {}} >
+              <Listbox value={selectedRole} onChange={(value) => { onUpdateRole(value as MemberRole); }}>
                 <ListboxButton
-                  disabled={ability.cannot('edit', 'User')}
+                  disabled={ability.cannot('update', 'Member')}
                   className={clsx(
                   'flex items-center gap-3 rounded-lg bg-bg-secondary py-1 px-4 justify-between text-md text-text-primary',
                   'focus:not-data-focus:outline-none data-focus:outline-2 data-focus:-outline-offset-2 data-focus:outline-white/25',
-                  `${ability.can('edit', 'User') && "hover:cursor-pointer hover:bg-bg-tertiary"}`
+                  `${ability.can('update', 'Member') && "hover:cursor-pointer hover:bg-bg-tertiary"}`
                 )}
                 >
-                  {member.member_role.charAt(0).toUpperCase() + member.member_role.slice(1)}
+                  {selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)}
                   {
-                    ability.can('edit', 'User') &&
+                    ability.can('update', 'Member') &&
                     <ChevronDownIcon
                       className="group pointer-events-none  size-4"
                       aria-hidden="true"
@@ -170,6 +191,7 @@ function MemberCard({member}: {member: ClientEventMember}) {
                     'w-(--button-width) rounded-lg bg-bg-secondary border-1 border-border-primary [--anchor-gap:--spacing(1)] focus:outline-none',
                     'transition duration-100 ease-in data-leave:data-closed:opacity-0'
                   )}
+                  
                 >
                   <ListboxOption key={0} value="editor" className="group flex cursor-default items-center gap-2 px-3 py-1.5 select-none data-focus:bg-bg-tertiary">
                     <CheckIcon className="invisible size-4 group-data-selected:visible" />
@@ -213,7 +235,7 @@ function MemberCard({member}: {member: ClientEventMember}) {
                     <UserCircle size={16}/>
                     Info
                   </button>
-                  <Can I='edit' a='user'>
+                  <Can I='update' a='Member'>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -241,15 +263,24 @@ type SortableStopProps = {
 };
 
 function SortableStop({ stop, index, onSelectStop, isSelected, isActive }: SortableStopProps) {
+  const ability = useAbility<AppAbility>();
+
   const id = stop.mapbox_id
-  const handleRef = useRef<HTMLButtonElement | null>(null);
-  const { ref, isDragging } = useSortable({ id, index, handle: handleRef });
+  const handleRef = useRef<HTMLButtonElement | null>(null)
+  const { ref, isDragging } = useSortable({ id, index, handle: handleRef, disabled: ability.cannot('update', 'Stop')});
 
   return (
     <li
       ref={ref}
       onClick={() => onSelectStop(stop)}
-      className={`hover:cursor-pointer h-[108px] transition-colors duration-100 ease-in ${isSelected ? "bg-bg-active" : "bg-bg-secondary"} p-3 flex justify-between gap-1 rounded-lg ${isDragging ? 'opacity-50' : ''}`}
+      className={
+        clsx(
+          "h-[108px] transition-colors duration-100 ease-in p-3 flex justify-between gap-1 rounded-lg", 
+          isSelected ? "bg-bg-active" : "bg-bg-secondary",
+          ability.can('update', 'Stop') && "hover:cursor-pointer",
+          isDragging && 'opacity-50'
+        )
+      }
     >
       <div className="flex flex-col justify-between gap-1">
         <div className="flex flex-col">
@@ -263,8 +294,8 @@ function SortableStop({ stop, index, onSelectStop, isSelected, isActive }: Sorta
           </span>
         )}
       </div>
-      <button ref={handleRef} className="cursor-grab hover:cursor-pointer active:cursor-grabbing">
-        <GripVertical size={20} className="my-auto" />
+      <button ref={handleRef}>
+        <GripVertical size={20} className={clsx("my-auto", ability.can('update', 'Stop') ? "hover:cursor-pointer" : "text-text-secondary/50")} />
       </button>
     </li>
   )

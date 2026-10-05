@@ -3,8 +3,8 @@
 import { ClientEventMember, ClientEventStop} from "@/app/types/client-types"
 import {  Car, CircleCheck, Clock, Trash, X, XCircle } from "lucide-react"
 import Image from "next/image"
-import { Can, useAbility } from "@casl/react";
 import { StopStatus } from "@/app/types/api-types";
+import { Can } from "@/app/providers/ability-provider";
 
 export type EventStopSidePanelProps = {
   stop: ClientEventStop,
@@ -43,7 +43,7 @@ export default function EventStopSidePanel({stop, members, isOpen, isActive, onD
       <div className="flex flex-col gap-2 px-3">      
         {stop.id !== undefined && (
           <>
-          <Can I='edit' a='Stop'>    
+          <Can I='update' a='Stop'>    
             <div className="bg-bg-secondary w-full rounded-lg flex items-center justify-between p-3">
               <p className="text-text-secondary">Active Status</p>
               <div className="flex items-center gap-2">

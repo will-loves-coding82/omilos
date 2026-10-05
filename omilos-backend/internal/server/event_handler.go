@@ -123,12 +123,16 @@ type AddEventStopPayload struct {
 }
 
 func (h *EventHandler) AddNewEventStop(w http.ResponseWriter, r *http.Request) {
+	log.Println("Getting user from context")
+
 	_, ok := UserFromContext(r.Context())
 	if !ok {
+		log.Print("No user in context")
 		httpio.InternalError(w, r, errors.New("no user in context"))
 		return
 	}
 
+	log.Println("Getting eventId")
 	eventId, err := parseEventIdPathValue(r)
 	if err != nil {
 		httpio.BadRequest(w, r, err)
@@ -136,14 +140,17 @@ func (h *EventHandler) AddNewEventStop(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var stop app.EventStop
+	log.Println("Decoding body")
 	err = json.NewDecoder(r.Body).Decode(&stop)
 	if err != nil {
+		log.Println(err)
 		httpio.BadRequest(w, r, err)
 		return
 	}
 
+	log.Println(stop)
 	eventStop := app.EventStop{
-		SortId:    stop.SortId,
+		MapboxId:  stop.MapboxId,
 		Name:      stop.Name,
 		Address:   stop.Address,
 		Latitude:  stop.Latitude,
@@ -152,6 +159,7 @@ func (h *EventHandler) AddNewEventStop(w http.ResponseWriter, r *http.Request) {
 
 	id, err := h.client.AddEventStop(eventId, eventStop)
 	if err != nil {
+		log.Print(err)
 		httpio.InternalError(w, r, err)
 		return
 	}
@@ -292,6 +300,32 @@ func (h *EventHandler) UpdateStopMemberStatus(w http.ResponseWriter, r *http.Req
 	}
 
 	httpio.JSON(w, r, http.StatusOK, nil)
+}
+
+type UpdateEventMemberRoleBody struct {
+	MemberId int64  `json:"member_id"`
+	NewRole  string `json:"new_role"`
+}
+
+func (h *EventHandler) UpdateEventMemberRole(w http.ResponseWriter, r *http.Request) {
+	eventId, err := parseEventIdPathValue(r)
+	if err != nil {
+		httpio.BadRequest(w, r, err)
+		return
+	}
+
+	var body UpdateEventMemberRoleBody
+	err = json.NewDecoder(r.Body).Decode(&body)
+	if err != nil {
+		httpio.BadRequest(w, r, err)
+		return
+	}
+
+	err = h.client.UpdateEventMemberRole(eventId, body.MemberId, body.NewRole)
+	if err != nil {
+		log.Printf("UpdateEventMemberRole: %v\n", err)
+	}
+
 }
 
 func parseEventIdPathValue(r *http.Request) (int64, error) {

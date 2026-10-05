@@ -1,28 +1,37 @@
 "use client";
 
-import { AbilityProvider } from '@casl/react';
-import { AbilityBuilder, createMongoAbility } from '@casl/ability';
-import { MemberRole } from '../types/api-types';
+import { AbilityProvider, Can as CaslCan, CanProps} from '@casl/react';
+import { AbilityBuilder, AbilityTuple, createMongoAbility, Ability } from '@casl/ability';
+import { ActionVerb, MemberRole, ResourceSubject } from '../types/api-types';
+
+type AppAbilities = AbilityTuple<ActionVerb, ResourceSubject>;
+export type AppAbility = Ability<AppAbilities>; 
+
+const rolePermissionsRecord: Record<MemberRole, [ActionVerb, ResourceSubject][]> = {
+  host: [["manage", "all"]],
+  editor: [
+    ["read", "Event"],
+    ["create", "Stop"],
+    ["delete", "Stop"],
+    ["update", "Stop"],
+    ["update", "Role"]
+  ],
+  viewer: [
+    ["read", "Event"]
+  ]
+};
 
 
 function defineAbilitiesForEventMemberRole(role: MemberRole) {
-  const { can, build } = new AbilityBuilder(createMongoAbility);
+  const { can, build } = new AbilityBuilder<AppAbility>(createMongoAbility);
 
-  switch(role) {
-    case "host":
-      can('manage', 'all');
-      return build();
-    case "editor":
-      can('read', 'Event');
-      can('add', 'Stop');
-      can('delete', 'Stop');
-      can('update', 'Stop');
-      can('update', 'Role');
-      return build();
-    default:
-      can('read', 'Event')
-      return build();
-  }
+  const rules = rolePermissionsRecord[role] || rolePermissionsRecord["viewer"];
+  
+  rules.forEach(([action, subject]) => {
+    can(action, subject);
+  });
+
+  return build();
 }
 
 export function EventAbilityWrapper({ 
@@ -41,3 +50,5 @@ export function EventAbilityWrapper({
     </AbilityProvider>
   );
 }
+
+export const Can = CaslCan as React.ComponentType<CanProps<AppAbility>>;

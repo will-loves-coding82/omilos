@@ -122,7 +122,6 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
       }
       setShowStopMarkerPopup(false);
       setSelectedStop(null);
-      setEventStops(prev => [...prev, selectedStop])
 
       // Sync with database
       try {
@@ -130,8 +129,9 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
         if (!res.success || !res.data) {
           console.log("Failed to add stop to database")
         } else {
-          const stopId = res.data.id;
-          setEventStops(prev => prev.map(s => s.mapbox_id === selectedStop.mapbox_id ? { ...s, id: stopId } : s))
+          // Once synced in db, add the stop to end of the list
+          // TODO: Need to return the actual inserted stop to keep the sort order highly consistent
+          setEventStops(prev => [...prev, selectedStop])
         }
       }
       catch(err) {
@@ -250,7 +250,7 @@ export default function EventDetailsClient({slug, event}: {slug: string, event: 
   return (
     <div ref={containerRef} className='absolute inset-0 z-0 w-full h-full'>      
       {/* Left panel that manages all the stops and participants */}
-      <EventManagementSidePanel members={event.members} eventStops={eventStops} onReorderStops={onReorderEventStops} onSelectStop={selectEventStop} activeStopId={openStopId} activeEventStopId={activeStopId} />
+      <EventManagementSidePanel eventId={event.id} members={event.members} eventStops={eventStops} onReorderStops={onReorderEventStops} onSelectStop={selectEventStop} activeStopId={openStopId} activeEventStopId={activeStopId} />
 
       {/* Dismissable right panel that shows the event details */}
       <EventDetailsSidePanel event={event} isOpen={isEventDetailsPanelOpen} onDismiss={onDismissEventDetailsPanel}/>

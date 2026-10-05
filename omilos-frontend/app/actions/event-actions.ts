@@ -4,10 +4,10 @@ import { auth } from "@clerk/nextjs/server";
 import z from "zod";
 import { eventDetailsSchema } from "../(dashboard)/dashboard/events/schemas";
 import { API_ROUTES } from "../constants";
-import { ClientEventStop, ClientStopStatus } from "../types/client-types";
+import { ClientEventStop } from "../types/client-types";
 import { apiFetch } from "./utils";
 import { ActionResponse } from "./action-types";
-import { Event } from "../types/api-types";
+import { Event, MemberRole, StopStatus } from "../types/api-types";
 
 export async function getEventsForUser(clerkId: string | null): Promise<ActionResponse<{events: Event[]}>> {
   if (!clerkId) {
@@ -285,7 +285,7 @@ export async function setActiveEventStop(eventId: number, stopId: number | null)
   }
 }
 
-export async function updateStopMemberStatus(eventId: number, stopId: number, status: ClientStopStatus) : Promise<ActionResponse<null>> {
+export async function updateStopMemberStatus(eventId: number, stopId: number, status: StopStatus) : Promise<ActionResponse<null>> {
   try {
     const res = await apiFetch(API_ROUTES.events.stops.memberStatus(eventId, stopId), {
       method: "PATCH",
@@ -318,6 +318,41 @@ export async function updateStopMemberStatus(eventId: number, stopId: number, st
     }
   }
 }
+
+export async function updateEventMemberRole(eventId: number, memberId: number, newRole: Omit<MemberRole,'host'>) : Promise<ActionResponse<null>> {
+  try {
+    const res = await apiFetch(API_ROUTES.events.memberRole(eventId), {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ member_id: memberId, new_role: newRole}),
+    })
+
+    if (!res.ok) {
+      const body = await res.text()
+      console.error("Update event member role failed:", res.status, body)
+      return {
+        success: false,
+        data: null,
+        message: "Failed to update event member role",
+      }
+    }
+
+    return {
+      success: true,
+      data: null,
+    }
+  } catch (err) {
+    console.error("Error updating event member role:", err)
+    return {
+      success: false,
+      data: null,
+      message: err instanceof Error ? err.message : "An unknown error occurred",
+    }
+  }
+}
+
 
 export async function deleteEventStop(eventId: number, stopId: number) : Promise<ActionResponse<null>> {
   try {

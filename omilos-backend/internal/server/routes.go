@@ -12,12 +12,19 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/casbin/casbin/v2"
 	"github.com/clerk/clerk-sdk-go/v2"
 	clerkhttp "github.com/clerk/clerk-sdk-go/v2/http"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 )
+
+type contextKey string
+type ctxKey string
+
+const userContextKey contextKey = "omilos-user"
+const ResourceKey ctxKey = "casbin-resource"
 
 func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 	r := chi.NewRouter()
@@ -35,6 +42,11 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 	internalWebhookSecret := os.Getenv("INTERNAL_WEBHOOK_SECRET")
 	if internalWebhookSecret == "" {
 		log.Fatal("INTERNAL_WEBHOOK_SECRET must be set")
+	}
+
+	enforcer, err := app.InitializeEnforcer()
+	if err != nil {
+		log.Fatalf("error initializing policy enforcer: %v", err)
 	}
 
 	userClient := app.NewUserClient(database)
@@ -56,6 +68,8 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 	r.Get("/", s.HelloWorldHandler)
 	r.Get("/health", s.healthHandler)
 
+	// Users are created when they first authenticate with Clerk
+	// This invoked via a webhook
 	r.Post("/users", userHandler.CreateNewUser)
 
 	r.Group(func(r chi.Router) {
@@ -67,30 +81,57 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 		r.Get("/events/details/{slug}", eventHandler.GetEventDetails)
 
 		r.Route("/events/{eventId}", func(r chi.Router) {
-			r.Use(EventMembershipMiddleware(eventClient))
-			r.Post("/stops", eventHandler.AddNewEventStop)
-			r.Patch("/stops", eventHandler.ReorderEventStops)
-			r.Delete("/stops/{stopId}", eventHandler.DeleteEventStop)
-			r.Patch("/stops/active", eventHandler.UpdateActiveStop)
-			r.Patch("/stops/{stopId}/member-status", eventHandler.UpdateStopMemberStatus)
+			r.Group(func(r chi.Router) {
+				r.Use(WithResource(app.ResourceSubjectEvent))
+				r.Use(EventMiddleware(eventClient, enforcer))
+				r.Get("/", eventHandler.GetEventDetails)
+				r.Patch("/memberRole", eventHandler.UpdateEventMemberRole)
+			})
+
+			r.Group(func(r chi.Router) {
+				r.Use(WithResource(app.ResourceSubjectRole))
+				r.Use(EventMiddleware(eventClient, enforcer))
+				r.Patch("/roles/{userId}", eventHandler.UpdateEventMemberRole)
+			})
+
+			r.Group(func(r chi.Router) {
+				r.Group(func(r chi.Router) {
+					r.Use(WithResource(app.ResourceSubjectStopStatus))
+					r.Use(EventMiddleware(eventClient, enforcer))
+					r.Patch("/stops/{stopId}/memberStatus", eventHandler.UpdateStopMemberStatus)
+				})
+
+				r.Group(func(r chi.Router) {
+					r.Use(WithResource(app.ResourceSubjectStop))
+					r.Use(EventMiddleware(eventClient, enforcer))
+					r.Post("/stops", eventHandler.AddNewEventStop)
+					r.Patch("/stops", eventHandler.ReorderEventStops)
+					r.Delete("/stops/{stopId}", eventHandler.DeleteEventStop)
+					r.Patch("/stops/active", eventHandler.UpdateActiveStop)
+				})
+			})
 		})
 
 		r.Patch("/invites", inviteHandler.UpdateInviteStatus)
 		r.Get("/invites/all", inviteHandler.GetAllInvitesForUser)
 		r.Get("/invites/pending/count", inviteHandler.GetPendingInviteCountForUser)
-
 		r.Get("/presign", awsPresignHandler.GetPresignedURL)
 	})
 
 	return r
 }
 
-type contextKey string
+// WithResource attaches a strict target resource type to the request lifecycle
+func WithResource(resource app.ResourceSubject) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := context.WithValue(r.Context(), ResourceKey, resource)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
 
-const userContextKey contextKey = "omilos-user"
-
-// UserFromContext returns the database user attached to the request context
-// by UserMiddleware.
+// UserFromContext returns the database user attached to the request context by UserMiddleware.
 func UserFromContext(ctx context.Context) (app.User, bool) {
 	user, ok := ctx.Value(userContextKey).(app.User)
 	return user, ok
@@ -113,15 +154,21 @@ func UserMiddleware(userClient *app.UserClient) func(http.Handler) http.Handler 
 			}
 
 			ctx := context.WithValue(r.Context(), userContextKey, user)
+			log.Println("User is authorized")
 			next.ServeHTTP(w, r.WithContext(ctx))
 		}))
 	}
 }
 
-// EventMembershipMiddleware requires that the authenticated user (attached to
-// context by UserMiddleware, which must run before this) is the host or an
-// accepted member of the event named by the {eventId} path parameter.
-func EventMembershipMiddleware(eventClient *app.EventClient) func(http.Handler) http.Handler {
+// EventMiddleware performs two crticial checks:
+//
+// 1. It requires that the authenticated user (attached to context by UserMiddleware,
+// which must run before this) is the host or an accepted member of the event named by the
+// {eventId} path parameter.
+//
+// 2. It ensures that the user has the proper permissions to interact with
+// an event and its related data such as stops and members
+func EventMiddleware(eventClient *app.EventClient, enforcer *casbin.Enforcer) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			user, ok := UserFromContext(r.Context())
@@ -137,16 +184,62 @@ func EventMembershipMiddleware(eventClient *app.EventClient) func(http.Handler) 
 				return
 			}
 
+			// 1. Check event membership
 			isMember, err := eventClient.IsEventMember(eventId, user.Id)
 			if err != nil {
+				log.Println(err)
 				http.Error(w, "internal error", http.StatusInternalServerError)
 				return
 			}
 			if !isMember {
+				log.Println("User is not a member")
 				http.Error(w, "forbidden", http.StatusForbidden)
 				return
 			}
 
+			// 2. Check if member has proper access to the requested resource
+			targetResource, ok := r.Context().Value(ResourceKey).(app.ResourceSubject)
+			if !ok {
+				// Fallback to "Event" context if no sub-resource tag is attached
+				targetResource = app.ResourceSubjectEvent
+			}
+
+			var action app.ActionVerb
+			switch r.Method {
+			case http.MethodPost:
+				action = app.ActionVerbCreate
+			case http.MethodGet:
+				action = app.ActionVerbRead
+			case http.MethodPut, http.MethodPatch:
+				action = app.ActionVerbUpdate
+			case http.MethodDelete:
+				action = app.ActionVerbDelete
+			default:
+				http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+				return
+			}
+
+			memberRole, err := eventClient.GetEventMemberRole(eventId, user.Id)
+			if err != nil {
+				log.Println(err)
+				http.Error(w, "internal error", http.StatusInternalServerError)
+				return
+			}
+
+			allowed, err := enforcer.Enforce(string(memberRole), string(targetResource), string(action))
+			if err != nil {
+				log.Printf("Casbin enforcement error: %v", err)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+				return
+			}
+
+			if !allowed {
+				fmt.Printf("Insufficient permissions. User cannot %s resource %s\n", action, targetResource)
+				http.Error(w, "forbidden: insufficient permissions", http.StatusForbidden)
+				return
+			}
+
+			log.Println("Member is allowed to proceed")
 			next.ServeHTTP(w, r)
 		})
 	}

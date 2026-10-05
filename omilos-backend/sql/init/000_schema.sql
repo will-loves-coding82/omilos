@@ -29,6 +29,7 @@ CREATE TABLE event_stops (
   id SERIAL PRIMARY KEY,
   event_id INTEGER NOT NULL,
   sort_id INTEGER NOT NULL,
+  mapbox_id VARCHAR(255) NOT NULL,
   name TEXT NOT NULL,
   address TEXT NOT NULL,
   latitude DOUBLE PRECISION NOT NULL,

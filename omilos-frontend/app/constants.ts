@@ -21,13 +21,14 @@ export const createApiRoutes = (baseUrl: string) => {
       create: `${baseUrl}/events`,
       list: `${baseUrl}/events`,
       details: (slug: string) => `${baseUrl}/events/details/${slug}`,
+      memberRole: (eventId: number) => `${baseUrl}/events/${eventId}/memberRole`,
       stops: {
         list: (eventId: number) => `${baseUrl}/events/${eventId}/stops`,
         create: (eventId: number) => `${baseUrl}/events/${eventId}/stops`,
         update: (eventId: number) => `${baseUrl}/events/${eventId}/stops`,
         delete: (eventId: number, stopId: number) => `${baseUrl}/events/${eventId}/stops/${stopId}`,
         active: (eventId: number) => `${baseUrl}/events/${eventId}/stops/active`,
-        memberStatus: (eventId: number, stopId: number) => `${baseUrl}/events/${eventId}/stops/${stopId}/member-status`,
+        memberStatus: (eventId: number, stopId: number) => `${baseUrl}/events/${eventId}/stops/${stopId}/memberStatus`,
       },
     },
     invites: {

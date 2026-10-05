@@ -13,14 +13,6 @@ import (
 // it was requested under.
 var ErrStopNotFound = errors.New("stop not found for this event")
 
-type MemberRole = string
-
-const (
-	MemberRoleHost   MemberRole = "host"
-	MemberRoleEditor MemberRole = "editor"
-	MemberRoleViewer MemberRole = "viewer"
-)
-
 type Event struct {
 	Id           int64  `json:"id" db:"id"`
 	Title        string `json:"title" db:"title"`
@@ -41,7 +33,8 @@ type Event struct {
 type EventStop struct {
 	Id        int64   `json:"id" db:"id"`
 	EventId   int64   `json:"event_id" db:"event_id"`
-	SortId    int64   `json:"sort_id" db:"sort_id"`
+	SortId    int64   `json:"sort_id" db:"sort_id"` // This is automatically handled by backend queries
+	MapboxId  string  `json:"mapbox_id" db:"mapbox_id"`
 	Name      string  `json:"name" db:"name"`
 	Address   string  `json:"address" db:"address"`
 	Latitude  float64 `json:"latitude" db:"latitude"`
@@ -84,15 +77,10 @@ type StopMemberStatus struct {
 	StatusUpdatedAt StopStatus `json:"status_updated_at" db:"status_updated_at"`
 }
 
-const getEventIdForSlug = `
+const getEventIdForSlugQuery = `
 	SELECT id
 	FROM events
 	WHERE slug=$1;
-`
-
-const createEventQuery = `
-	INSERT INTO events(slug, title, description, date, host_id, image_url) 
-	VALUES($1, $2, $3, $4, $5, $6) RETURNING id;
 `
 
 const getEventsForUserQuery = `
@@ -158,6 +146,7 @@ const getEventDetailsQuery = `
 						'id', es.id,
 						'event_id', es.event_id,
 						'sort_id', es.sort_id,
+						'mapbox_id', es.mapbox_id,
 						'name', es.name,
 						'address', es.address,
 						'latitude', es.latitude,
@@ -190,12 +179,43 @@ const getEventDetailsQuery = `
 	WHERE em.user_id = $1 AND e.id = $2;
 `
 
+const createEventQuery = `
+	INSERT INTO events(slug, title, description, date, host_id, image_url) 
+	VALUES($1, $2, $3, $4, $5, $6) RETURNING id;
+`
+
+const isEventMemberQuery = `
+	SELECT EXISTS (
+		SELECT 1
+		FROM events e
+		WHERE e.id = $1
+		AND (
+			e.host_id = $2
+			OR e.id IN (SELECT event_id FROM event_members em WHERE em.user_id = $2 AND em.rsvp_status = 'accepted')
+		)
+	);
+`
+
+const getMemberRoleQuery = `
+	SELECT member_role
+	FROM event_members
+	WHERE event_id=$1
+	AND user_id=$2;
+`
+
+const updateEventMemberRoleQuery = `
+	UPDATE event_members
+	SET member_role = $1
+	WHERE event_id = $2
+	AND user_id = $3;
+`
+
 const addEventStopQuery = `
-	INSERT INTO event_stops(event_id, sort_id, name, address, latitude, longitude)
+	INSERT INTO event_stops(event_id, sort_id, mapbox_id, name, address, latitude, longitude)
 	VALUES (
 		$1,
 		COALESCE((SELECT MAX(sort_id) + 1 FROM event_stops WHERE event_id = $1), 0),
-		$2, $3, $4, $5
+		$2, $3, $4, $5, $6
 	)
 	RETURNING id;
 `
@@ -207,11 +227,6 @@ const reorderEventStopsQuery = `
 		SELECT * FROM unnest($1::int[], $2::int[]) AS t(id, sort_id)
 	) AS data
 	WHERE es.id = data.id AND es.event_id = $3;
-`
-
-const deleteEventStopQuery = `
-		DELETE FROM event_stops
-		WHERE id=$1 and event_id=$2;
 `
 
 const updateActiveStopQuery = `
@@ -230,37 +245,19 @@ const upsertStopMemberStatusQuery = `
 		status_updated_at = EXCLUDED.status_updated_at;
 `
 
-const isEventMemberQuery = `
-	SELECT EXISTS (
-		SELECT 1
-		FROM events e
-		WHERE e.id = $1
-		AND (
-			e.host_id = $2
-			OR e.id IN (SELECT event_id FROM event_members em WHERE em.user_id = $2 AND em.rsvp_status = 'accepted')
-		)
-	);
+const deleteEventStopQuery = `
+		DELETE FROM event_stops
+		WHERE id=$1 and event_id=$2;
 `
 
 func (e *EventClient) GetEventIdForSlug(slug string) (int64, error) {
 	var id int64
-	err := e.db.Conn().Get(&id, getEventIdForSlug, slug)
+	err := e.db.Conn().Get(&id, getEventIdForSlugQuery, slug)
 	if err != nil {
 		return 0, err
 	}
 
 	return id, nil
-}
-
-// IsEventMember reports whether userId is the host of eventId or an accepted member of it.
-func (e *EventClient) IsEventMember(eventId int64, userId int64) (bool, error) {
-	var isMember bool
-	err := e.db.Conn().Get(&isMember, isEventMemberQuery, eventId, userId)
-	if err != nil {
-		return false, fmt.Errorf("IsEventMember: %v", err)
-	}
-
-	return isMember, nil
 }
 
 func (e *EventClient) GetEventsForUser(userId int64) ([]Event, error) {
@@ -340,14 +337,51 @@ func (e *EventClient) CreateNewEventTx(ctx context.Context, hostId int64, event 
 	return newSlug, nil
 }
 
+// IsEventMember reports whether userId is the host of eventId or an accepted member of it.
+// This is used as the first step in the event middleware check.
+func (e *EventClient) IsEventMember(eventId int64, userId int64) (bool, error) {
+	var isMember bool
+	err := e.db.Conn().Get(&isMember, isEventMemberQuery, eventId, userId)
+	if err != nil {
+		return false, err
+	}
+
+	return isMember, nil
+}
+
+// GetEventMemberRole gets the user's role in a specific event.
+// This is used in the second step of the event middleware check.
+func (e *EventClient) GetEventMemberRole(eventId int64, userId int64) (MemberRole, error) {
+	var role string
+	err := e.db.Conn().Get(&role, getMemberRoleQuery, eventId, userId)
+	if err != nil {
+		return "", err
+	}
+	return role, nil
+}
+
+// UpdateEventMemberRole is a host-only action that enables a host to
+// update an existng member's role to to a non-host value.
+func (e *EventClient) UpdateEventMemberRole(eventId int64, userId int64, newRole MemberRole) error {
+	if newRole == MemberRoleHost {
+		return errors.New("you cannot make another member a host")
+	}
+	_, err := e.db.Conn().Exec(updateEventMemberRoleQuery, newRole, eventId, userId)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (e *EventClient) AddEventStop(eventId int64, stop EventStop) (int64, error) {
 	var id int64
 	err := e.db.Conn().Get(
 		&id, addEventStopQuery,
-		eventId, stop.Name, stop.Address, stop.Latitude, stop.Longitude,
+		eventId, stop.MapboxId, stop.Name, stop.Address, stop.Latitude, stop.Longitude,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("AddEventStop: %v", err)
+		return 0, err
 	}
 
 	return id, nil
@@ -363,7 +397,7 @@ func (e *EventClient) ReorderEventStops(eventId int64, reorderedStops []EventSto
 
 	_, err := e.db.Conn().Exec(reorderEventStopsQuery, ids, sortOrders, eventId)
 	if err != nil {
-		return fmt.Errorf("ReorderEventStops: %v", err)
+		return err
 	}
 
 	return nil
@@ -373,7 +407,7 @@ func (e *EventClient) ReorderEventStops(eventId int64, reorderedStops []EventSto
 func (e *EventClient) UpdateActiveStop(eventId int64, stopId *int64) error {
 	_, err := e.db.Conn().Exec(updateActiveStopQuery, stopId, eventId)
 	if err != nil {
-		return fmt.Errorf("UpdateActiveStop: %v", err)
+		return err
 	}
 
 	return nil
@@ -390,7 +424,7 @@ func (e *EventClient) UpdateStopMemberStatus(eventId int64, stopId int64, userId
 
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("UpdateStopMemberStatus: %v", err)
+		return err
 	}
 	if rowsAffected == 0 {
 		return ErrStopNotFound
@@ -402,7 +436,7 @@ func (e *EventClient) UpdateStopMemberStatus(eventId int64, stopId int64, userId
 func (e *EventClient) DeleteEventStop(eventId int64, stopId int64) error {
 	_, err := e.db.Conn().Exec(deleteEventStopQuery, stopId, eventId)
 	if err != nil {
-		return fmt.Errorf("DeleteEventStop: %v", err)
+		return err
 	}
 
 	return nil
