@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"omilos-backend/internal/logger"
 	"omilos-backend/internal/server/httpio"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 type PresignerHandler struct {
@@ -32,6 +34,7 @@ func (h *PresignerHandler) GetPresignedURL(w http.ResponseWriter, r *http.Reques
 	log.Print("Getting presigned URL")
 	objectKey := r.URL.Query().Get("file")
 	if objectKey == "" {
+		logger.AWS.Warn("missing file query parameter", zap.String("path", r.URL.Path))
 		httpio.BadRequest(w, r, errors.New("Missing file query parameter"))
 		return
 	}
@@ -43,7 +46,7 @@ func (h *PresignerHandler) GetPresignedURL(w http.ResponseWriter, r *http.Reques
 	})
 
 	if err != nil {
-		log.Print(err)
+		logger.AWS.Error("failed to generate presigned url", zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.InternalError(w, r, err)
 		return
 	}

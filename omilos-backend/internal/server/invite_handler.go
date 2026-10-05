@@ -3,10 +3,12 @@ package server
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"omilos-backend/internal/app"
+	"omilos-backend/internal/logger"
 	"omilos-backend/internal/server/httpio"
+
+	"go.uber.org/zap"
 )
 
 type InviteHandler struct {
@@ -36,12 +38,14 @@ type UpdateInviteBody struct {
 func (h *InviteHandler) GetPendingInviteCountForUser(w http.ResponseWriter, r *http.Request) {
 	user, ok := UserFromContext(r.Context())
 	if !ok {
+		logger.Events.Error("no user in context", zap.String("path", r.URL.Path))
 		httpio.InternalError(w, r, errors.New("no user in context"))
 		return
 	}
 
 	count, err := h.client.GetPendingInviteCountForUser(user.Id)
 	if err != nil {
+		logger.Invites.Error("failed to get pending invite count", zap.Int64("userId", user.Id), zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.InternalError(w, r, err)
 		return
 	}
@@ -52,12 +56,14 @@ func (h *InviteHandler) GetPendingInviteCountForUser(w http.ResponseWriter, r *h
 func (h *InviteHandler) GetAllInvitesForUser(w http.ResponseWriter, r *http.Request) {
 	user, ok := UserFromContext(r.Context())
 	if !ok {
+		logger.Events.Error("no user in context", zap.String("path", r.URL.Path))
 		httpio.InternalError(w, r, errors.New("no user in context"))
 		return
 	}
 
 	invites, err := h.client.GetAllInvitesForUser(user.Id)
 	if err != nil {
+		logger.Invites.Error("failed to get all invites for user", zap.Int64("userId", user.Id), zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.InternalError(w, r, err)
 		return
 	}
@@ -69,6 +75,7 @@ func (h *InviteHandler) GetAllInvitesForUser(w http.ResponseWriter, r *http.Requ
 func (h *InviteHandler) UpdateInviteStatus(w http.ResponseWriter, r *http.Request) {
 	user, ok := UserFromContext(r.Context())
 	if !ok {
+		logger.Events.Error("no user in context", zap.String("path", r.URL.Path))
 		httpio.InternalError(w, r, errors.New("no user in context"))
 		return
 	}
@@ -76,6 +83,7 @@ func (h *InviteHandler) UpdateInviteStatus(w http.ResponseWriter, r *http.Reques
 	var body UpdateInviteBody
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
+		logger.Events.Warn("failed to decode request body", zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
 		httpio.BadRequest(w, r, err)
 		return
 	}
@@ -84,19 +92,21 @@ func (h *InviteHandler) UpdateInviteStatus(w http.ResponseWriter, r *http.Reques
 	case "accepted":
 		err = h.client.AcceptInvite(user.Id, body.Invite)
 		if err != nil {
+			logger.Events.Error("failed to accept invite", zap.Int64("userId", user.Id), zap.String("inviteEventTitle", body.Invite.Event.Title), zap.String("path", r.URL.Path), zap.Error(err))
 			httpio.InternalError(w, r, err)
 			return
 		}
 	case "declined":
 		err = h.client.DeclineInvite(user.Id, body.Invite)
 		if err != nil {
+			logger.Events.Error("failed to decline invite", zap.Int64("userId", user.Id), zap.String("inviteEventTitle", body.Invite.Event.Title), zap.String("path", r.URL.Path), zap.Error(err))
 			httpio.InternalError(w, r, err)
 			return
 		}
 	case "pending":
 		err = h.client.ResendInvite(body.Invite)
 		if err != nil {
-			log.Print(err)
+			logger.Events.Error("failed to resend invite", zap.Int64("userId", user.Id), zap.String("inviteEventTitle", body.Invite.Event.Title), zap.String("path", r.URL.Path), zap.Error(err))
 			httpio.InternalError(w, r, err)
 			return
 		}

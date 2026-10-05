@@ -8,9 +8,12 @@ import (
 	"log"
 	"net/http"
 	"omilos-backend/internal/app"
+	"omilos-backend/internal/logger"
 	"omilos-backend/internal/server/httpio"
 	"strconv"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 type EventHandler struct {
@@ -32,26 +35,27 @@ type NewEventPayload struct {
 }
 
 func (h *EventHandler) CreateNewEvent(w http.ResponseWriter, r *http.Request) {
+	user, ok := UserFromContext(r.Context())
+	if !ok {
+		logger.Events.Error("no user in context", zap.String("path", r.URL.Path))
+		httpio.InternalError(w, r, errors.New("no user in context"))
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
 	var event app.Event
 	err := json.NewDecoder(r.Body).Decode(&event)
 	if err != nil {
-		fmt.Print(err)
+		logger.Events.Warn("failed to decode request body", zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.BadRequest(w, r, err)
-		return
-	}
-
-	user, ok := UserFromContext(r.Context())
-	if !ok {
-		httpio.InternalError(w, r, errors.New("no user in context"))
 		return
 	}
 
 	newSlug, err := h.client.CreateNewEventTx(ctx, user.Id, event)
 	if err != nil {
-		fmt.Print(err)
+		logger.Events.Error("failed to create event", zap.Int64("userId", user.Id), zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.InternalError(w, r, err)
 		return
 	}
@@ -62,13 +66,14 @@ func (h *EventHandler) CreateNewEvent(w http.ResponseWriter, r *http.Request) {
 func (h *EventHandler) GetEventsForUser(w http.ResponseWriter, r *http.Request) {
 	user, ok := UserFromContext(r.Context())
 	if !ok {
+		logger.Events.Error("no user in context", zap.String("path", r.URL.Path))
 		httpio.InternalError(w, r, errors.New("no user in context"))
 		return
 	}
 
 	events, err := h.client.GetEventsForUser(user.Id)
 	if err != nil {
-		log.Print(err)
+		logger.Events.Error("failed to get events for user", zap.Int64("userId", user.Id), zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.InternalError(w, r, err)
 		return
 	}
@@ -83,34 +88,55 @@ type GetEventPayload struct {
 func (h *EventHandler) GetEventDetails(w http.ResponseWriter, r *http.Request) {
 	user, ok := UserFromContext(r.Context())
 	if !ok {
+		logger.Events.Error("no user in context", zap.String("path", r.URL.Path))
 		httpio.InternalError(w, r, errors.New("no user in context"))
 		return
 	}
 
 	eventSlug := r.PathValue("slug")
 	if len(eventSlug) == 0 {
+		logger.Events.Warn("request validation failed", zap.String("eventSlug", eventSlug), zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
 		httpio.BadRequest(w, r, errors.New("slug path parameter is missing"))
 		return
 	}
 
 	eventId, err := h.client.GetEventIdForSlug(eventSlug)
 	if err != nil {
-		httpio.Error(w, r, http.StatusNotFound, "not found", errors.New("event not found"))
+		if errors.Is(err, app.ErrEventNotFound) {
+			logger.Events.Warn(app.ErrEventNotFound.Error(),
+				zap.String("eventSlug", eventSlug),
+				zap.String("path", r.URL.Path),
+				zap.Error(ErrResourceNotFound),
+			)
+			httpio.Error(w, r, http.StatusNotFound, app.ErrEventNotFound.Error(), err)
+			return
+		}
+		logger.Events.Error("failed to get eventId for slug", zap.Int64("eventId", eventId), zap.Int64("userId", user.Id))
+		httpio.Error(w, r, http.StatusNotFound, "not found", err)
 		return
 	}
 
 	isMember, err := h.client.IsEventMember(eventId, user.Id)
 	if err != nil {
+		logger.Events.Error("failed to check event membership", zap.Int64("eventId", eventId), zap.Int64("userId", user.Id), zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.InternalError(w, r, err)
 		return
 	}
+
 	if !isMember {
-		httpio.Error(w, r, http.StatusNotFound, "not found", errors.New("event not found"))
+		logger.Events.Warn("user is not a member in the event",
+			zap.Int64("eventId", eventId),
+			zap.Int64("userId", user.Id),
+			zap.String("path", r.URL.Path),
+			zap.Error(ErrResourceNotFound),
+		)
+		httpio.Error(w, r, http.StatusNotFound, "user is not a member in the event", ErrResourceNotFound)
 		return
 	}
 
 	event, err := h.client.GetEventDetails(eventId, user.Id)
 	if err != nil {
+		logger.Events.Error("failed to get event details", zap.Int64("eventId", eventId), zap.Int64("userId", user.Id), zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.InternalError(w, r, err)
 		return
 	}
@@ -123,11 +149,9 @@ type AddEventStopPayload struct {
 }
 
 func (h *EventHandler) AddNewEventStop(w http.ResponseWriter, r *http.Request) {
-	log.Println("Getting user from context")
-
 	_, ok := UserFromContext(r.Context())
 	if !ok {
-		log.Print("No user in context")
+		logger.Events.Error("no user in context", zap.String("path", r.URL.Path))
 		httpio.InternalError(w, r, errors.New("no user in context"))
 		return
 	}
@@ -135,6 +159,7 @@ func (h *EventHandler) AddNewEventStop(w http.ResponseWriter, r *http.Request) {
 	log.Println("Getting eventId")
 	eventId, err := parseEventIdPathValue(r)
 	if err != nil {
+		logger.Events.Warn("failed to parse eventId path parameter", zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
 		httpio.BadRequest(w, r, err)
 		return
 	}
@@ -143,7 +168,7 @@ func (h *EventHandler) AddNewEventStop(w http.ResponseWriter, r *http.Request) {
 	log.Println("Decoding body")
 	err = json.NewDecoder(r.Body).Decode(&stop)
 	if err != nil {
-		log.Println(err)
+		logger.Events.Warn("failed to decode request body", zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
 		httpio.BadRequest(w, r, err)
 		return
 	}
@@ -159,7 +184,7 @@ func (h *EventHandler) AddNewEventStop(w http.ResponseWriter, r *http.Request) {
 
 	id, err := h.client.AddEventStop(eventId, eventStop)
 	if err != nil {
-		log.Print(err)
+		logger.Events.Error("failed to add event stop", zap.Int64("eventId", eventId), zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.InternalError(w, r, err)
 		return
 	}
@@ -170,12 +195,14 @@ func (h *EventHandler) AddNewEventStop(w http.ResponseWriter, r *http.Request) {
 func (h *EventHandler) ReorderEventStops(w http.ResponseWriter, r *http.Request) {
 	_, ok := UserFromContext(r.Context())
 	if !ok {
+		logger.Events.Error("no user in context", zap.String("path", r.URL.Path))
 		httpio.InternalError(w, r, errors.New("no user in context"))
 		return
 	}
 
 	eventId, err := parseEventIdPathValue(r)
 	if err != nil {
+		logger.Events.Warn("failed to parse eventId path parameter", zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
 		httpio.BadRequest(w, r, err)
 		return
 	}
@@ -183,12 +210,14 @@ func (h *EventHandler) ReorderEventStops(w http.ResponseWriter, r *http.Request)
 	var reorderedStops []app.EventStop
 	err = json.NewDecoder(r.Body).Decode(&reorderedStops)
 	if err != nil {
+		logger.Events.Warn("failed to decode request body", zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
 		httpio.BadRequest(w, r, err)
 		return
 	}
 
 	err = h.client.ReorderEventStops(eventId, reorderedStops)
 	if err != nil {
+		logger.Events.Error("failed to reorder events stops", zap.Int64("eventId", eventId), zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.InternalError(w, r, err)
 		return
 	}
@@ -197,18 +226,20 @@ func (h *EventHandler) ReorderEventStops(w http.ResponseWriter, r *http.Request)
 }
 
 type UpdateActiveStopPayload struct {
-	StopId *int64 `json:"stop_id"`
+	StopId int64 `json:"stop_id"`
 }
 
 func (h *EventHandler) UpdateActiveStop(w http.ResponseWriter, r *http.Request) {
 	_, ok := UserFromContext(r.Context())
 	if !ok {
+		logger.Events.Error("no user in context", zap.String("path", r.URL.Path))
 		httpio.InternalError(w, r, errors.New("no user in context"))
 		return
 	}
 
 	eventId, err := parseEventIdPathValue(r)
 	if err != nil {
+		logger.Events.Warn("failed to parse eventId path parameter", zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
 		httpio.BadRequest(w, r, err)
 		return
 	}
@@ -216,12 +247,14 @@ func (h *EventHandler) UpdateActiveStop(w http.ResponseWriter, r *http.Request) 
 	var payload UpdateActiveStopPayload
 	err = json.NewDecoder(r.Body).Decode(&payload)
 	if err != nil {
+		logger.Events.Warn("failed to decode request body", zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
 		httpio.BadRequest(w, r, err)
 		return
 	}
 
 	err = h.client.UpdateActiveStop(eventId, payload.StopId)
 	if err != nil {
+		logger.Events.Error("failed to update active stop", zap.Int64("eventId", eventId), zap.Int64("stopId", payload.StopId), zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.InternalError(w, r, err)
 		return
 	}
@@ -232,24 +265,28 @@ func (h *EventHandler) UpdateActiveStop(w http.ResponseWriter, r *http.Request) 
 func (h *EventHandler) DeleteEventStop(w http.ResponseWriter, r *http.Request) {
 	_, ok := UserFromContext(r.Context())
 	if !ok {
+		logger.Events.Error("no user in context", zap.String("path", r.URL.Path))
 		httpio.InternalError(w, r, errors.New("no user in context"))
 		return
 	}
 
 	eventId, err := parseEventIdPathValue(r)
 	if err != nil {
+		logger.Events.Warn("failed to parse eventId path parameter", zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
 		httpio.BadRequest(w, r, err)
 		return
 	}
 
 	stopId, err := parseStopIdPathValue(r)
 	if err != nil {
+		logger.Events.Warn("failed to parse stopId path parameter", zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
 		httpio.BadRequest(w, r, err)
 		return
 	}
 
 	err = h.client.DeleteEventStop(eventId, stopId)
 	if err != nil {
+		logger.Events.Error("failed to delete event stops", zap.Int64("eventId", eventId), zap.Int64("stopId", stopId), zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.InternalError(w, r, err)
 		return
 	}
@@ -264,18 +301,21 @@ type UpdateStopMemberStatusPayload struct {
 func (h *EventHandler) UpdateStopMemberStatus(w http.ResponseWriter, r *http.Request) {
 	user, ok := UserFromContext(r.Context())
 	if !ok {
+		logger.Events.Error("no user in context", zap.String("path", r.URL.Path))
 		httpio.InternalError(w, r, errors.New("no user in context"))
 		return
 	}
 
 	eventId, err := parseEventIdPathValue(r)
 	if err != nil {
+		logger.Events.Warn("failed to parse eventId path parameter", zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
 		httpio.BadRequest(w, r, err)
 		return
 	}
 
 	stopId, err := parseStopIdPathValue(r)
 	if err != nil {
+		logger.Events.Warn("failed to parse stopId path parameter", zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
 		httpio.BadRequest(w, r, err)
 		return
 	}
@@ -283,6 +323,7 @@ func (h *EventHandler) UpdateStopMemberStatus(w http.ResponseWriter, r *http.Req
 	var payload UpdateStopMemberStatusPayload
 	err = json.NewDecoder(r.Body).Decode(&payload)
 	if err != nil {
+		logger.Events.Warn("failed to decode request body", zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
 		httpio.BadRequest(w, r, err)
 		return
 	}
@@ -292,9 +333,18 @@ func (h *EventHandler) UpdateStopMemberStatus(w http.ResponseWriter, r *http.Req
 	err = h.client.UpdateStopMemberStatus(eventId, stopId, user.Id, payload.StopStatus)
 	if err != nil {
 		if errors.Is(err, app.ErrStopNotFound) {
-			httpio.Error(w, r, http.StatusNotFound, "not found", err)
+			logger.Events.Warn(app.ErrStopNotFound.Error(),
+				zap.Int64("eventId", eventId),
+				zap.Int64("stopId", stopId),
+				zap.Int64("userId", user.Id),
+				zap.String("stopStatus", payload.StopStatus),
+				zap.String("path", r.URL.Path),
+				zap.Error(ErrResourceNotFound),
+			)
+			httpio.Error(w, r, http.StatusNotFound, app.ErrStopNotFound.Error(), err)
 			return
 		}
+		logger.Events.Error("failed to update stop member status", zap.Int64("eventId", eventId), zap.Int64("userId", user.Id), zap.String("stopStatus", payload.StopStatus))
 		httpio.InternalError(w, r, err)
 		return
 	}
@@ -310,6 +360,7 @@ type UpdateEventMemberRoleBody struct {
 func (h *EventHandler) UpdateEventMemberRole(w http.ResponseWriter, r *http.Request) {
 	eventId, err := parseEventIdPathValue(r)
 	if err != nil {
+		logger.Events.Warn("failed to parse eventId path parameter", zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
 		httpio.BadRequest(w, r, err)
 		return
 	}
@@ -317,13 +368,15 @@ func (h *EventHandler) UpdateEventMemberRole(w http.ResponseWriter, r *http.Requ
 	var body UpdateEventMemberRoleBody
 	err = json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
+		logger.Events.Warn("failed to decode request body", zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
 		httpio.BadRequest(w, r, err)
 		return
 	}
 
 	err = h.client.UpdateEventMemberRole(eventId, body.MemberId, body.NewRole)
 	if err != nil {
-		log.Printf("UpdateEventMemberRole: %v\n", err)
+		logger.Events.Error("failed to update member role", zap.Int64("eventId", eventId), zap.Int64("memberId", body.MemberId), zap.String("newRole", body.NewRole))
+		httpio.InternalError(w, r, err)
 	}
 
 }

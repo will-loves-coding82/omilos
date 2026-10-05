@@ -4,11 +4,13 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"omilos-backend/internal/app"
+	"omilos-backend/internal/logger"
 	"omilos-backend/internal/server/httpio"
+
+	"go.uber.org/zap"
 )
 
 type UserHandler struct {
@@ -72,7 +74,7 @@ func (h *UserHandler) CreateNewUser(w http.ResponseWriter, r *http.Request) {
 	var payload ClerkUserPayload
 	err = json.Unmarshal(body, &payload)
 	if err != nil {
-		fmt.Println(err)
+		logger.Users.Warn("failed to decode request body", zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
 		httpio.BadRequest(w, r, err)
 		return
 	}
@@ -88,7 +90,7 @@ func (h *UserHandler) CreateNewUser(w http.ResponseWriter, r *http.Request) {
 
 	err = h.client.CreateNewUser(newUser)
 	if err != nil {
-		fmt.Print(err)
+		logger.Users.Error("failed to create new user", zap.String("clerkId", payload.Id), zap.String("email", payload.PrimaryEmail()), zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.InternalError(w, r, err)
 		return
 	}
@@ -103,12 +105,14 @@ type SearchUsersPayload struct {
 func (h *UserHandler) SearchUsers(w http.ResponseWriter, r *http.Request) {
 	searchQuery := r.URL.Query().Get("search")
 	if len(searchQuery) == 0 {
-		httpio.BadRequest(w, r, errors.New("Search query cannot be empty"))
+		logger.Users.Warn("search query param cannot be empty", zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
+		httpio.BadRequest(w, r, errors.New("search query param cannot be empty"))
 		return
 	}
 
 	users, err := h.client.SearchUsers(searchQuery)
 	if err != nil {
+		logger.Users.Error("failed to search for users", zap.String("searchQuery", searchQuery), zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.InternalError(w, r, err)
 		return
 	}

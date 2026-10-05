@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -25,6 +26,9 @@ type ctxKey string
 
 const userContextKey contextKey = "omilos-user"
 const ResourceKey ctxKey = "casbin-resource"
+
+var ErrValidationFailed = errors.New("invalid request payload")
+var ErrResourceNotFound = errors.New("resource could not be found")
 
 func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 	r := chi.NewRouter()

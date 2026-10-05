@@ -12,6 +12,7 @@ import (
 // ErrStopNotFound is returned when a stop id doesn't belong to the event id
 // it was requested under.
 var ErrStopNotFound = errors.New("stop not found for this event")
+var ErrEventNotFound = errors.New("event not found ")
 
 type Event struct {
 	Id           int64  `json:"id" db:"id"`
@@ -254,6 +255,9 @@ func (e *EventClient) GetEventIdForSlug(slug string) (int64, error) {
 	var id int64
 	err := e.db.Conn().Get(&id, getEventIdForSlugQuery, slug)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, ErrEventNotFound
+		}
 		return 0, err
 	}
 
@@ -289,30 +293,26 @@ func (e *EventClient) GetEventDetails(eventId int64, userId int64) (Event, error
 // event in the database. A second query in the same transaction
 // creates new notifications for the members invited to this event
 func (e *EventClient) CreateNewEventTx(ctx context.Context, hostId int64, event Event) (string, error) {
-	fail := func(err error) (string, error) {
-		return "", fmt.Errorf("CreateNewEventTx: %v", err)
-	}
-
 	newSlug, err := slug.Generate(16)
 	if err != nil {
-		return fail(err)
+		return "", err
 	}
 
 	tx, err := e.db.Conn().BeginTx(ctx, nil)
 	if err != nil {
-		return fail(err)
+		return "", err
 	}
 	defer tx.Rollback()
 
 	parsedDate, err := time.Parse(time.RFC3339, event.Date)
 	if err != nil {
-		return fail(err)
+		return "", err
 	}
 
 	var eventId int64
 	err = tx.QueryRow(createEventQuery, newSlug, event.Title, event.Description, parsedDate, hostId, event.ImageURL).Scan(&eventId)
 	if err != nil {
-		return fail(err)
+		return "", err
 	}
 
 	// Add invited event members. Each one has a pending rsvp_status with a 'viewer'
@@ -320,18 +320,18 @@ func (e *EventClient) CreateNewEventTx(ctx context.Context, hostId int64, event 
 	for _, memberId := range event.MemberIds {
 		_, err = tx.Exec(`INSERT INTO event_members(user_id, event_id, member_role) VALUES($1, $2, 'viewer');`, memberId, eventId)
 		if err != nil {
-			return fail(err)
+			return "", err
 		}
 	}
 
 	// Add the host to the event members with an accepted RSVP status and a 'host' role
 	_, err = tx.Exec(`INSERT INTO event_members (user_id, event_id, rsvp_status, member_role, status_updated_at) VALUES ($1, $2, 'accepted', 'host', NOW());`, hostId, eventId)
 	if err != nil {
-		return fail(err)
+		return "", err
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fail(err)
+		return "", err
 	}
 
 	return newSlug, nil
@@ -364,7 +364,7 @@ func (e *EventClient) GetEventMemberRole(eventId int64, userId int64) (MemberRol
 // update an existng member's role to to a non-host value.
 func (e *EventClient) UpdateEventMemberRole(eventId int64, userId int64, newRole MemberRole) error {
 	if newRole == MemberRoleHost {
-		return errors.New("you cannot make another member a host")
+		return errors.New("Making another member a host is not allowed")
 	}
 	_, err := e.db.Conn().Exec(updateEventMemberRoleQuery, newRole, eventId, userId)
 	if err != nil {
@@ -404,7 +404,7 @@ func (e *EventClient) ReorderEventStops(eventId int64, reorderedStops []EventSto
 }
 
 // UpdateActiveStop sets the event's currently active stop. A nil stopId clears it.
-func (e *EventClient) UpdateActiveStop(eventId int64, stopId *int64) error {
+func (e *EventClient) UpdateActiveStop(eventId int64, stopId int64) error {
 	_, err := e.db.Conn().Exec(updateActiveStopQuery, stopId, eventId)
 	if err != nil {
 		return err
@@ -419,7 +419,7 @@ func (e *EventClient) UpdateActiveStop(eventId int64, stopId *int64) error {
 func (e *EventClient) UpdateStopMemberStatus(eventId int64, stopId int64, userId int64, status string) error {
 	res, err := e.db.Conn().Exec(upsertStopMemberStatusQuery, userId, stopId, status, eventId)
 	if err != nil {
-		return fmt.Errorf("UpdateStopMemberStatus: %v", err)
+		return err
 	}
 
 	rowsAffected, err := res.RowsAffected()

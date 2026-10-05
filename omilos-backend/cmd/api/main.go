@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"omilos-backend/internal/logger"
 	"omilos-backend/internal/server"
 
 	"github.com/clerk/clerk-sdk-go/v2"
@@ -44,6 +45,8 @@ func main() {
 
 	server := server.NewServer()
 	clerk.SetKey(os.Getenv("CLERK_SECRET_KEY"))
+
+	logger.InitLoggers()
 
 	// Create a done channel to signal when the shutdown is complete
 	done := make(chan bool, 1)
