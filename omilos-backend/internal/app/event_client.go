@@ -7,28 +7,28 @@ import (
 	"fmt"
 	"omilos-backend/internal/slug"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 // ErrStopNotFound is returned when a stop id doesn't belong to the event id
 // it was requested under.
 var ErrStopNotFound = errors.New("stop not found for this event")
-var ErrEventNotFound = errors.New("event not found ")
+var ErrEventNotFound = errors.New("event not found")
+var ErrStopSetMismatch = errors.New("stops do match database records")
 
 type Event struct {
-	Id           int64  `json:"id" db:"id"`
-	Title        string `json:"title" db:"title"`
-	Description  string `json:"description" db:"description"`
-	Slug         string `json:"slug" db:"slug"`
-	Date         string `json:"date" db:"date"`
-	HostId       int64  `json:"host_id" db:"host_id"`
-	ActiveStopId int64  `json:"active_stop_id,omitempty" db:"active_stop_id"`
-	ImageURL     string `json:"image_url,omitempty" db:"image_url"`
-
-	// Custom fields for HTTP response payloads
-	MemberIds  []int64                `json:"member_ids,omitempty" db:"member_ids"` // Used only when creating an event
-	Members    JSONSlice[EventMember] `json:"members,omitempty" db:"members"`       // Enriched attendee information
-	Stops      JSONSlice[EventStop]   `json:"stops,omitempty" db:"stops"`
-	MemberRole MemberRole             `json:"member_role" db:"member_role"` // The user's role for a specific event
+	Id           int64         `json:"id" db:"id"`
+	Title        string        `json:"title" db:"title"`
+	Description  string        `json:"description" db:"description"`
+	Slug         string        `json:"slug" db:"slug"`
+	Date         string        `json:"date" db:"date"`
+	HostId       int64         `json:"host_id" db:"host_id"`
+	ActiveStopId int64         `json:"active_stop_id,omitempty" db:"active_stop_id"`
+	ImageURL     string        `json:"image_url,omitempty" db:"image_url"`
+	MemberIds    []int64       `json:"member_ids" db:"member_ids"`   // Used only when creating an event
+	MemberRole   MemberRole    `json:"member_role" db:"member_role"` // The user's role for a specific event
+	Members      []EventMember `json:"members"`
 }
 
 type EventStop struct {
@@ -42,7 +42,7 @@ type EventStop struct {
 	Longitude float64 `json:"longitude" db:"longitude"`
 
 	// Custom fields for HTTP response payloads
-	StopMemberStatusArr JSONSlice[StopMemberStatus] `json:"stop_member_status_arr,omitempty" db:"stop_member_status_arr"`
+	StopMemberStatusArr JSONSlice[StopMemberStatus] `json:"stop_member_status_arr" db:"stop_member_status_arr"`
 }
 
 type RSVPStatus = string
@@ -77,6 +77,11 @@ type StopMemberStatus struct {
 	StopStatus      string     `json:"stop_status" db:"stop_status" tstype:"StopStatus"`
 	StatusUpdatedAt StopStatus `json:"status_updated_at" db:"status_updated_at"`
 }
+
+const createEventQuery = `
+	INSERT INTO events(slug, title, description, date, host_id, image_url) 
+	VALUES($1, $2, $3, $4, $5, $6) RETURNING id;
+`
 
 const getEventIdForSlugQuery = `
 	SELECT id
@@ -115,74 +120,47 @@ const getEventsForUserQuery = `
 const getEventDetailsQuery = `
 	SELECT
 		e.id, e.title, e.description, e.slug, e.date, e.host_id, e.image_url, em.member_role AS member_role,
-		COALESCE(e.active_stop_id, 0) AS active_stop_id, 
-		COALESCE(
-			(
-				SELECT json_agg(
-					jsonb_build_object(
-						'user', jsonb_build_object(
-							'id', u.id,
-							'clerk_id', u.clerk_id,
-							'username', u.username,
-							'first_name', u.first_name,
-							'last_name', u.last_name,
-							'email', u.email,
-							'image_url', u.image_url
-						),
-						'member_role', em.member_role,
-						'rsvp_status', em.rsvp_status,
-						'status_updated_at', em.status_updated_at,
-						'created_at', em.created_at
-					)
-				)
-				FROM users u
-				LEFT JOIN event_members em ON u.id = em.user_id AND em.event_id = e.id
-				WHERE em.event_id = e.id
-			), '[]'
-		) AS members,
-		COALESCE(
-			(
-				SELECT json_agg(
-					jsonb_build_object(
-						'id', es.id,
-						'event_id', es.event_id,
-						'sort_id', es.sort_id,
-						'mapbox_id', es.mapbox_id,
-						'name', es.name,
-						'address', es.address,
-						'latitude', es.latitude,
-						'longitude', es.longitude,
-						'stop_member_status_arr', COALESCE(
-							(
-								SELECT json_agg(
-									jsonb_build_object(
-										'user_id', sms.user_id,
-										'clerk_id', u.clerk_id,
-										'stop_id', sms.stop_id,
-										'stop_status', sms.stop_status,
-										'status_updated_at', sms.status_updated_at
-									)
-								)
-								FROM stop_member_status sms
-								JOIN users u ON u.id = sms.user_id
-								WHERE sms.stop_id = es.id
-							), '[]'
-						)
-					)
-					ORDER BY es.sort_id ASC
-				)
-				FROM event_stops es
-				WHERE es.event_id = e.id
-			), '[]'
-		) AS stops
+		COALESCE(e.active_stop_id, 0) AS active_stop_id
 	FROM events e
 	JOIN event_members em ON e.id = em.event_id
 	WHERE em.user_id = $1 AND e.id = $2;
 `
 
-const createEventQuery = `
-	INSERT INTO events(slug, title, description, date, host_id, image_url) 
-	VALUES($1, $2, $3, $4, $5, $6) RETURNING id;
+const getEventMembersQuery = `
+	SELECT 
+		em.member_role, em.rsvp_status, em.status_updated_at, em.created_at,
+		jsonb_build_object(
+			'user_id', u.id,
+			'clerk_id', u.clerk_id,
+			'username', u.username,
+			'first_name', u.first_name,
+			'last_name', u.last_name,
+			'email', u.email,
+			'image_url', u.image_url
+		) AS user
+	FROM event_members em
+	JOIN users u ON u.id = em.user_id
+	WHERE em.event_id = $1
+	ORDER BY em.created_at, u.id;
+`
+
+const getEventStopsQuery = `
+	SELECT es.id, es.event_id, es.sort_id, es.mapbox_id, es.name, es.address, es.latitude, es.longitude,
+	COALESCE((
+		SELECT json_agg(jsonb_build_object(
+			'user_id', sms.user_id,
+			'clerk_id', u.clerk_id,
+			'stop_id', sms.stop_id,
+			'stop_status', sms.stop_status,
+			'status_updated_at', sms.status_updated_at
+		))
+		FROM stop_member_status sms
+		JOIN users u ON u.id = sms.user_id
+		WHERE sms.stop_id = es.id
+	), '[]') AS stop_member_status_arr
+	FROM event_stops es
+	WHERE es.event_id = $1
+	ORDER BY es.sort_id, es.id;
 `
 
 const isEventMemberQuery = `
@@ -218,22 +196,29 @@ const addEventStopQuery = `
 		COALESCE((SELECT MAX(sort_id) + 1 FROM event_stops WHERE event_id = $1), 0),
 		$2, $3, $4, $5, $6
 	)
-	RETURNING id;
+	RETURNING id, event_id, sort_id, mapbox_id, name, address, latitude, longitude;
 `
 
 const reorderEventStopsQuery = `
+	BEGIN;
+	SELECT id FROM events WHERE id = $2 FOR NO KEY UPDATE;
+
 	UPDATE event_stops AS es
 	SET sort_id = data.sort_id
 	FROM (
 		SELECT * FROM unnest($1::int[], $2::int[]) AS t(id, sort_id)
 	) AS data
 	WHERE es.id = data.id AND es.event_id = $3;
+	COMMIT;
 `
 
 const updateActiveStopQuery = `
 	UPDATE events
 	SET active_stop_id = $1
-	WHERE id = $2;
+	WHERE id = $2
+	AND ($1::int IS NULL OR EXISTS (
+		SELECT 1 FROM event_stops WHERE id = $1 AND event_id = $2
+	));
 `
 
 const upsertStopMemberStatusQuery = `
@@ -265,7 +250,7 @@ func (e *EventClient) GetEventIdForSlug(slug string) (int64, error) {
 }
 
 func (e *EventClient) GetEventsForUser(userId int64) ([]Event, error) {
-	events := []Event{}
+	events := make([]Event, 0)
 	if err := e.db.Conn().Select(&events, getEventsForUserQuery, userId); err != nil {
 		if err == sql.ErrNoRows {
 			return make([]Event, 0), nil
@@ -374,37 +359,93 @@ func (e *EventClient) UpdateEventMemberRole(eventId int64, userId int64, newRole
 	return nil
 }
 
-func (e *EventClient) AddEventStop(eventId int64, stop EventStop) (int64, error) {
-	var id int64
+func (e *EventClient) GetEventMembers(eventId int64) ([]EventMember, error) {
+	members := make([]EventMember, 0)
+	err := e.db.Conn().Select(&members, getEventMembersQuery, eventId)
+	if err != nil {
+		return make([]EventMember, 0), err
+	}
+
+	return members, nil
+}
+
+func (e *EventClient) GetEventStops(eventId int64) ([]EventStop, error) {
+	stops := make([]EventStop, 0)
+	err := e.db.Conn().Select(&stops, getEventStopsQuery, eventId)
+	if err != nil {
+		return make([]EventStop, 0), err
+	}
+
+	return stops, nil
+}
+
+type AddEventStopReturnValues = EventStop
+
+func (e *EventClient) AddEventStop(eventId int64, stop EventStop) (AddEventStopReturnValues, error) {
+	var returnValue AddEventStopReturnValues
 	err := e.db.Conn().Get(
-		&id, addEventStopQuery,
+		&returnValue, addEventStopQuery,
 		eventId, stop.MapboxId, stop.Name, stop.Address, stop.Latitude, stop.Longitude,
 	)
 	if err != nil {
-		return 0, err
+		return AddEventStopReturnValues{}, err
 	}
 
-	return id, nil
+	return returnValue, nil
 }
 
-func (e *EventClient) ReorderEventStops(eventId int64, reorderedStops []EventStop) error {
-	ids := make([]int32, len(reorderedStops))
-	sortOrders := make([]int32, len(reorderedStops))
-	for i, stop := range reorderedStops {
-		ids[i] = int32(stop.Id)
-		sortOrders[i] = int32(i)
-	}
-
-	_, err := e.db.Conn().Exec(reorderEventStopsQuery, ids, sortOrders, eventId)
+func (e *EventClient) ReorderEventStops(ctx context.Context, eventId int64, stopIds []int64) ([]EventStop, error) {
+	tx, err := e.db.Conn().BeginTxx(ctx, nil)
 	if err != nil {
-		return err
+		return make([]EventStop, 0), err
 	}
 
-	return nil
+	defer tx.Rollback()
+
+	var lockedID int
+	if err := tx.GetContext(ctx, &lockedID,
+		`SELECT id FROM events WHERE id = $1 FOR NO KEY UPDATE`, eventId); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrEventNotFound
+		}
+		return nil, err
+	}
+
+	// Read current stops under the lock (also used for set validation)
+	var current []EventStop
+	if err := tx.SelectContext(ctx, &current, getEventStopsQuery, eventId); err != nil {
+		return nil, err
+	}
+
+	if !sameIDSet(current, stopIds) {
+		// Return the canonical list alongside the error so the handler
+		// can send it back with the 409. No second round trip needed.
+		return current, nil
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE event_stops es
+		SET sort_id = t.ord - 1
+		FROM unnest($1::int[]) WITH ORDINALITY AS t(id, ord)
+		WHERE es.id = t.id AND es.event_id = $2`,
+		pq.Array(stopIds), eventId); err != nil {
+		return nil, err
+	}
+
+	// Re-read canonical list after the update
+	var updated []EventStop
+	if err := tx.SelectContext(ctx, &updated, getEventStopsQuery, eventId); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return updated, nil
 }
 
 // UpdateActiveStop sets the event's currently active stop. A nil stopId clears it.
-func (e *EventClient) UpdateActiveStop(eventId int64, stopId int64) error {
+func (e *EventClient) UpdateActiveStop(eventId int64, stopId *int64) error {
 	_, err := e.db.Conn().Exec(updateActiveStopQuery, stopId, eventId)
 	if err != nil {
 		return err
@@ -440,4 +481,21 @@ func (e *EventClient) DeleteEventStop(eventId int64, stopId int64) error {
 	}
 
 	return nil
+}
+
+func sameIDSet(current []EventStop, ids []int64) bool {
+	if len(current) != len(ids) {
+		return false
+	}
+	have := make(map[int64]struct{}, len(current))
+	for _, s := range current {
+		have[int64(s.Id)] = struct{}{}
+	}
+	for _, id := range ids {
+		if _, ok := have[id]; !ok {
+			return false
+		}
+		delete(have, id) // catches duplicates in ids
+	}
+	return len(have) == 0
 }

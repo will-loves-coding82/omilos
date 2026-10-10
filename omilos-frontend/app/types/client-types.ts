@@ -14,14 +14,13 @@ export type Coordinates = {
 export type ClientEvent = {
     id: number,
     host_id: number,
-    active_stop_id?: number,
+    active_stop_id?: number | null,
     title: string,
     description?: string,
     slug: string,
     image_url?: string,
     date: string,
     members: ClientEventMember[],
-    stops: ClientEventStop[],
     member_role: MemberRole,
 }
 
@@ -77,7 +76,6 @@ export function toClientEvent(event: Event): ClientEvent {
   return {
     ...event,
     members: event.members?.map(toClientEventMember) ?? [],
-    stops: event.stops?.map(toClientEventStop) ?? [],
     member_role: event.member_role,
   }
 }
@@ -89,7 +87,7 @@ export function toClientEventStop(stop: EventStop): ClientEventStop {
     address: stop.address,
     name: stop.name,
     sort_id: stop.sort_id,
-    mapbox_id: stop.mapbox_id,
+    mapbox_id: String(stop.mapbox_id),
     latitude: stop.latitude,
     longitude: stop.longitude,
     stop_member_status_arr: stop.stop_member_status_arr
@@ -102,7 +100,8 @@ export function searchResultToClientEventStop(res: SearchBoxRetrieveResponse): C
     address: res.features[0].properties.address ?? '',
     name: res.features[0].properties.name ?? '',
     latitude: res.features[0].properties.coordinates.latitude,
-    longitude: res.features[0].properties.coordinates.longitude
+    longitude: res.features[0].properties.coordinates.longitude,
+
   }
 }
 

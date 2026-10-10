@@ -1,16 +1,17 @@
 "use client";
 
-import { ClientEvent, ClientEventStop } from "@/app/types/client-types"
+import { ClientEvent, ClientEventMember, ClientEventStop } from "@/app/types/client-types"
 import { Calendar, X } from "lucide-react"
 import Image from "next/image";
 
 export type EventDetailsSidePanelProps = {
   event: ClientEvent,
+  members: ClientEventMember[],
   isOpen: boolean,
   onDismiss: () => void,
 }
 
-export default function EventDetailsSidePanel({event, isOpen, onDismiss}: EventDetailsSidePanelProps) {
+export default function EventDetailsSidePanel({event, members, isOpen, onDismiss}: EventDetailsSidePanelProps) {
   return (
     <div
       className={`absolute inset-y-4 right-3 z-10 w-full h-fit bg-bg-primary md:w-[440px] md:max-h-[600px] flex flex-col gap-4 shadow-md rounded-2xl transition-transform duration-300 
@@ -31,7 +32,7 @@ export default function EventDetailsSidePanel({event, isOpen, onDismiss}: EventD
 
       <div className="flex w-full items-center gap-2 px-4">
         <>
-          {event.members?.filter(m => m.user.id === event.host_id).map((m) =>
+          {members.filter(m => m.user.id === event.host_id).map((m) =>
             m.user.image_url?.length ?
             <Image
               key={m.user.id}
@@ -46,7 +47,7 @@ export default function EventDetailsSidePanel({event, isOpen, onDismiss}: EventD
             </div>
           )}
 
-          {event.members?.filter(m => m.user.id === event.host_id).map((m) => 
+          {members?.filter(m => m.user.id === event.host_id).map((m) => 
             <div key={m.user.clerk_id}>
               <p className="text-text-primary text-sm font-medium">Hosted by</p>
               <p className="text-text-secondary text-sm">{m.user.first_name + " " + m.user.last_name}</p>

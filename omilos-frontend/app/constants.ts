@@ -21,14 +21,19 @@ export const createApiRoutes = (baseUrl: string) => {
       create: `${baseUrl}/events`,
       list: `${baseUrl}/events`,
       details: (slug: string) => `${baseUrl}/events/details/${slug}`,
-      memberRole: (eventId: number) => `${baseUrl}/events/${eventId}/memberRole`,
+      members: {
+        list: (eventId: number) => `${baseUrl}/events/${eventId}/members`,
+        role: (eventId: number) => `${baseUrl}/events/${eventId}/members/role`
+      },
+      activeStop: (eventId: number) => `${baseUrl}/events/${eventId}/stops/active`,
+
       stops: {
-        list: (eventId: number) => `${baseUrl}/events/${eventId}/stops`,
+        list:   (eventId: number) => `${baseUrl}/events/${eventId}/stops`,
         create: (eventId: number) => `${baseUrl}/events/${eventId}/stops`,
-        update: (eventId: number) => `${baseUrl}/events/${eventId}/stops`,
-        delete: (eventId: number, stopId: number) => `${baseUrl}/events/${eventId}/stops/${stopId}`,
-        active: (eventId: number) => `${baseUrl}/events/${eventId}/stops/active`,
-        memberStatus: (eventId: number, stopId: number) => `${baseUrl}/events/${eventId}/stops/${stopId}/memberStatus`,
+        reorder: (eventId: number) => `${baseUrl}/events/${eventId}/stops/order`,
+        updateStop: (eventId: number) => `${baseUrl}/events/${eventId}/stops`,
+        deleteStop: (eventId: number, stopId: number) => `${baseUrl}/events/${eventId}/stops/${stopId}`,
+        setMemberStatus: (id: number, stopId: number) => `${baseUrl}/events/${id}/stops/${stopId}/member-status`
       },
     },
     invites: {

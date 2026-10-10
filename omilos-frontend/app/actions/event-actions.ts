@@ -7,7 +7,8 @@ import { API_ROUTES } from "../constants";
 import { ClientEventStop } from "../types/client-types";
 import { apiFetch } from "./utils";
 import { ActionResponse } from "./action-types";
-import { Event, MemberRole, StopStatus } from "../types/api-types";
+import { Event, EventMember, EventStop, MemberRole, StopStatus } from "../types/api-types";
+import { da } from "zod/v4/locales";
 
 export async function getEventsForUser(clerkId: string | null): Promise<ActionResponse<{events: Event[]}>> {
   if (!clerkId) {
@@ -30,7 +31,7 @@ export async function getEventsForUser(clerkId: string | null): Promise<ActionRe
     const { data } = await res.json()
     return {
       success: true,
-      data: {events: data.events ?? []}
+      data: {events: data.events}
     }
   } catch (err) {
     console.error("Error fetching events:", err)
@@ -182,138 +183,23 @@ export async function getEventDetails(slug: string): Promise<ActionResponse<{eve
   }
 }
 
-export async function addEventStop(eventId: number, stop: ClientEventStop) : Promise<ActionResponse<{ id: number } | null>> {
+export async function getEventMembers(eventId: number) : Promise<ActionResponse<{members: EventMember[]}>> {
   try {
-    const res = await apiFetch(API_ROUTES.events.stops.create(eventId), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(stop),
-    })
+    const res = await apiFetch(API_ROUTES.events.members.list(eventId), {method: "GET"})
 
     if (!res.ok) {
       const body = await res.text()
-      console.error("Add event stop failed:", res.status, body)
-      return {
-        success: false,
-        data: null,
-        message: "Failed to add stop",
-      }
+      console.error("Get event members failed:", res.status, body)
+      return { success: false, data: { members: [] }, message: "Failed to fetch event members" }
     }
 
     const { data } = await res.json()
-    return {
-      success: true,
-      data,
-    }
+    return {success: true, data: {members: data.members}}
   } catch (err) {
-    console.error("Error adding event stop:", err)
+    console.error("Error getting event stops:", err)
     return {
       success: false,
-      data: null,
-      message: err instanceof Error ? err.message : "An unknown error occurred",
-    }
-  }
-}
-
-export async function reorderEventStops(eventId: number, stops: ClientEventStop[]) : Promise<ActionResponse<null>> {
-  try {
-    const res = await apiFetch(API_ROUTES.events.stops.update(eventId), {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(stops),
-    })
-
-    if (!res.ok) {
-      const body = await res.text()
-      console.error("Reorder event stops failed:", res.status, body)
-      return {
-        success: false,
-        data: null,
-        message: "Failed to reorder stops",
-      }
-    }
-
-    return {
-      success: true,
-      data: null,
-    }
-  } catch (err) {
-    console.error("Error reordering event stops:", err)
-    return {
-      success: false,
-      data: null,
-      message: err instanceof Error ? err.message : "An unknown error occurred",
-    }
-  }
-}
-
-export async function setActiveEventStop(eventId: number, stopId: number | null) : Promise<ActionResponse<null>> {
-  try {
-    const res = await apiFetch(API_ROUTES.events.stops.active(eventId), {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ stop_id: stopId }),
-    })
-
-    if (!res.ok) {
-      const body = await res.text()
-      console.error("Set active event stop failed:", res.status, body)
-      return {
-        success: false,
-        data: null,
-        message: "Failed to set active stop",
-      }
-    }
-
-    return {
-      success: true,
-      data: null,
-    }
-  } catch (err) {
-    console.error("Error setting active event stop:", err)
-    return {
-      success: false,
-      data: null,
-      message: err instanceof Error ? err.message : "An unknown error occurred",
-    }
-  }
-}
-
-export async function updateStopMemberStatus(eventId: number, stopId: number, status: StopStatus) : Promise<ActionResponse<null>> {
-  try {
-    const res = await apiFetch(API_ROUTES.events.stops.memberStatus(eventId, stopId), {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ stop_status: status }),
-    })
-
-    if (!res.ok) {
-      const body = await res.text()
-      console.error("Update stop member status failed:", res.status, body)
-      return {
-        success: false,
-        data: null,
-        message: "Failed to update stop status",
-      }
-    }
-
-    return {
-      success: true,
-      data: null,
-    }
-  } catch (err) {
-    console.error("Error updating stop member status:", err)
-    return {
-      success: false,
-      data: null,
+      data: {members: []},
       message: err instanceof Error ? err.message : "An unknown error occurred",
     }
   }
@@ -321,7 +207,7 @@ export async function updateStopMemberStatus(eventId: number, stopId: number, st
 
 export async function updateEventMemberRole(eventId: number, memberId: number, newRole: Omit<MemberRole,'host'>) : Promise<ActionResponse<null>> {
   try {
-    const res = await apiFetch(API_ROUTES.events.memberRole(eventId), {
+    const res = await apiFetch(API_ROUTES.events.members.role(eventId), {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json"
@@ -353,10 +239,133 @@ export async function updateEventMemberRole(eventId: number, memberId: number, n
   }
 }
 
+export async function getEventStops(eventId: number) : Promise<ActionResponse<{stops: EventStop[]}>> {
+  try {
+    const res = await apiFetch(API_ROUTES.events.stops.list(eventId), {method: "GET"})
+
+    if (!res.ok) {
+      const body = await res.text()
+      console.error("Get event detailed failed:", res.status, body)
+      return { success: false, data: { stops: [] }, message: "Failed to fetch event details" }
+    }
+
+    const { data } = await res.json()
+    console.log(data)
+    return {success: true, data: {stops: data.stops}}
+  } catch (err) {
+    console.error("Error getting event stops:", err)
+    return {
+      success: false,
+      data: {stops: []},
+      message: err instanceof Error ? err.message : "An unknown error occurred",
+    }
+  }
+}
+
+export async function addEventStop(
+  eventId: number,
+  stop: ClientEventStop,
+): Promise<ActionResponse<EventStop | null>> {
+  try {
+    const res = await apiFetch(API_ROUTES.events.stops.create(eventId), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(stop),
+    });
+
+    if (!res.ok) {
+      const body = await res.text();
+      console.error("Add event stop failed:", res.status, body);
+      return {
+        success: false,
+        data: null,
+        message: res.status === 409 ? "Stop already added" : "Failed to add stop",
+      };
+    }
+
+    const { data } = await res.json(); // envelope confirmed earlier
+    return { success: true, data };
+  } catch (err) {
+    console.error("Error adding event stop:", err);
+    return {
+      success: false,
+      data: null,
+      message: err instanceof Error ? err.message : "An unknown error occurred",
+    };
+  }
+}
+
+export async function reorderEventStops(eventId: number, stops: ClientEventStop[]) : Promise<ActionResponse<null>> {
+  try {
+    const res = await apiFetch(API_ROUTES.events.stops.updateStop(eventId), {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(stops.map(s => s.id)),
+    })
+
+    if (!res.ok) {
+      const body = await res.text()
+      console.error("Reorder event stops failed:", res.status, body)
+      return {
+        success: false,
+        data: null,
+        message: "Failed to reorder stops",
+      }
+    }
+
+    return {
+      success: true,
+      data: null,
+    }
+  } catch (err) {
+    console.error("Error reordering event stops:", err)
+    return {
+      success: false,
+      data: null,
+      message: err instanceof Error ? err.message : "An unknown error occurred",
+    }
+  }
+}
+
+export async function setActiveEventStop(eventId: number, stopId: number | null) : Promise<ActionResponse<null>> {
+  try {
+    const res = await apiFetch(API_ROUTES.events.activeStop(eventId), {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ stop_id: stopId }),
+    })
+
+    if (!res.ok) {
+      const body = await res.text()
+      console.error("Set active event stop failed:", res.status, body)
+      return {
+        success: false,
+        data: null,
+        message: "Failed to set active stop",
+      }
+    }
+
+    return {
+      success: true,
+      data: null,
+    }
+  } catch (err) {
+    console.error("Error setting active event stop:", err)
+    return {
+      success: false,
+      data: null,
+      message: err instanceof Error ? err.message : "An unknown error occurred",
+    }
+  }
+}
 
 export async function deleteEventStop(eventId: number, stopId: number) : Promise<ActionResponse<null>> {
   try {
-    const res = await apiFetch(API_ROUTES.events.stops.delete(eventId, stopId), {
+    const res = await apiFetch(API_ROUTES.events.stops.deleteStop(eventId, stopId), {
       method: "DELETE"
     })
 
@@ -383,3 +392,38 @@ export async function deleteEventStop(eventId: number, stopId: number) : Promise
     }
   }
 }
+
+export async function updateStopMemberStatus(eventId: number, stopId: number, status: StopStatus) : Promise<ActionResponse<null>> {
+  try {
+    const res = await apiFetch(API_ROUTES.events.stops.setMemberStatus(eventId, stopId), {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ stop_status: status }),
+    })
+
+    if (!res.ok) {
+      const body = await res.text()
+      console.error("Update stop member status failed:", res.status, body)
+      return {
+        success: false,
+        data: null,
+        message: "Failed to update stop status",
+      }
+    }
+
+    return {
+      success: true,
+      data: null,
+    }
+  } catch (err) {
+    console.error("Error updating stop member status:", err)
+    return {
+      success: false,
+      data: null,
+      message: err instanceof Error ? err.message : "An unknown error occurred",
+    }
+  }
+}
+

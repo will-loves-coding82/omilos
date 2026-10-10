@@ -6,7 +6,7 @@ import { useSortable } from '@dnd-kit/react/sortable';
 import { move } from '@dnd-kit/helpers';
 import { CheckIcon, ChevronDownIcon, CircleCheck, EllipsisVertical, GripVertical, Trash2, UserCircle, X } from "lucide-react";
 import { ClientEventMember, ClientEventStop } from "@/app/types/client-types";
-import TabButton from "../../components/tab-button";
+import TabButton from "../../../components/tab-button";
 import Image from "next/image";
 import { useAbility } from "@casl/react";
 import { AnimatePresence, motion } from "motion/react";
@@ -25,10 +25,10 @@ type EventSidePanelProps = {
   onReorderStops: (stops: ClientEventStop[]) => void;
   onSelectStop: (stop: ClientEventStop) => void;
   activeStopId: string | null;
-  activeEventStopId?: number;
+  activeEventStopId: number | null;
 };
 
-export default function EventManagementSidePanel({ eventId, members, eventStops, onReorderStops, onSelectStop, activeStopId, activeEventStopId }: EventSidePanelProps) {
+export default function EventManagementSidePanelClient({ eventId, members, eventStops, onReorderStops, onSelectStop, activeStopId, activeEventStopId }: EventSidePanelProps) {
   const [activeTab, setActiveTab] = useState<string>("Stops");
   const ref = useRef<HTMLUListElement | null>(null);
 
@@ -55,8 +55,9 @@ export default function EventManagementSidePanel({ eventId, members, eventStops,
   }, []);
 
   return (
-    <div className="absolute inset-0 z-10 bg-bg-primary md:inset-auto md:top-0 md:h-full md:w-[var(--panel-width)] md:shadow-md transition-[left] duration-300">
-      <section className="flex items-center gap-4 p-4 border-b border-border-primary">
+    <div className="absolute inset-0 z-10 bg-bg-primary md:inset-auto md:top-0 md:h-full md:w-[var(--panel-width)] md:shadow-md transition-[left] duration-300 overflow-y-scroll">
+      
+      <section className="flex items-center gap-4 p-4 border-b border-border-primary bg-bg-primary">
         <TabButton label="Stops" activeTab={activeTab} onClick={setActiveTab} />
         <TabButton label="Participants" activeTab={activeTab} onClick={setActiveTab} />
       </section>
@@ -66,9 +67,10 @@ export default function EventManagementSidePanel({ eventId, members, eventStops,
           activeTab === "Stops" &&
           <DragDropProvider
             onDragEnd={(event) => {
-              const stopsByMapboxId = new Map(eventStops.map(stop => [stop.mapbox_id, stop]));
-              const reorderedMapboxIds = move(eventStops.map(stop => stop.mapbox_id), event);
-              onReorderStops(reorderedMapboxIds.map(mapboxId => stopsByMapboxId.get(mapboxId)!));
+              if (event.canceled) return;
+              const byId = new Map(eventStops.map((s) => [s.mapbox_id, s]));
+              const ids = move(eventStops.map((s) => s.mapbox_id), event);
+              onReorderStops(ids.map((id) => byId.get(id)!));
             }}
           >
             <ul ref={ref} className="flex flex-col gap-2">
@@ -90,7 +92,7 @@ export default function EventManagementSidePanel({ eventId, members, eventStops,
           <ul className="flex flex-col gap-4">
             {
               members.sort((a, b) => a.rsvp_status.localeCompare(b.rsvp_status)).map((member, _) => (
-                <MemberCard  eventId={eventId} key={member.user.id} member={member}/>
+                <MemberCard eventId={eventId} key={member.user.clerk_id} member={member}/>
               ))
             }
           </ul>

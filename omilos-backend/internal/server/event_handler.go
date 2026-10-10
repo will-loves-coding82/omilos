@@ -34,6 +34,10 @@ type NewEventPayload struct {
 	Slug string `json:"slug"`
 }
 
+type StopsPayload struct {
+	Stops []app.EventStop `json:"stops"`
+}
+
 func (h *EventHandler) CreateNewEvent(w http.ResponseWriter, r *http.Request) {
 	user, ok := UserFromContext(r.Context())
 	if !ok {
@@ -145,7 +149,7 @@ func (h *EventHandler) GetEventDetails(w http.ResponseWriter, r *http.Request) {
 }
 
 type AddEventStopPayload struct {
-	Id int64 `json:"id"`
+	Stop app.EventStop `json:"stop"`
 }
 
 func (h *EventHandler) AddNewEventStop(w http.ResponseWriter, r *http.Request) {
@@ -159,7 +163,7 @@ func (h *EventHandler) AddNewEventStop(w http.ResponseWriter, r *http.Request) {
 	log.Println("Getting eventId")
 	eventId, err := parseEventIdPathValue(r)
 	if err != nil {
-		logger.Events.Warn("failed to parse eventId path parameter", zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
+		logger.Events.Warn("failed to parse eventId path parameter", zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.BadRequest(w, r, err)
 		return
 	}
@@ -168,12 +172,11 @@ func (h *EventHandler) AddNewEventStop(w http.ResponseWriter, r *http.Request) {
 	log.Println("Decoding body")
 	err = json.NewDecoder(r.Body).Decode(&stop)
 	if err != nil {
-		logger.Events.Warn("failed to decode request body", zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
+		logger.Events.Warn("failed to decode request body", zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.BadRequest(w, r, err)
 		return
 	}
 
-	log.Println(stop)
 	eventStop := app.EventStop{
 		MapboxId:  stop.MapboxId,
 		Name:      stop.Name,
@@ -182,14 +185,14 @@ func (h *EventHandler) AddNewEventStop(w http.ResponseWriter, r *http.Request) {
 		Longitude: stop.Longitude,
 	}
 
-	id, err := h.client.AddEventStop(eventId, eventStop)
+	newStop, err := h.client.AddEventStop(eventId, eventStop)
 	if err != nil {
 		logger.Events.Error("failed to add event stop", zap.Int64("eventId", eventId), zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.InternalError(w, r, err)
 		return
 	}
 
-	httpio.JSON(w, r, http.StatusCreated, AddEventStopPayload{Id: id})
+	httpio.JSON(w, r, http.StatusCreated, AddEventStopPayload{Stop: newStop})
 }
 
 func (h *EventHandler) ReorderEventStops(w http.ResponseWriter, r *http.Request) {
@@ -202,31 +205,35 @@ func (h *EventHandler) ReorderEventStops(w http.ResponseWriter, r *http.Request)
 
 	eventId, err := parseEventIdPathValue(r)
 	if err != nil {
-		logger.Events.Warn("failed to parse eventId path parameter", zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
+		logger.Events.Warn("failed to parse eventId path parameter", zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.BadRequest(w, r, err)
 		return
 	}
 
-	var reorderedStops []app.EventStop
-	err = json.NewDecoder(r.Body).Decode(&reorderedStops)
+	var reorderedStopIds []int64
+	err = json.NewDecoder(r.Body).Decode(&reorderedStopIds)
 	if err != nil {
-		logger.Events.Warn("failed to decode request body", zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
+		logger.Events.Warn("failed to decode request body", zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.BadRequest(w, r, err)
 		return
 	}
 
-	err = h.client.ReorderEventStops(eventId, reorderedStops)
-	if err != nil {
-		logger.Events.Error("failed to reorder events stops", zap.Int64("eventId", eventId), zap.String("path", r.URL.Path), zap.Error(err))
+	reorderedStops, err := h.client.ReorderEventStops(context.Background(), eventId, reorderedStopIds)
+	switch {
+	case errors.Is(err, app.ErrStopSetMismatch):
+		httpio.JSON(w, r, http.StatusConflict, reorderedStops) // current canonical list
+	case errors.Is(err, app.ErrEventNotFound):
+		http.Error(w, app.ErrEventNotFound.Error(), http.StatusNotFound)
+		httpio.InternalError(w, r, app.ErrEventNotFound)
+	case err != nil:
 		httpio.InternalError(w, r, err)
-		return
+	default:
+		httpio.JSON(w, r, http.StatusOK, StopsPayload{Stops: reorderedStops})
 	}
-
-	httpio.JSON(w, r, http.StatusOK, nil)
 }
 
 type UpdateActiveStopPayload struct {
-	StopId int64 `json:"stop_id"`
+	StopId *int64 `json:"stop_id"` // serializes to nil when value is null
 }
 
 func (h *EventHandler) UpdateActiveStop(w http.ResponseWriter, r *http.Request) {
@@ -239,7 +246,7 @@ func (h *EventHandler) UpdateActiveStop(w http.ResponseWriter, r *http.Request) 
 
 	eventId, err := parseEventIdPathValue(r)
 	if err != nil {
-		logger.Events.Warn("failed to parse eventId path parameter", zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
+		logger.Events.Warn("failed to parse eventId path parameter", zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.BadRequest(w, r, err)
 		return
 	}
@@ -247,14 +254,14 @@ func (h *EventHandler) UpdateActiveStop(w http.ResponseWriter, r *http.Request) 
 	var payload UpdateActiveStopPayload
 	err = json.NewDecoder(r.Body).Decode(&payload)
 	if err != nil {
-		logger.Events.Warn("failed to decode request body", zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
+		logger.Events.Warn("failed to decode request body", zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.BadRequest(w, r, err)
 		return
 	}
 
 	err = h.client.UpdateActiveStop(eventId, payload.StopId)
 	if err != nil {
-		logger.Events.Error("failed to update active stop", zap.Int64("eventId", eventId), zap.Int64("stopId", payload.StopId), zap.String("path", r.URL.Path), zap.Error(err))
+		logger.Events.Error("failed to update active stop", zap.Int64("eventId", eventId), zap.Int64("stopId", *payload.StopId), zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.InternalError(w, r, err)
 		return
 	}
@@ -272,14 +279,14 @@ func (h *EventHandler) DeleteEventStop(w http.ResponseWriter, r *http.Request) {
 
 	eventId, err := parseEventIdPathValue(r)
 	if err != nil {
-		logger.Events.Warn("failed to parse eventId path parameter", zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
+		logger.Events.Warn("failed to parse eventId path parameter", zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.BadRequest(w, r, err)
 		return
 	}
 
 	stopId, err := parseStopIdPathValue(r)
 	if err != nil {
-		logger.Events.Warn("failed to parse stopId path parameter", zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
+		logger.Events.Warn("failed to parse stopId path parameter", zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.BadRequest(w, r, err)
 		return
 	}
@@ -360,7 +367,7 @@ type UpdateEventMemberRoleBody struct {
 func (h *EventHandler) UpdateEventMemberRole(w http.ResponseWriter, r *http.Request) {
 	eventId, err := parseEventIdPathValue(r)
 	if err != nil {
-		logger.Events.Warn("failed to parse eventId path parameter", zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
+		logger.Events.Warn("failed to parse eventId path parameter", zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.BadRequest(w, r, err)
 		return
 	}
@@ -368,7 +375,7 @@ func (h *EventHandler) UpdateEventMemberRole(w http.ResponseWriter, r *http.Requ
 	var body UpdateEventMemberRoleBody
 	err = json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
-		logger.Events.Warn("failed to decode request body", zap.String("path", r.URL.Path), zap.Error(ErrValidationFailed))
+		logger.Events.Warn("failed to decode request body", zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.BadRequest(w, r, err)
 		return
 	}
@@ -379,6 +386,49 @@ func (h *EventHandler) UpdateEventMemberRole(w http.ResponseWriter, r *http.Requ
 		httpio.InternalError(w, r, err)
 	}
 
+	httpio.JSON(w, r, http.StatusOK, nil)
+}
+
+type GetEventMembersPayload struct {
+	Members []app.EventMember `json:"members"`
+}
+
+func (h *EventHandler) GetEventMembers(w http.ResponseWriter, r *http.Request) {
+	eventId, err := parseEventIdPathValue(r)
+	if err != nil {
+		logger.Events.Warn("failed to parse eventId path parameter", zap.String("path", r.URL.Path), zap.Error(err))
+		httpio.BadRequest(w, r, err)
+		return
+	}
+
+	members, err := h.client.GetEventMembers(eventId)
+	if err != nil {
+		logger.Events.Error("failed to get event members", zap.Int64("eventId", eventId), zap.Error(err))
+		httpio.InternalError(w, r, err)
+	}
+
+	httpio.JSON(w, r, http.StatusOK, GetEventMembersPayload{Members: members})
+}
+
+type GetEventStopsPayload struct {
+	Stops []app.EventStop `json:"stops"`
+}
+
+func (h *EventHandler) GetEventStops(w http.ResponseWriter, r *http.Request) {
+	eventId, err := parseEventIdPathValue(r)
+	if err != nil {
+		logger.Events.Warn("failed to parse eventId path parameter", zap.Int64("eventId", eventId), zap.String("path", r.URL.Path), zap.Error(err))
+		httpio.BadRequest(w, r, err)
+		return
+	}
+
+	stops, err := h.client.GetEventStops(eventId)
+	if err != nil {
+		logger.Events.Error("failed to get event stops", zap.Int64("eventId", eventId), zap.String("path", r.URL.Path), zap.Error(err))
+		httpio.InternalError(w, r, err)
+	}
+
+	httpio.JSON(w, r, http.StatusOK, GetEventStopsPayload{Stops: stops})
 }
 
 func parseEventIdPathValue(r *http.Request) (int64, error) {

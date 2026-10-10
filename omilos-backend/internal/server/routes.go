@@ -89,7 +89,8 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 				r.Use(WithResource(app.ResourceSubjectEvent))
 				r.Use(EventMiddleware(eventClient, enforcer))
 				r.Get("/", eventHandler.GetEventDetails)
-				r.Patch("/memberRole", eventHandler.UpdateEventMemberRole)
+				r.Get("/members", eventHandler.GetEventMembers)
+				r.Patch("/members/role", eventHandler.UpdateEventMemberRole)
 			})
 
 			r.Group(func(r chi.Router) {
@@ -102,7 +103,9 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 				r.Group(func(r chi.Router) {
 					r.Use(WithResource(app.ResourceSubjectStopStatus))
 					r.Use(EventMiddleware(eventClient, enforcer))
-					r.Patch("/stops/{stopId}/memberStatus", eventHandler.UpdateStopMemberStatus)
+					r.Get("/stops", eventHandler.GetEventStops)
+					r.Patch("/stops/{stopId}/member-status", eventHandler.UpdateStopMemberStatus)
+					r.Get("/stops/{stopId}/statuses", eventHandler.UpdateStopMemberStatus)
 				})
 
 				r.Group(func(r chi.Router) {

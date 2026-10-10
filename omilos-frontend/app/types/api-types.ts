@@ -14,13 +14,9 @@ export interface Event {
   host_id: number /* int64 */;
   active_stop_id?: number /* int64 */;
   image_url?: string;
-  /**
-   * Custom fields for HTTP response payloads
-   */
   member_ids?: number /* int64 */[]; // Used only when creating an event
-  members?: JSONSlice<EventMember>; // Enriched attendee information
-  stops?: JSONSlice<EventStop>;
   member_role: MemberRole; // The user's role for a specific event
+  members: EventMember[];
 }
 export interface EventStop {
   id: number /* int64 */;
@@ -58,6 +54,10 @@ export interface StopMemberStatus {
   stop_id: number /* int64 */;
   stop_status: StopStatus;
   status_updated_at: StopStatus;
+}
+export interface AddEventStopReturnValues {
+  id: number /* int64 */;
+  sort_id: number /* int64 */;
 }
 
 //////////

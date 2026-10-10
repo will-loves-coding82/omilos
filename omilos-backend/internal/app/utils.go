@@ -31,5 +31,8 @@ func (s *JSONSlice[T]) Scan(src any) error {
 }
 
 func (s JSONSlice[T]) Value() (driver.Value, error) {
+	if s == nil {
+		return []byte("[]"), nil
+	}
 	return json.Marshal([]T(s))
 }
