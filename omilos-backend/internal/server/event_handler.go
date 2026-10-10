@@ -380,12 +380,25 @@ func (h *EventHandler) UpdateEventMemberRole(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	if body.MemberId == 0 {
+		logger.Events.Warn("memberId cannot be 0", zap.String("path", r.URL.Path))
+		httpio.BadRequest(w, r, err)
+		return
+	}
+
+	if body.NewRole == "" {
+		logger.Events.Warn("newRole cannot be empty", zap.String("path", r.URL.Path))
+		httpio.BadRequest(w, r, err)
+		return
+	}
+
 	err = h.client.UpdateEventMemberRole(eventId, body.MemberId, body.NewRole)
 	if err != nil {
 		logger.Events.Error("failed to update member role", zap.Int64("eventId", eventId), zap.Int64("memberId", body.MemberId), zap.String("newRole", body.NewRole))
 		httpio.InternalError(w, r, err)
 	}
 
+	logger.Events.Info("successfully updated member role", zap.Int64("memberId", body.MemberId), zap.String("newRole", body.NewRole))
 	httpio.JSON(w, r, http.StatusOK, nil)
 }
 

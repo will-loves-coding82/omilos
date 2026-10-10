@@ -130,7 +130,7 @@ const getEventMembersQuery = `
 	SELECT 
 		em.member_role, em.rsvp_status, em.status_updated_at, em.created_at,
 		jsonb_build_object(
-			'user_id', u.id,
+			'id', u.id,
 			'clerk_id', u.clerk_id,
 			'username', u.username,
 			'first_name', u.first_name,
