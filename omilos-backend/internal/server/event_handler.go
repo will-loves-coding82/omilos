@@ -149,7 +149,7 @@ func (h *EventHandler) GetEventDetails(w http.ResponseWriter, r *http.Request) {
 }
 
 type AddEventStopPayload struct {
-	Stop app.EventStop `json:"stop"`
+	NewStop app.EventStop `json:"new_stop"`
 }
 
 func (h *EventHandler) AddNewEventStop(w http.ResponseWriter, r *http.Request) {
@@ -192,7 +192,7 @@ func (h *EventHandler) AddNewEventStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpio.JSON(w, r, http.StatusCreated, AddEventStopPayload{Stop: newStop})
+	httpio.JSON(w, r, http.StatusCreated, AddEventStopPayload{NewStop: newStop})
 }
 
 func (h *EventHandler) ReorderEventStops(w http.ResponseWriter, r *http.Request) {

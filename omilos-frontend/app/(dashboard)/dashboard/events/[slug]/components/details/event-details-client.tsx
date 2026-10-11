@@ -19,10 +19,10 @@ import type { FillExtrusionLayerSpecification } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { UserAvatar, UserButton, useUser } from '@clerk/nextjs';
-import { ChevronDown, Maximize2 } from 'lucide-react';
+import { ChevronDown, Maximize2, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { eventKey, membersKey, stopsKey, userStopStatusMutationKey } from '@/app/providers/query-keys';
-import { success } from 'zod';
+import { AnimatePresence, motion } from 'motion/react';
 
 
 const SearchBox = dynamic(
@@ -84,6 +84,7 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
   const [selectedEventStop, setSelectedEventStop] = useState<ClientEventStop | null>(null); // Tracks which existing stop is shown in the stop details panel
   const [isEventStopPanelOpen, setIsEventStopPanelOpen] = useState(false);
   const [isEventDetailsPanelOpen, setIsEventDetailsPanelOpen] = useState(false);
+  const [isDeleteStopModalOpen, setIsDeleteStopModalOpen] = useState(false);
 
 
   const { user: clerkUser } = useUser();
@@ -185,36 +186,19 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
   }
 
   const createEventStop = useMutation({
-  mutationKey: ["event", eventId, "create-stop"] as const,
-  mutationFn: async (stop: ClientEventStop): Promise<ClientEventStop> => {
-    const res = await addEventStop(eventId, stop);
-    if (!res.success || !res.data) throw new Error(res.message ?? "Failed to add stop");
-    return toClientEventStop(res.data);
-  },
-  onMutate: async (stop) => {
-    await queryClient.cancelQueries({ queryKey: stopsKey(eventId) });
-    const previous = queryClient.getQueryData<ClientEventStop[]>(stopsKey(eventId));
-
-    // Optimistic entry: no id or sort_id yet, empty statuses
-    queryClient.setQueryData<ClientEventStop[]>(stopsKey(eventId), (old) => [
-      ...(old ?? []),
-      { ...stop, stop_member_status_arr: [] },
-    ]);
-
-    setShowStopMarkerPopup(false);
-    setSelectedStop(null);
-    return { previous };
-  },
-  onError: (err, _stop, ctx) => {
-    if (ctx?.previous) queryClient.setQueryData(stopsKey(eventId), ctx.previous);
-    console.error(err instanceof Error ? err.message : "Couldn't add stop");
-  },
-  onSuccess: (saved, stop) => {
-    queryClient.setQueryData<ClientEventStop[]>(stopsKey(eventId), (old = []) =>
-      old.map((s) => (s.mapbox_id === stop.mapbox_id ? saved : s)),
-    );
-  },
-});
+    mutationKey: ["event", eventId, "create-stop"] as const,
+    mutationFn: async (stop: ClientEventStop): Promise<ClientEventStop> => {
+      const res = await addEventStop(eventId, stop);
+      if (!res.success || !res.data) throw new Error(res.message ?? "Failed to add stop");
+      return toClientEventStop(res.data.newStop);
+    },
+    onSuccess: (saved, _) => {
+      queryClient.setQueryData<ClientEventStop[]>(stopsKey(eventId), (old) => [
+        ...(old ?? []),
+        { ...saved, stop_member_status_arr: [] },
+      ]);
+    },
+  });
 
   async function onAddEventStop() {
     if (!clerkUser?.id) return;
@@ -308,6 +292,7 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
     setIsEventDetailsPanelOpen(prev => !prev)
   }
 
+
   // Renders custom header actions for this event
   usePageActions(
     <span className='flex items-center gap-4'>
@@ -318,6 +303,40 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
 
   return (
     <div ref={containerRef} className='absolute inset-0 z-0 w-full h-full'>
+
+       <AnimatePresence>
+        {isDeleteStopModalOpen &&
+          <>
+            {/* Darkens the background and allows the user to dismiss the modal by clicking outside it */}
+            <motion.div
+              className="fixed inset-0 bg-black/40 z-50"
+              onClick={() => setIsDeleteStopModalOpen(false)}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            />
+
+              <motion.div
+                className="fixed top-1/2 left-1/2 z-50 h-[240px] w-[400px] bg-bg-secondary border-1 border-border-primary rounded-xl shadow-md overflow-hidden p-4"
+                initial={{ opacity: 0, scale: 0.95, x: "-50%", y: "-50%" }}
+                animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
+                exit={{ opacity: 0, scale: 0.95, x: "-50%", y: "-50%" }}
+                transition={{ duration: 0.15 }}
+              >
+                <section className="flex w-full justify-between">
+                  <span className="flex flex-col">
+                    <h2 className="text-xl font-medium">Delete Stop {selectedEventStop?.name}?</h2>
+                    <p className="text-text-secondary text-sm">This action cannot be undone</p>
+                  </span>
+                  <button onClick={()=>setIsDeleteStopModalOpen(false)} className="hover:cursor-pointer bg-bg-secondary rounded-sm p-1 w-fit h-fit"><X size={16}/></button>
+                </section>
+            </motion.div>
+          </>
+        }
+      </AnimatePresence>
+
+      
       {/* Left panel that manages all the stops and participants */}
       <EventManagementSidePanel eventId={event.id} eventStops={eventStops} members={eventMembers} onReorderStops={onReorderEventStops} onSelectStop={selectEventStop} activeStopId={openStopId} activeEventStopId={activeStopId} />
 
@@ -336,7 +355,7 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
             stop={currentSelectedStop}
             members={eventMembers}
             isOpen={isEventStopPanelOpen}
-            onDeleteStop={() => {}} // TODO
+            onDeleteStop={() => setIsDeleteStopModalOpen(true)} 
             onDismiss={onDismissEventStopPanel}
             isActive={currentSelectedStop.id !== undefined && currentSelectedStop.id === activeStopId}
             onToggleActive={(isActive) => currentSelectedStop.id !== undefined && onToggleActiveStop(currentSelectedStop.id, isActive)}
@@ -414,12 +433,12 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
                   longitude={stopMarkerCoord.lon!}
                   latitude={stopMarkerCoord.lat!}
                 >
-                  <div className='flex flex-col justify-between h-[164px]'>
+                  <div className='flex flex-col justify-between h-[140px]'>
                     <header className='flex flex-col gap-2'>
                       <h3 className='text-xl font-semibold text-text-primary'>{selectedStop?.name}</h3>
                       <p className='text-lg text-text-secondary'>{selectedStop?.address}</p>
                     </header>
-                    <button onClick={onAddEventStop} className='bg-button-primary text-text-primary p-2 text-lg rounded-md hover:cursor-pointer'>Add Stop</button>
+                    <button onClick={onAddEventStop} className='mt-full bg-button-primary text-white p-2 text-lg rounded-md hover:cursor-pointer'>Add Stop</button>
                   </div>
                 </Popup>
               )}

@@ -141,7 +141,6 @@ body {
   background: var(--color-bg-primary);
   width: 364px;
   height: fit-content;
-  min-height: 264px;
   color: #000000;
   border-radius: 12px;
   padding: 1rem;

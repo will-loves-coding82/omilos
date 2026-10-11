@@ -34,7 +34,8 @@ CREATE TABLE event_stops (
   address TEXT NOT NULL,
   latitude DOUBLE PRECISION NOT NULL,
   longitude DOUBLE PRECISION NOT NULL,
-  CONSTRAINT fk_event_id FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE CASCADE
+  CONSTRAINT fk_event_id FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE CASCADE,
+  CONSTRAINT event_stops_event_mapbox_uniq UNIQUE (event_id, mapbox_id)
 );
 
 CREATE TYPE e_rsvp_status 

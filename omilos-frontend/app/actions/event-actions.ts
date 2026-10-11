@@ -265,7 +265,7 @@ export async function getEventStops(eventId: number) : Promise<ActionResponse<{s
 export async function addEventStop(
   eventId: number,
   stop: ClientEventStop,
-): Promise<ActionResponse<EventStop | null>> {
+): Promise<ActionResponse<{newStop: EventStop} | null>> {
   try {
     const res = await apiFetch(API_ROUTES.events.stops.create(eventId), {
       method: "POST",
@@ -283,8 +283,8 @@ export async function addEventStop(
       };
     }
 
-    const { data } = await res.json(); // envelope confirmed earlier
-    return { success: true, data };
+    const { data } = await res.json();
+    return { success: true, data: { newStop: data.new_stop } };
   } catch (err) {
     console.error("Error adding event stop:", err);
     return {
