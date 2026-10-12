@@ -19,7 +19,7 @@ export type EventStopSidePanelProps = {
 const STOP_STATUS_CONFIG: Record<StopStatus, { label: string, icon: typeof Clock, className: string }> = {
   not_started: { label: "Not started", icon: Clock, className: "bg-bg-tertiary/50 text-text-secondary" },
   in_progress: { label: "On the way", icon: Car, className: "bg-bg-info/20 text-text-info" },
-  arrived: { label: "Arrived", icon: CircleCheck, className: "bg-bg-success/50 text-text-success" },
+  arrived: { label: "Arrived", icon: CircleCheck, className: "bg-bg-success text-text-success" },
   no_show: { label: "No show", icon: XCircle, className: "bg-bg-danger/20 text-text-danger" },
 }
 
@@ -52,7 +52,7 @@ export default function EventStopSidePanel({stop, members, isOpen, isActive, onD
                   aria-pressed={isActive}
                   aria-label="Toggle active status"
                   className={`hover:cursor-pointer relative w-9 h-5 rounded-full transition-colors duration-200 ${
-                    isActive ? 'bg-bg-success' : 'bg-bg-tertiary'
+                    isActive ? 'bg-bg-info' : 'bg-bg-tertiary'
                   }`}
                   >
                   <span

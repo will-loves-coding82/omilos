@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { environment } from '../../environment';
+import Image from "next/image";
 
 import { StopMemberStatus, StopStatus } from '@/app/types/api-types';
 import { Coordinates, ClientEventStop, ClientEvent, searchResultToClientEventStop, ClientStopMemberStatus, toClientEvent, toClientEventMember, toClientEventStop, ClientEventMember } from '@/app/types/client-types';
@@ -17,12 +18,14 @@ import EventManagementSidePanel from '../side-panels/management-side-panel-clien
 import Map, { NavigationControl, MapRef, GeolocateControl, Marker, Popup, Layer } from 'react-map-gl/mapbox';
 import type { FillExtrusionLayerSpecification } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import type { Point } from 'geojson';
 
 import { UserAvatar, UserButton, useUser } from '@clerk/nextjs';
-import { ChevronDown, Maximize2, X } from 'lucide-react';
+import { ChevronDown, CircleCheck, Maximize2, Minimize2, PanelRightClose, PanelRightOpen, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { eventKey, membersKey, stopsKey, userStopStatusMutationKey } from '@/app/providers/query-keys';
 import { AnimatePresence, motion } from 'motion/react';
+import { Can } from '@/app/providers/ability-provider';
 
 
 const SearchBox = dynamic(
@@ -248,10 +251,37 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
   // Update the active marker when user selects on a stop or search result
   useEffect(() => {
     if (selectedStop) {
-      console.log(selectedStop)
+      // console.log(selectedStop)
       setStopMarkerCoord({ lon: selectedStop.longitude, lat: selectedStop.latitude })
     }
   }, [selectedStop])
+
+  // TODO: Use reverse geocoding to get poi details
+  useEffect(() => {
+  const map = mapRef.current?.getMap();
+  if (!map || !mapInstanceReady) return;
+
+  map.addInteraction('poi-click', {
+    type: 'click',
+    target: { featuresetId: 'poi', importId: 'basemap' },
+    handler: (e) => {
+      const feature = e.feature;
+      if (!feature) return;
+
+      // POIs are points, so geometry.coordinates is [lng, lat]
+      const [lon, lat] = (feature.geometry as Point).coordinates;
+      const { name, address } = feature.properties;
+      console.log(`Clicked ${address} at: ${lon}, ${lat}`);
+
+      // setStopMarkerCoord({ lon: lon, lat: lat});
+      // setSelectedStop({ name: name, address: address, mapbox_id: feature.id, lon: lon, lat: lat } as any);
+    },
+  });
+
+  return () => {
+    map.removeInteraction('poi-click');
+  };
+}, [mapInstanceReady]);
 
 
   async function onReorderEventStops(stops: ClientEventStop[]) {
@@ -365,45 +395,47 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
 
 
       {/* Map overlays elements that need to respond to sidebar and panel resizing  */}
-      <div className='max-w-md absolute top-4 z-10 w-full md:left-[calc(var(--panel-width)+1rem)] md:translate-x-0 md:w-88 transition-[left] duration-300'>
-        {mapInstanceReady && (
-          <SearchBox
-            placeholder='Add a stop'
-            onChange={(s) => {
-              if (s.length === 0) {
+      <Can I="create" a="Stop">
+        <div className='max-w-md absolute top-4 z-10 w-full md:left-[calc(var(--panel-width)+1rem)] md:translate-x-0 md:w-88 transition-[left] duration-300'>
+          {mapInstanceReady && (
+            <SearchBox
+              placeholder='Add a stop'
+              onChange={(s) => {
+                if (s.length === 0) {
+                  setStopMarkerCoord(null);
+                  setShowStopMarkerPopup(false);
+                }
+              }}
+              onClear={() => {
                 setStopMarkerCoord(null);
                 setShowStopMarkerPopup(false);
-              }
-            }}
-            onClear={() => {
-              setStopMarkerCoord(null);
-              setShowStopMarkerPopup(false);
-            }}
-            theme={{
-              variables: {
-                colorPrimary: '#0ea5e9',
-                colorSecondary: '#64748b',
-                colorBackground: '#ffffff',
-                colorBackgroundHover: '#f1f5f9',
-                colorText: '#0f172a',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
-                fontFamily: 'inherit',
+              }}
+              theme={{
+                variables: {
+                  colorPrimary: '#0ea5e9',
+                  colorSecondary: '#64748b',
+                  colorBackground: '#ffffff',
+                  colorBackgroundHover: '#f1f5f9',
+                  colorText: '#0f172a',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
+                  fontFamily: 'inherit',
 
-                unit: '14px',
-                padding: '0.75em',
-              }
-            }}
-            accessToken={environment.mapbox.accessToken ?? ""}
-            map={mapRef.current!.getMap()}
-            onRetrieve={(res) => {
-              console.log(res)
-              setSelectedStop(searchResultToClientEventStop(res));
-            }}
-          />
-        )}
-      </div>
+                  unit: '14px',
+                  padding: '0.75em',
+                }
+              }}
+              accessToken={environment.mapbox.accessToken ?? ""}
+              map={mapRef.current!.getMap()}
+              onRetrieve={(res) => {
+                console.log(res)
+                setSelectedStop(searchResultToClientEventStop(res));
+              }}
+            />
+          )}
+        </div>
+      </Can>
       {/* Fixed to the viewport so the map itself never shifts or resizes when
           the dashboard sidebar or these overlay panels expand/collapse. */}
       <div className='fixed z-0 top-[var(--header-height)] right-0 bottom-0 left-0'>
@@ -423,6 +455,7 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
             showUserLocation={true}
           />
           <Layer {...buildingExtrusionLayer} />
+
           {stopMarkerCoord && (
             <>
               {showStopMarkerPopup && (
@@ -442,6 +475,7 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
                   </div>
                 </Popup>
               )}
+
               <Marker onClick={(e) => {
                 e.originalEvent.stopPropagation();
                 setShowStopMarkerPopup(true);
@@ -463,61 +497,110 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
                     longitude={s.longitude}
                     latitude={s.latitude}
                   >
-                    <div className='flex flex-col gap-8 justify-between'>
-                      <div className='flex justify-between gap-2 pr-9 w-full'>
-                        <header className='flex flex-col gap-1'>
-                          <h3 className='text-xl font-medium text-text-primary'>{s.name}</h3>
-                          <p className='text-lg text-text-secondary'>{s.address}</p>
-                        </header>
-                        <button
-                          onClick={() => { setSelectedEventStop(s); setIsEventStopPanelOpen(true); }}
-                          className='self-start hover:cursor-pointer bg-button-secondary hover:bg-button-tertiary rounded-lg p-2 transition-colors'
-                          aria-label='View stop details'
-                        >
-                          <Maximize2 size={16} className='text-text-secondary' />
-                        </button>
-                      </div>
+                    <div className='flex flex-col gap-4 justify-between'>
 
+                      <header className='flex justify-between gap-2 pr-9 w-full'>
+                        <h3 className='text-xl font-semibold text-text-primary'>Stop Details</h3>
+                        {
+                          activeStopId!! && activeStopId === s.id &&
+                          <span className="w-fit flex items-center gap-1 bg-bg-active text-text-active text-xs font-medium rounded-lg px-2 py-1">
+                            <CircleCheck size={12} strokeWidth={3} />
+                            Active
+                          </span>
+                        }
+                      </header>
 
-                      {(() => {
-                        const total = eventMembers.filter(m => m.rsvp_status === "accepted").length;
-                        const arrivedCount = s.stop_member_status_arr?.filter(m => m.stop_status === 'arrived').length ?? 0;
-                        return (
-                          <div className='flex flex-col justify-center gap-1.5 p-3 rounded-lg min-h-24 bg-bg-secondary'>
-                            <div className='flex justify-end gap-1.5'>
-                              <span className='text-lg font-medium text-text-primary'>{arrivedCount}/{total}</span>
-                              <span className='text-lg text-text-secondary'>Arrived</span>
-                            </div>
-                            <div className='w-full h-2 bg-bg-tertiary rounded-full overflow-hidden'>
-                              <div
-                                className='h-full bg-bg-info rounded-full transition-all duration-300'
-                                style={{ width: total > 0 ? `${(arrivedCount / total) * 100}%` : '0%' }}
-                              />
-                            </div>
+                      <hr className='border-border-primary mx-[-1rem]' />
+
+                      <section className='flex flex-col gap-4'>
+                        <span className='flex flex-col'>
+                          <p className='text-text-primary text-lg'>{s.name}</p>
+                          <p className='text-text-secondary text-md'>{s.address}</p>
+                        </span>
+
+                        <div className='flex justify-between items-center w-full' >
+                          <div className='relative'>
+                            <select
+                              value={s.stop_member_status_arr?.find(m => m.clerk_id === clerkUser?.id)?.stop_status ?? "not_started"}
+                              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                                if (s.id === undefined) return;
+                                onUpdateUserStopStatus(s.id, e.target.value as StopStatus);
+                              }}
+                              className='appearance-none bg-bg-secondary w-36 py-2 pl-4 pr-9 rounded-lg text-text-primary text-md'
+                            >
+                              <option value="not_started">Not started</option>
+                              <option value="in_progress">In Progress</option>
+                              <option value="arrived">Arrived</option>
+                              <option value="no_show">No Show</option>
+                            </select>
+                            <ChevronDown size={16} className='pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary' />
                           </div>
-                        );
-                      })()}
 
-                      <div className='flex items-center w-fit gap-2' >
-                        <UserAvatar />
-                        <div className='relative'>
-                          <select
-                            value={s.stop_member_status_arr?.find(m => m.clerk_id === clerkUser?.id)?.stop_status ?? "not_started"}
-                            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                              if (s.id === undefined) return;
-                              onUpdateUserStopStatus(s.id, e.target.value as StopStatus);
-                            }}
-                            className='appearance-none bg-bg-secondary w-36 py-2 pl-4 pr-9 rounded-md text-text-primary text-md'
+                          <button
+                            onClick={() => { setSelectedEventStop(s); setIsEventStopPanelOpen(prev => !prev); }}
+                            className='self-start hover:cursor-pointer bg-button-secondary hover:bg-button-tertiary rounded-lg p-2.5 transition-colors'
+                            aria-label='View stop details'
                           >
-                            <option value="not_started">Not started</option>
-                            <option value="in_progress">In Progress</option>
-                            <option value="arrived">Arrived</option>
-                            <option value="no_show">No Show</option>
-                          </select>
-                          <ChevronDown size={16} className='pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary' />
+                            {
+                              isEventStopPanelOpen ?
+                              <Minimize2 size={16} strokeWidth={2.5} className='text-text-secondary'/>
+                              :
+                              <Maximize2 size={16} strokeWidth={2.5} className='text-text-secondary' />
+                            }
+                          </button>
                         </div>
-                      </div>
 
+                        {(() => {
+                          const total = eventMembers.filter(m => m.rsvp_status === "accepted").length;
+                          const arrivedCount = s.stop_member_status_arr?.filter(m => m.stop_status === 'arrived').length ?? 0;
+                          const arrivedMemberIds = s.stop_member_status_arr?.filter(m => m.stop_status === 'arrived').map(m => m.clerk_id)
+                          const arrivedMemberProfiles = eventMembers.filter(m => arrivedMemberIds?.includes(m.user.clerk_id))
+                          const limit = 2
+                          return (
+                            <div className='flex flex-col justify-center gap-1.5 p-3 rounded-lg min-h-24 bg-bg-secondary'>
+                              <div className='flex justify-between gap-1.5'>
+
+                                <span className='flex items-center'>
+                                  <ul id="arrived-members" className='flex max-w-30'>
+                                    {
+                                      arrivedMemberProfiles.slice(0, limit).map((member, index)=> (
+                                        <Image  
+                                        key={member.user.clerk_id}
+                                        width={32}
+                                        height={32}
+                                        className={`rounded-full border-2 border-border-primary ${index > 0 && "translate-x-[-10px]"}`}
+                                        alt="user profile"
+                                        src={member.user.image_url!}
+                                        />
+                                      ))
+                                    }
+                                  </ul>
+
+                                  {
+                                    arrivedMemberProfiles.length > limit && (
+                                      <div className='w-[32px] h-[32px] p-2 flex items-center justify-center bg-bg-tertiary border-2 border-border-primary rounded-full translate-x-[-10px]'>
+                                        <p className='text-md text-text-secondary'>+{arrivedMemberProfiles.length  - limit}</p>
+                                      </div>
+                                    )
+                                  }
+                                </span>
+                                <span className='flex gap-2'>
+                                  <p className='text-lg font-medium text-text-primary'>{arrivedCount}/{total}</p>
+                                  <p className='text-lg text-text-secondary'>Arrived</p>
+                                </span>
+                              </div>
+
+                              <div className='w-full h-2 bg-bg-tertiary rounded-full overflow-hidden'>
+                                <div
+                                  className='h-full bg-bg-info rounded-full transition-all duration-300'
+                                  style={{ width: total > 0 ? `${(arrivedCount / total) * 100}%` : '0%' }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                      </section>
                     </div>
                   </Popup>
                 )}

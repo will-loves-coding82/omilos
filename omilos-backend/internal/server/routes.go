@@ -84,11 +84,15 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 		r.Post("/events", eventHandler.CreateNewEvent)
 		r.Get("/events/details/{slug}", eventHandler.GetEventDetails)
 
+		r.Patch("/invites", inviteHandler.UpdateInviteStatus)
+		r.Get("/invites/all", inviteHandler.GetAllInvitesForUser)
+		r.Get("/invites/pending/count", inviteHandler.GetPendingInviteCountForUser)
+		r.Get("/presign", awsPresignHandler.GetPresignedURL)
+
 		r.Route("/events/{eventId}", func(r chi.Router) {
 			r.Group(func(r chi.Router) {
 				r.Use(WithResource(app.ResourceSubjectEvent))
 				r.Use(EventMiddleware(eventClient, enforcer))
-				r.Get("/", eventHandler.GetEventDetails)
 				r.Get("/members", eventHandler.GetEventMembers)
 				r.Patch("/members/role", eventHandler.UpdateEventMemberRole)
 			})
@@ -103,7 +107,6 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 				r.Group(func(r chi.Router) {
 					r.Use(WithResource(app.ResourceSubjectStopStatus))
 					r.Use(EventMiddleware(eventClient, enforcer))
-					r.Get("/stops", eventHandler.GetEventStops)
 					r.Patch("/stops/{stopId}/member-status", eventHandler.UpdateStopMemberStatus)
 					r.Get("/stops/{stopId}/statuses", eventHandler.UpdateStopMemberStatus)
 				})
@@ -111,6 +114,7 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 				r.Group(func(r chi.Router) {
 					r.Use(WithResource(app.ResourceSubjectStop))
 					r.Use(EventMiddleware(eventClient, enforcer))
+					r.Get("/stops", eventHandler.GetEventStops)
 					r.Post("/stops", eventHandler.AddNewEventStop)
 					r.Patch("/stops", eventHandler.ReorderEventStops)
 					r.Delete("/stops/{stopId}", eventHandler.DeleteEventStop)
@@ -118,11 +122,6 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 				})
 			})
 		})
-
-		r.Patch("/invites", inviteHandler.UpdateInviteStatus)
-		r.Get("/invites/all", inviteHandler.GetAllInvitesForUser)
-		r.Get("/invites/pending/count", inviteHandler.GetPendingInviteCountForUser)
-		r.Get("/presign", awsPresignHandler.GetPresignedURL)
 	})
 
 	return r
@@ -241,7 +240,7 @@ func EventMiddleware(eventClient *app.EventClient, enforcer *casbin.Enforcer) fu
 			}
 
 			if !allowed {
-				fmt.Printf("Insufficient permissions. User cannot %s resource %s\n", action, targetResource)
+				fmt.Printf("Insufficient permissions. User with role %s cannot %s resource %s\n", memberRole, action, targetResource)
 				http.Error(w, "forbidden: insufficient permissions", http.StatusForbidden)
 				return
 			}

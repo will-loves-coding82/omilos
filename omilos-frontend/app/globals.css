@@ -10,7 +10,7 @@
   --color-bg-primary: #ffffff;
   --color-bg-secondary: #f6f6f6;
   --color-bg-tertiary: #ecebeb;
-  --color-bg-success: #ace92a;
+  --color-bg-success: #ade92a62;
   --color-bg-danger: var(--color-danger);
   --color-bg-warning: var(--color-warning);
   --color-bg-active: #ade92a62;
@@ -24,11 +24,12 @@
   --color-text-danger: var(--color-danger);
   
   --color-danger: #f34c4c;
-  --color-info: #0662db;
+  --color-info: #2d7de4;
   --color-warning: #ffcb20;
-  --color-success: #93bb3c;
+  --color-success: #71ba32;
   
   --color-border-primary: #ededed;
+  --color-border-active:#ade92a90;
   --color-border-transparent: transparent;
 
   --color-button-primary: #171717;
@@ -76,6 +77,7 @@
   --color-button-secondary: var(--color-button-secondary);
   --color-button-tertiary: var(--color-button-tertiary);
   --color-border-primary: var(--color-border-primary);
+  --color-border-active: var(--color-border-active);
   --color-border-transparent: var(--color-border-transparent);
 
   /* Icon badge colors */
@@ -99,7 +101,6 @@
     --color-text-secondary: #a3a3a3;
     --color-text-disabled: rgb(255 255 255 / 20%);
     --color-text-inverse: #ffffff;
-    --color-text-active: #ace92a;
 
     --color-bg-primary: #0a0a0a;
     --color-bg-secondary: #171717;
@@ -108,7 +109,6 @@
     --color-bg-skeleton: #2e2e2e;
 
     --color-border-primary: #292929;
-    --color-border-transparent: var(--color-border-primary);
 
     --color-button-primary: #171717;
     --color-button-secondary: #171717;
@@ -139,7 +139,7 @@ body {
 
 .event-popup .mapboxgl-popup-content {
   background: var(--color-bg-primary);
-  width: 364px;
+  width: 380px;
   height: fit-content;
   color: #000000;
   border-radius: 12px;

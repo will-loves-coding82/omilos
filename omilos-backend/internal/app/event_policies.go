@@ -47,15 +47,19 @@ var staticRolePolicies = []PolicyRule{
 	{MemberRoleHost, ResourceSubjectAll, ActionVerbManage},
 
 	// Editor permissions
-	{MemberRoleEditor, ResourceSubjectStop, ActionVerbCreate},
 	{MemberRoleEditor, ResourceSubjectEvent, ActionVerbRead},
+
+	{MemberRoleEditor, ResourceSubjectStop, ActionVerbRead},
+	{MemberRoleEditor, ResourceSubjectStop, ActionVerbCreate},
+	{MemberRoleEditor, ResourceSubjectStop, ActionVerbUpdate},
 	{MemberRoleEditor, ResourceSubjectStop, ActionVerbDelete},
-	{MemberRoleEditor, ResourceSubjectStop, ActionVerbUpdate},
-	{MemberRoleEditor, ResourceSubjectStop, ActionVerbUpdate},
+
+	{MemberRoleEditor, ResourceSubjectStopStatus, ActionVerbRead},
 	{MemberRoleEditor, ResourceSubjectStopStatus, ActionVerbUpdate},
 
 	// Viewer permissions
 	{MemberRoleViewer, ResourceSubjectEvent, ActionVerbRead},
+	{MemberRoleViewer, ResourceSubjectStop, ActionVerbRead},
 	{MemberRoleViewer, ResourceSubjectStopStatus, ActionVerbUpdate},
 }
 

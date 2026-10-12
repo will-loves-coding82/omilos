@@ -272,25 +272,25 @@ function SortableStop({ stop, index, onSelectStop, isSelected, isActive }: Sorta
   const { ref, isDragging } = useSortable({ id, index, handle: handleRef, disabled: ability.cannot('update', 'Stop')});
 
   return (
-    <li
+    <div
       ref={ref}
       onClick={() => onSelectStop(stop)}
       className={
         clsx(
-          "h-[108px] transition-colors duration-100 ease-in p-3 flex justify-between gap-1 rounded-lg", 
-          isSelected ? "bg-bg-active" : "bg-bg-secondary",
+          "bg-bg-secondary border-l-3 h-[108px] transition-colors duration-100 ease-in p-3 flex justify-between gap-1 rounded-lg", 
+          isSelected ? "border-border-active" : "border-border-transparent",
           ability.can('update', 'Stop') && "hover:cursor-pointer",
           isDragging && 'opacity-50'
         )
       }
     >
-      <div className="flex flex-col justify-between gap-1">
+      <div className={`flex flex-col justify-between gap-1`}>
         <div className="flex flex-col">
-          <h3 className={`text-lg font-semibold transition-colors duration-100 ease-in ${isSelected ? "text-text-active" : "text-text-primary"}`}>{stop.name}</h3>
-          <p className={`text-md transition-colors duration-100 ease-in ${isSelected ? "text-text-active" : "text-text-secondary"}`}>{stop.address}</p>
+          <h3 className={`text-lg font-semibold transition-colors duration-100 ease-in`}>{stop.name}</h3>
+          <p className={`text-md transition-colors duration-100 ease-in`}>{stop.address}</p>
         </div>
         {isActive && (
-          <span className="w-fit flex items-center gap-1 bg-bg-success/50 text-text-success text-xs font-medium rounded-md px-2 py-0.5">
+          <span className="w-fit flex items-center gap-1 bg-bg-active text-text-active text-xs font-medium rounded-md px-2 py-0.5">
             <CircleCheck size={12} strokeWidth={3} />
             Active
           </span>
@@ -299,6 +299,6 @@ function SortableStop({ stop, index, onSelectStop, isSelected, isActive }: Sorta
       <button ref={handleRef}>
         <GripVertical size={20} className={clsx("my-auto", ability.can('update', 'Stop') ? "hover:cursor-pointer" : "text-text-secondary/50")} />
       </button>
-    </li>
+    </div>
   )
 }

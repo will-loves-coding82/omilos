@@ -14,7 +14,7 @@ export interface Event {
   host_id: number /* int64 */;
   active_stop_id?: number /* int64 */;
   image_url?: string;
-  member_ids?: number /* int64 */[]; // Used only when creating an event
+  member_ids: number /* int64 */[]; // Used only when creating an event
   member_role: MemberRole; // The user's role for a specific event
   members: EventMember[];
 }
@@ -30,7 +30,7 @@ export interface EventStop {
   /**
    * Custom fields for HTTP response payloads
    */
-  stop_member_status_arr?: JSONSlice<StopMemberStatus>;
+  stop_member_status_arr: JSONSlice<StopMemberStatus>;
 }
 export const RSVPStatusPending = "pending";
 export const RSVPStatusAccepted = "accepted";
@@ -55,10 +55,7 @@ export interface StopMemberStatus {
   stop_status: StopStatus;
   status_updated_at: StopStatus;
 }
-export interface AddEventStopReturnValues {
-  id: number /* int64 */;
-  sort_id: number /* int64 */;
-}
+export type AddEventStopReturnValues = EventStop;
 
 //////////
 // source: event_policies.go

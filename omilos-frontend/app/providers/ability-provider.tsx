@@ -11,13 +11,20 @@ const rolePermissionsRecord: Record<MemberRole, [ActionVerb, ResourceSubject][]>
   host: [["manage", "all"]],
   editor: [
     ["read", "Event"],
+
     ["create", "Stop"],
-    ["delete", "Stop"],
+    ["read", "Stop"],
     ["update", "Stop"],
-    ["update", "Role"]
+    ["delete", "Stop"],
+    ["update", "Role"],
+
+    ["read", "StopStatus"],
+    ["update", "StopStatus"],
   ],
   viewer: [
-    ["read", "Event"]
+    ["read", "Event"],
+    ["read", "Stop"],
+    ["update", "StopStatus"],
   ]
 };
 
