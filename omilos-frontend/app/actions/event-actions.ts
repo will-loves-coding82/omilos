@@ -8,7 +8,7 @@ import { ClientEventStop } from "../types/client-types";
 import { apiFetch } from "./utils";
 import { ActionResponse } from "./action-types";
 import { Event, EventMember, EventStop, MemberRole, StopStatus } from "../types/api-types";
-import { da } from "zod/v4/locales";
+import { da, fr } from "zod/v4/locales";
 
 export async function getEventsForUser(clerkId: string | null): Promise<ActionResponse<{events: Event[]}>> {
   if (!clerkId) {
@@ -295,37 +295,35 @@ export async function addEventStop(
   }
 }
 
-export async function reorderEventStops(eventId: number, stops: ClientEventStop[]) : Promise<ActionResponse<null>> {
+export type ReorderStopResult = { id: number; fractional_index: string };
+
+export type ReorderStopResponse = ActionResponse<ReorderStopResult | null, { conflict?: boolean }>;
+
+export async function reorderEventStop(eventId: number, stopId: number, fractionalIndex: string) : Promise<ReorderStopResponse> {
   try {
-    const res = await apiFetch(API_ROUTES.events.stops.updateStop(eventId), {
+    const res = await apiFetch(API_ROUTES.events.stops.reorder(eventId, stopId), {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(stops.map(s => s.id)),
-    })
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fractional_index: fractionalIndex }),
+    });
 
+    if (res.status === 409) {
+      return { success: false, conflict: true, message: "Stop order changed", data: null};
+    }
     if (!res.ok) {
-      const body = await res.text()
-      console.error("Reorder event stops failed:", res.status, body)
-      return {
-        success: false,
-        data: null,
-        message: "Failed to reorder stops",
-      }
+      console.error("Move stop failed:", res.status, await res.text());
+      return { success: false, conflict: false, message: "Failed to move stop", data: null };
     }
 
-    return {
-      success: true,
-      data: null,
-    }
+    const { data } = await res.json(); // httpio wraps the body in { data }
+    return { success: true, data };
   } catch (err) {
-    console.error("Error reordering event stops:", err)
     return {
-      success: false,
       data: null,
+      success: false,
+      conflict: false,
       message: err instanceof Error ? err.message : "An unknown error occurred",
-    }
+    };
   }
 }
 

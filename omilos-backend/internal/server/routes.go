@@ -116,7 +116,7 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 					r.Use(EventMiddleware(eventClient, enforcer))
 					r.Get("/stops", eventHandler.GetEventStops)
 					r.Post("/stops", eventHandler.AddNewEventStop)
-					r.Patch("/stops", eventHandler.ReorderEventStops)
+					r.Patch("/stops/{stopId}/reorder", eventHandler.ReorderEventStop)
 					r.Delete("/stops/{stopId}", eventHandler.DeleteEventStop)
 					r.Patch("/stops/active", eventHandler.UpdateActiveStop)
 				})

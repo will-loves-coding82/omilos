@@ -27,7 +27,7 @@ export type ClientEvent = {
 export type ClientEventStop = {
   id?: number,
   event_id?: number,
-  sort_id?: number,
+  fractional_index?: string,
   mapbox_id: string,
   name: string,
   address: string,
@@ -86,7 +86,7 @@ export function toClientEventStop(stop: EventStop): ClientEventStop {
     event_id: stop.event_id,
     address: stop.address,
     name: stop.name,
-    sort_id: stop.sort_id,
+    fractional_index: stop.fractional_index,
     mapbox_id: String(stop.mapbox_id),
     latitude: stop.latitude,
     longitude: stop.longitude,

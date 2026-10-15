@@ -5,22 +5,23 @@ import dynamic from 'next/dynamic';
 import { environment } from '../../environment';
 import Image from "next/image";
 
-import { StopMemberStatus, StopStatus } from '@/app/types/api-types';
+import { ReorderStopResult, StopMemberStatus, StopStatus } from '@/app/types/api-types';
 import { Coordinates, ClientEventStop, ClientEvent, searchResultToClientEventStop, ClientStopMemberStatus, toClientEvent, toClientEventMember, toClientEventStop, ClientEventMember } from '@/app/types/client-types';
 
 import { usePageActions } from '../../../../components/context/header-actions-context';
-import { addEventStop, getEventDetails, getEventMembers, getEventStops, reorderEventStops, setActiveEventStop, updateStopMemberStatus } from '@/app/actions/event-actions';
+import { addEventStop, getEventDetails, getEventMembers, getEventStops, reorderEventStop, setActiveEventStop, updateStopMemberStatus } from '@/app/actions/event-actions';
+import { generateKeyBetween } from "jittered-fractional-indexing";
 
 import EventStopSidePanel from '../side-panels/stop-details-side-panel-client';
 import EventDetailsSidePanel from '../side-panels/info-side-panel-client';
-import EventManagementSidePanel from '../side-panels/management-side-panel-client';
+import EventManagementSidePanel, { isPersisted } from '../side-panels/management-side-panel-client';
 
 import Map, { NavigationControl, MapRef, GeolocateControl, Marker, Popup, Layer } from 'react-map-gl/mapbox';
 import type { FillExtrusionLayerSpecification } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { Point } from 'geojson';
 
-import { UserAvatar, UserButton, useUser } from '@clerk/nextjs';
+import { UserButton, useUser } from '@clerk/nextjs';
 import { ChevronDown, CircleCheck, Maximize2, Minimize2, PanelRightClose, PanelRightOpen, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { eventKey, membersKey, stopsKey, userStopStatusMutationKey } from '@/app/providers/query-keys';
@@ -70,6 +71,28 @@ export default function EventDetailsClient({ slug }: { slug: string }) {
 }
 
 
+export type MoveStopVars = {
+  stopId: number;
+  fractionalIndex: string;
+  reordered: ClientEventStop[]; // the full array in its new order, for the optimistic write
+};
+
+export class MoveError extends Error {
+  conflict: boolean;
+
+  constructor(conflict: boolean, message: string) {
+    super(message);
+    this.name = "MoveError";
+    this.conflict = conflict;
+  }
+}
+
+export type StopMove = {
+  stopId: number;
+  fractionalIndex: string;
+  reordered: ClientEventStop[];   // the full list in its new order, used for the optimistic write
+};
+
 function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
 
   const mapRef = useRef<MapRef>(null);
@@ -88,7 +111,6 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
   const [isEventStopPanelOpen, setIsEventStopPanelOpen] = useState(false);
   const [isEventDetailsPanelOpen, setIsEventDetailsPanelOpen] = useState(false);
   const [isDeleteStopModalOpen, setIsDeleteStopModalOpen] = useState(false);
-
 
   const { user: clerkUser } = useUser();
 
@@ -114,7 +136,12 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
     },
   });
 
-  const setActiveStop = useMutation({
+
+  const eventStops = stopsData ?? [];
+  const eventMembers = membersData ?? [];
+  const activeStopId = event.active_stop_id ?? null;
+
+  const setActiveStopMtn = useMutation({
     mutationKey: eventKey(slug),
     mutationFn: async (nextStopId: number | null) => {
       const res = await setActiveEventStop(event.id, nextStopId);
@@ -135,11 +162,11 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
     }
   });
 
-  function onToggleActiveStop(stopId: number, isActive: boolean) {
-    setActiveStop.mutate(isActive ? stopId : null);
+  function onSetActiveStop(stopId: number, isActive: boolean) {
+    setActiveStopMtn.mutate(isActive ? stopId : null);
   }
 
-  const setUserStopStatus = useMutation({
+  const setUserStopStatusMtn = useMutation({
     mutationKey: userStopStatusMutationKey(eventId),
     mutationFn: async ({ stopId, status }: { stopId: number; status: StopStatus }) => {
       const res = await updateStopMemberStatus(eventId, stopId, status);
@@ -185,33 +212,69 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
 
   function onUpdateUserStopStatus(stopId: number, status: StopStatus) {
     if (!clerkUser?.id) return;
-    setUserStopStatus.mutate({ stopId, status });
+    setUserStopStatusMtn.mutate({ stopId, status });
   }
 
-  const createEventStop = useMutation({
-    mutationKey: ["event", eventId, "create-stop"] as const,
-    mutationFn: async (stop: ClientEventStop): Promise<ClientEventStop> => {
-      const res = await addEventStop(eventId, stop);
-      if (!res.success || !res.data) throw new Error(res.message ?? "Failed to add stop");
-      return toClientEventStop(res.data.newStop);
-    },
-    onSuccess: (saved, _) => {
-      queryClient.setQueryData<ClientEventStop[]>(stopsKey(eventId), (old) => [
+ const addEventStopMtn = useMutation({
+  mutationKey: ["event", eventId, "create-stop"] as const,
+  mutationFn: async (stop: ClientEventStop): Promise<ClientEventStop> => {
+    const current = queryClient.getQueryData<ClientEventStop[]>(stopsKey(eventId)) ?? [];
+    const lastKey = current.filter(isPersisted).at(-1)?.fractional_index ?? null;
+    const fractionalIndex = generateKeyBetween(lastKey, null);
+
+    const res = await addEventStop(eventId, { ...stop, fractional_index: fractionalIndex });
+    if (!res.success || !res.data) throw new Error(res.message ?? "Failed to add stop");
+    return toClientEventStop(res.data.newStop);
+  },
+  onSuccess: (data) => {
+    queryClient.setQueryData<ClientEventStop[]>(stopsKey(eventId), (old) => [
         ...(old ?? []),
-        { ...saved, stop_member_status_arr: [] },
+        { ...data, stop_member_status_arr: [] },
       ]);
-    },
-  });
+  },
+});
 
   async function onAddEventStop() {
     if (!clerkUser?.id) return;
     if (!selectedStop) return;
-    createEventStop.mutate(selectedStop);
+    addEventStopMtn.mutate(selectedStop);
   }
 
-  const eventStops = stopsData ?? [];
-  const eventMembers = membersData ?? [];
-  const activeStopId = event.active_stop_id ?? null;
+
+  const moveStop = useMutation({
+    mutationKey: ["event", eventId, "move-stop"] as const,
+    mutationFn: async ({ stopId, fractionalIndex }: StopMove): Promise<ReorderStopResult> => {
+      const res = await reorderEventStop(eventId, stopId, fractionalIndex);
+      if (!res.success) throw new MoveError(!!res.conflict, res.message ?? "Failed to move stop");
+      return res.data!;
+    },
+    onMutate: async ({ stopId, fractionalIndex, reordered }) => {
+      await queryClient.cancelQueries({ queryKey: stopsKey(eventId) });
+      const previous = queryClient.getQueryData<ClientEventStop[]>(stopsKey(eventId));
+      queryClient.setQueryData<ClientEventStop[]>(
+        stopsKey(eventId),
+        reordered.map((s) => (s.id === stopId ? { ...s, fractional_index: fractionalIndex } : s)),
+      );
+      return { previous };
+    },
+    onSuccess: (saved) => {
+      queryClient.setQueryData<ClientEventStop[]>(stopsKey(eventId), (old) =>
+        old?.map((s) => (s.id === saved.id ? { ...s, fractional_index: saved.fractional_index } : s)),
+      );
+    },
+    onError: (err, _vars, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(stopsKey(eventId), ctx.previous);
+      // Refetch on every failure so the cache matches the server again
+      queryClient.invalidateQueries({ queryKey: stopsKey(eventId) });
+      console.error(
+        err instanceof MoveError && err.conflict
+          ? "This itinerary was updated by someone else"
+          : "Couldn't move stop",
+      );
+    },
+  });
+
+
 
   // Track OS color scheme so the map style can switch with it
   useEffect(() => {
@@ -258,54 +321,34 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
 
   // TODO: Use reverse geocoding to get poi details
   useEffect(() => {
-  const map = mapRef.current?.getMap();
-  if (!map || !mapInstanceReady) return;
+    const map = mapRef.current?.getMap();
+    if (!map || !mapInstanceReady) return;
 
-  map.addInteraction('poi-click', {
-    type: 'click',
-    target: { featuresetId: 'poi', importId: 'basemap' },
-    handler: (e) => {
-      const feature = e.feature;
-      if (!feature) return;
+    map.addInteraction('poi-click', {
+      type: 'click',
+      target: { featuresetId: 'poi', importId: 'basemap' },
+      handler: (e) => {
+        const feature = e.feature;
+        if (!feature) return;
 
-      // POIs are points, so geometry.coordinates is [lng, lat]
-      const [lon, lat] = (feature.geometry as Point).coordinates;
-      const { name, address } = feature.properties;
-      console.log(`Clicked ${address} at: ${lon}, ${lat}`);
+        // POIs are points, so geometry.coordinates is [lng, lat]
+        const [lon, lat] = (feature.geometry as Point).coordinates;
+        const { name, address } = feature.properties;
+        console.log(`Clicked ${address} at: ${lon}, ${lat}`);
 
-      // setStopMarkerCoord({ lon: lon, lat: lat});
-      // setSelectedStop({ name: name, address: address, mapbox_id: feature.id, lon: lon, lat: lat } as any);
-    },
-  });
+        // setStopMarkerCoord({ lon: lon, lat: lat});
+        // setSelectedStop({ name: name, address: address, mapbox_id: feature.id, lon: lon, lat: lat } as any);
+      },
+    });
 
-  return () => {
-    map.removeInteraction('poi-click');
-  };
-}, [mapInstanceReady]);
+    return () => {
+      map.removeInteraction('poi-click');
+    };
+  }, [mapInstanceReady]);
 
 
-  async function onReorderEventStops(stops: ClientEventStop[]) {
-    const orderUnchanged = stops.length === eventStops.length
-      && stops.every((s, i) => s.mapbox_id === eventStops[i].mapbox_id);
-    if (orderUnchanged) {
-      return;
-    }
 
-    // Stops not yet persisted (no id) can't be reordered on the backend yet
-    const persistedStops = stops.filter((s): s is ClientEventStop & { id: number } => s.id !== undefined);
-
-    try {
-      const res = await reorderEventStops(event.id, persistedStops);
-      if (!res.success) {
-        console.log("Failed to reorder event stops")
-      }
-    }
-    catch (err) {
-      console.log("Error reordering event stops")
-    }
-  }
-
-   function selectEventStop(stop: ClientEventStop) {
+  function selectEventStop(stop: ClientEventStop) {
     setOpenStopId(stop.mapbox_id);
     setSelectedEventStop(stop);
     mapRef.current?.getMap().flyTo({
@@ -334,7 +377,7 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
   return (
     <div ref={containerRef} className='absolute inset-0 z-0 w-full h-full'>
 
-       <AnimatePresence>
+      <AnimatePresence>
         {isDeleteStopModalOpen &&
           <>
             {/* Darkens the background and allows the user to dismiss the modal by clicking outside it */}
@@ -347,28 +390,28 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
               transition={{ duration: 0.15 }}
             />
 
-              <motion.div
-                className="fixed top-1/2 left-1/2 z-50 h-[240px] w-[400px] bg-bg-secondary border-1 border-border-primary rounded-xl shadow-md overflow-hidden p-4"
-                initial={{ opacity: 0, scale: 0.95, x: "-50%", y: "-50%" }}
-                animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
-                exit={{ opacity: 0, scale: 0.95, x: "-50%", y: "-50%" }}
-                transition={{ duration: 0.15 }}
-              >
-                <section className="flex w-full justify-between">
-                  <span className="flex flex-col">
-                    <h2 className="text-xl font-medium">Delete Stop {selectedEventStop?.name}?</h2>
-                    <p className="text-text-secondary text-sm">This action cannot be undone</p>
-                  </span>
-                  <button onClick={()=>setIsDeleteStopModalOpen(false)} className="hover:cursor-pointer bg-bg-secondary rounded-sm p-1 w-fit h-fit"><X size={16}/></button>
-                </section>
+            <motion.div
+              className="fixed top-1/2 left-1/2 z-50 h-[240px] w-[400px] bg-bg-secondary border-1 border-border-primary rounded-xl shadow-md overflow-hidden p-4"
+              initial={{ opacity: 0, scale: 0.95, x: "-50%", y: "-50%" }}
+              animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
+              exit={{ opacity: 0, scale: 0.95, x: "-50%", y: "-50%" }}
+              transition={{ duration: 0.15 }}
+            >
+              <section className="flex w-full justify-between">
+                <span className="flex flex-col">
+                  <h2 className="text-xl font-medium">Delete Stop {selectedEventStop?.name}?</h2>
+                  <p className="text-text-secondary text-sm">This action cannot be undone</p>
+                </span>
+                <button onClick={() => setIsDeleteStopModalOpen(false)} className="hover:cursor-pointer bg-bg-secondary rounded-sm p-1 w-fit h-fit"><X size={16} /></button>
+              </section>
             </motion.div>
           </>
         }
       </AnimatePresence>
 
-      
+
       {/* Left panel that manages all the stops and participants */}
-      <EventManagementSidePanel eventId={event.id} eventStops={eventStops} members={eventMembers} onReorderStops={onReorderEventStops} onSelectStop={selectEventStop} activeStopId={openStopId} activeEventStopId={activeStopId} />
+      <EventManagementSidePanel eventId={event.id} eventStops={eventStops} members={eventMembers} onMoveStop={moveStop.mutate} onSelectStop={selectEventStop} activeStopId={openStopId} activeEventStopId={activeStopId} />
 
       {/* Dismissable right panel that shows the event details */}
       <EventDetailsSidePanel event={event} members={eventMembers} isOpen={isEventDetailsPanelOpen} onDismiss={onDismissEventDetailsPanel} />
@@ -385,10 +428,10 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
             stop={currentSelectedStop}
             members={eventMembers}
             isOpen={isEventStopPanelOpen}
-            onDeleteStop={() => setIsDeleteStopModalOpen(true)} 
+            onDeleteStop={() => setIsDeleteStopModalOpen(true)}
             onDismiss={onDismissEventStopPanel}
             isActive={currentSelectedStop.id !== undefined && currentSelectedStop.id === activeStopId}
-            onToggleActive={(isActive) => currentSelectedStop.id !== undefined && onToggleActiveStop(currentSelectedStop.id, isActive)}
+            onToggleActive={(isActive) => currentSelectedStop.id !== undefined && onSetActiveStop(currentSelectedStop.id, isActive)}
           />
         );
       })()}
@@ -429,7 +472,6 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
               accessToken={environment.mapbox.accessToken ?? ""}
               map={mapRef.current!.getMap()}
               onRetrieve={(res) => {
-                console.log(res)
                 setSelectedStop(searchResultToClientEventStop(res));
               }}
             />
@@ -543,9 +585,9 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
                           >
                             {
                               isEventStopPanelOpen ?
-                              <Minimize2 size={16} strokeWidth={2.5} className='text-text-secondary'/>
-                              :
-                              <Maximize2 size={16} strokeWidth={2.5} className='text-text-secondary' />
+                                <Minimize2 size={16} strokeWidth={2.5} className='text-text-secondary' />
+                                :
+                                <Maximize2 size={16} strokeWidth={2.5} className='text-text-secondary' />
                             }
                           </button>
                         </div>
@@ -563,14 +605,14 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
                                 <span className='flex items-center'>
                                   <ul id="arrived-members" className='flex max-w-30'>
                                     {
-                                      arrivedMemberProfiles.slice(0, limit).map((member, index)=> (
-                                        <Image  
-                                        key={member.user.clerk_id}
-                                        width={32}
-                                        height={32}
-                                        className={`rounded-full border-2 border-border-primary ${index > 0 && "translate-x-[-10px]"}`}
-                                        alt="user profile"
-                                        src={member.user.image_url!}
+                                      arrivedMemberProfiles.slice(0, limit).map((member, index) => (
+                                        <Image
+                                          key={member.user.clerk_id}
+                                          width={32}
+                                          height={32}
+                                          className={`rounded-full border-2 border-border-primary ${index > 0 && "translate-x-[-10px]"}`}
+                                          alt="user profile"
+                                          src={member.user.image_url!}
                                         />
                                       ))
                                     }
@@ -579,7 +621,7 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
                                   {
                                     arrivedMemberProfiles.length > limit && (
                                       <div className='w-[32px] h-[32px] p-2 flex items-center justify-center bg-bg-tertiary border-2 border-border-primary rounded-full translate-x-[-10px]'>
-                                        <p className='text-md text-text-secondary'>+{arrivedMemberProfiles.length  - limit}</p>
+                                        <p className='text-md text-text-secondary'>+{arrivedMemberProfiles.length - limit}</p>
                                       </div>
                                     )
                                   }

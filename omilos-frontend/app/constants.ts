@@ -30,7 +30,7 @@ export const createApiRoutes = (baseUrl: string) => {
       stops: {
         list:   (eventId: number) => `${baseUrl}/events/${eventId}/stops`,
         create: (eventId: number) => `${baseUrl}/events/${eventId}/stops`,
-        reorder: (eventId: number) => `${baseUrl}/events/${eventId}/stops/order`,
+        reorder: (eventId: number, stopId: number) => `${baseUrl}/events/${eventId}/stops/${stopId}/reorder`,
         updateStop: (eventId: number) => `${baseUrl}/events/${eventId}/stops`,
         deleteStop: (eventId: number, stopId: number) => `${baseUrl}/events/${eventId}/stops/${stopId}`,
         setMemberStatus: (id: number, stopId: number) => `${baseUrl}/events/${id}/stops/${stopId}/member-status`

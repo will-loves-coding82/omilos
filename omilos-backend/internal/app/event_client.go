@@ -6,16 +6,65 @@ import (
 	"errors"
 	"fmt"
 	"omilos-backend/internal/slug"
+	"regexp"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 )
 
-// ErrStopNotFound is returned when a stop id doesn't belong to the event id
 // it was requested under.
-var ErrStopNotFound = errors.New("stop not found for this event")
-var ErrEventNotFound = errors.New("event not found")
-var ErrStopSetMismatch = errors.New("stops do match database records")
+var (
+	ErrEventNotFound          = errors.New("event not found")
+	ErrStopNotFound           = errors.New("stop not found")
+	ErrStopAlreadyExists      = errors.New("stop already added")
+	ErrFractionalIndexTaken   = errors.New("fractional index collision, retry")
+	ErrInvalidFractionalIndex = errors.New("invalid fractional index")
+	ErrStopLimitReached       = errors.New("stop limit reached")
+)
+
+const (
+	MaxStopsPerEvent      = 50
+	maxFractionalIndexLen = 64
+
+	// Must match the constraint names in the migration
+	uniqEventMapboxName     = "event_stops_event_mapbox_uniq"
+	uniqEventFractionalName = "event_stops_event_key_uniq"
+)
+
+// jittered-fractional-indexing emits base-62 keys (0-9, A-Z, a-z).
+var fractionalIndexPattern = regexp.MustCompile(`^[0-9A-Za-z]+$`)
+
+func ValidateFractionalIndex(k string) error {
+	if k == "" || len(k) > maxFractionalIndexLen || !fractionalIndexPattern.MatchString(k) {
+		return ErrInvalidFractionalIndex
+	}
+	return nil
+}
+
+// IsUniqueViolation reports whether err is a 23505 on the named constraint.
+func IsUniqueViolation(err error, constraint string) bool {
+	var pqErr *pq.Error
+	return errors.As(err, &pqErr) && pqErr.Code == "23505" && pqErr.Constraint == constraint
+}
+
+// lockEvent takes the per-event row lock until the transaction ends.
+// Call it first in every write transaction.
+func lockEvent(ctx context.Context, tx *sqlx.Tx, eventId int64) error {
+	var locked int64
+	err := tx.GetContext(ctx, &locked, `SELECT id FROM events WHERE id = $1 FOR NO KEY UPDATE`, eventId)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrEventNotFound
+	}
+	return err
+}
+
+// countStops must run after lockEvent so the count is exact.
+func countStops(ctx context.Context, tx *sqlx.Tx, eventId int64) (int, error) {
+	var n int
+	err := tx.GetContext(ctx, &n, `SELECT COUNT(*) FROM event_stops WHERE event_id = $1`, eventId)
+	return n, err
+}
 
 type Event struct {
 	Id           int64         `json:"id" db:"id"`
@@ -32,14 +81,14 @@ type Event struct {
 }
 
 type EventStop struct {
-	Id        int64   `json:"id" db:"id"`
-	EventId   int64   `json:"event_id" db:"event_id"`
-	SortId    int64   `json:"sort_id" db:"sort_id"` // This is automatically handled by backend queries
-	MapboxId  string  `json:"mapbox_id" db:"mapbox_id"`
-	Name      string  `json:"name" db:"name"`
-	Address   string  `json:"address" db:"address"`
-	Latitude  float64 `json:"latitude" db:"latitude"`
-	Longitude float64 `json:"longitude" db:"longitude"`
+	Id              int64   `json:"id" db:"id"`
+	EventId         int64   `json:"event_id" db:"event_id"`
+	FractionalIndex string  `json:"fractional_index" db:"fractional_index"`
+	MapboxId        string  `json:"mapbox_id" db:"mapbox_id"`
+	Name            string  `json:"name" db:"name"`
+	Address         string  `json:"address" db:"address"`
+	Latitude        float64 `json:"latitude" db:"latitude"`
+	Longitude       float64 `json:"longitude" db:"longitude"`
 
 	// Custom fields for HTTP response payloads
 	StopMemberStatusArr JSONSlice[StopMemberStatus] `json:"stop_member_status_arr" db:"stop_member_status_arr"`
@@ -145,7 +194,7 @@ const getEventMembersQuery = `
 `
 
 const getEventStopsQuery = `
-	SELECT es.id, es.event_id, es.sort_id, es.mapbox_id, es.name, es.address, es.latitude, es.longitude,
+	SELECT es.id, es.event_id, es.fractional_index, es.mapbox_id, es.name, es.address, es.latitude, es.longitude,
 	COALESCE((
 		SELECT json_agg(jsonb_build_object(
 			'user_id', sms.user_id,
@@ -160,7 +209,7 @@ const getEventStopsQuery = `
 	), '[]') AS stop_member_status_arr
 	FROM event_stops es
 	WHERE es.event_id = $1
-	ORDER BY es.sort_id, es.id;
+	ORDER BY es.fractional_index COLLATE "C", es.id;
 `
 
 const isEventMemberQuery = `
@@ -190,26 +239,16 @@ const updateEventMemberRoleQuery = `
 `
 
 const addEventStopQuery = `
-	INSERT INTO event_stops(event_id, sort_id, mapbox_id, name, address, latitude, longitude)
-	VALUES (
-		$1,
-		COALESCE((SELECT MAX(sort_id) + 1 FROM event_stops WHERE event_id = $1), 0),
-		$2, $3, $4, $5, $6
-	)
-	RETURNING id, event_id, sort_id, mapbox_id, name, address, latitude, longitude;
+	INSERT INTO event_stops(event_id, fractional_index, mapbox_id, name, address, latitude, longitude)
+	VALUES ($1, $2, $3, $4, $5, $6, $7)
+	RETURNING id, event_id, fractional_index, mapbox_id, name, address, latitude, longitude;
 `
 
-const reorderEventStopsQuery = `
-	BEGIN;
-	SELECT id FROM events WHERE id = $2 FOR NO KEY UPDATE;
-
-	UPDATE event_stops AS es
-	SET sort_id = data.sort_id
-	FROM (
-		SELECT * FROM unnest($1::int[], $2::int[]) AS t(id, sort_id)
-	) AS data
-	WHERE es.id = data.id AND es.event_id = $3;
-	COMMIT;
+const reorderEventStopQuery = `
+	UPDATE event_stops
+	SET fractional_index = $1
+	WHERE event_id = $2 AND id = $3
+	RETURNING id, fractional_index;
 `
 
 const updateActiveStopQuery = `
@@ -379,69 +418,78 @@ func (e *EventClient) GetEventStops(eventId int64) ([]EventStop, error) {
 	return stops, nil
 }
 
-type AddEventStopReturnValues = EventStop
+type AddEventStopResult = EventStop
 
-func (e *EventClient) AddEventStop(eventId int64, stop EventStop) (AddEventStopReturnValues, error) {
-	var returnValue AddEventStopReturnValues
-	err := e.db.Conn().Get(
-		&returnValue, addEventStopQuery,
-		eventId, stop.MapboxId, stop.Name, stop.Address, stop.Latitude, stop.Longitude,
-	)
-	if err != nil {
-		return AddEventStopReturnValues{}, err
+func (e *EventClient) AddEventStop(ctx context.Context, eventId int64, stop EventStop) (EventStop, error) {
+	if err := ValidateFractionalIndex(stop.FractionalIndex); err != nil {
+		return EventStop{}, err
 	}
 
-	return returnValue, nil
-}
-
-func (e *EventClient) ReorderEventStops(ctx context.Context, eventId int64, stopIds []int64) ([]EventStop, error) {
 	tx, err := e.db.Conn().BeginTxx(ctx, nil)
 	if err != nil {
-		return make([]EventStop, 0), err
+		return EventStop{}, err
 	}
-
 	defer tx.Rollback()
 
-	var lockedID int
-	if err := tx.GetContext(ctx, &lockedID,
-		`SELECT id FROM events WHERE id = $1 FOR NO KEY UPDATE`, eventId); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrEventNotFound
-		}
-		return nil, err
+	if err := lockEvent(ctx, tx, eventId); err != nil {
+		return EventStop{}, err
 	}
 
-	// Read current stops under the lock (also used for set validation)
-	var current []EventStop
-	if err := tx.SelectContext(ctx, &current, getEventStopsQuery, eventId); err != nil {
-		return nil, err
+	n, err := countStops(ctx, tx, eventId)
+	if err != nil {
+		return EventStop{}, err
+	}
+	if n >= MaxStopsPerEvent {
+		return EventStop{}, ErrStopLimitReached
 	}
 
-	if !sameIDSet(current, stopIds) {
-		// Return the canonical list alongside the error so the handler
-		// can send it back with the 409. No second round trip needed.
-		return current, nil
+	var saved EventStop
+	err = tx.GetContext(ctx, &saved, addEventStopQuery,
+		eventId, stop.FractionalIndex, stop.MapboxId, stop.Name, stop.Address, stop.Latitude, stop.Longitude)
+
+	switch {
+	case IsUniqueViolation(err, uniqEventMapboxName):
+		return EventStop{}, ErrStopAlreadyExists
+	case IsUniqueViolation(err, uniqEventFractionalName):
+		return EventStop{}, ErrFractionalIndexTaken
+	case err != nil:
+		return EventStop{}, err
+	}
+	return saved, tx.Commit()
+}
+
+type ReorderStopResult struct {
+	Id              int64  `json:"id" db:"id"`
+	FractionalIndex string `json:"fractional_index" db:"fractional_index"`
+}
+
+func (e *EventClient) ReorderEventStop(ctx context.Context, eventId, stopId int64, fractionalIndex string) (ReorderStopResult, error) {
+	if err := ValidateFractionalIndex(fractionalIndex); err != nil {
+		return ReorderStopResult{}, err
 	}
 
-	if _, err := tx.ExecContext(ctx, `
-		UPDATE event_stops es
-		SET sort_id = t.ord - 1
-		FROM unnest($1::int[]) WITH ORDINALITY AS t(id, ord)
-		WHERE es.id = t.id AND es.event_id = $2`,
-		pq.Array(stopIds), eventId); err != nil {
-		return nil, err
+	tx, err := e.db.Conn().BeginTxx(ctx, nil)
+	if err != nil {
+		return ReorderStopResult{}, err
+	}
+	defer tx.Rollback()
+
+	if err := lockEvent(ctx, tx, eventId); err != nil {
+		return ReorderStopResult{}, err
 	}
 
-	// Re-read canonical list after the update
-	var updated []EventStop
-	if err := tx.SelectContext(ctx, &updated, getEventStopsQuery, eventId); err != nil {
-		return nil, err
-	}
+	var out ReorderStopResult
+	err = tx.GetContext(ctx, &out, reorderEventStopQuery, fractionalIndex, eventId, stopId)
 
-	if err := tx.Commit(); err != nil {
-		return nil, err
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return ReorderStopResult{}, ErrStopNotFound
+	case IsUniqueViolation(err, uniqEventFractionalName):
+		return ReorderStopResult{}, ErrFractionalIndexTaken
+	case err != nil:
+		return ReorderStopResult{}, err
 	}
-	return updated, nil
+	return out, tx.Commit()
 }
 
 // UpdateActiveStop sets the event's currently active stop. A nil stopId clears it.

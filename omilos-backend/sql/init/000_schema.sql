@@ -28,7 +28,7 @@ CREATE TABLE events (
 CREATE TABLE event_stops (
   id SERIAL PRIMARY KEY,
   event_id INTEGER NOT NULL,
-  sort_id INTEGER NOT NULL,
+  fractional_index TEXT NOT NULL COLLATE "C",
   mapbox_id VARCHAR(255) NOT NULL,
   name TEXT NOT NULL,
   address TEXT NOT NULL,
@@ -37,6 +37,11 @@ CREATE TABLE event_stops (
   CONSTRAINT fk_event_id FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE CASCADE,
   CONSTRAINT event_stops_event_mapbox_uniq UNIQUE (event_id, mapbox_id)
 );
+
+ALTER TABLE event_stops
+ADD CONSTRAINT event_stops_event_key_uniq UNIQUE (event_id, fractional_index);
+
+CREATE INDEX idx_stops_fractional_index ON event_stops(fractional_index);
 
 CREATE TYPE e_rsvp_status 
 AS ENUM ('pending', 'accepted', 'declined');

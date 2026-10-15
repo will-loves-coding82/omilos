@@ -5,6 +5,7 @@
 //////////
 // source: event_client.go
 
+export const MaxStopsPerEvent = 50;
 export interface Event {
   id: number /* int64 */;
   title: string;
@@ -21,7 +22,7 @@ export interface Event {
 export interface EventStop {
   id: number /* int64 */;
   event_id: number /* int64 */;
-  sort_id: number /* int64 */; // This is automatically handled by backend queries
+  fractional_index: string;
   mapbox_id: string;
   name: string;
   address: string;
@@ -55,7 +56,11 @@ export interface StopMemberStatus {
   stop_status: StopStatus;
   status_updated_at: StopStatus;
 }
-export type AddEventStopReturnValues = EventStop;
+export type AddEventStopResult = EventStop;
+export interface ReorderStopResult {
+  id: number /* int64 */;
+  fractional_index: string;
+}
 
 //////////
 // source: event_policies.go

@@ -15,6 +15,10 @@ import clsx from 'clsx'
 import { AppAbility, Can } from "@/app/providers/ability-provider";
 import { MemberRole } from "@/app/types/api-types";
 import { updateEventMemberRole } from "@/app/actions/event-actions";
+import { generateKeyBetween } from "jittered-fractional-indexing";
+import { useQueryClient } from "@tanstack/react-query";
+import { stopsKey } from "@/app/providers/query-keys";
+import { MoveStopVars } from "../details/event-details-client";
 
 const PANEL_WIDTH_DESKTOP = "374px";
 
@@ -22,13 +26,21 @@ type EventSidePanelProps = {
   eventId: number,
   members: ClientEventMember[];
   eventStops: ClientEventStop[];
-  onReorderStops: (stops: ClientEventStop[]) => void;
+  onMoveStop: (vars: MoveStopVars) => void;
   onSelectStop: (stop: ClientEventStop) => void;
   activeStopId: string | null;
   activeEventStopId: number | null;
 };
 
-export default function EventManagementSidePanelClient({ eventId, members, eventStops, onReorderStops, onSelectStop, activeStopId, activeEventStopId }: EventSidePanelProps) {
+export type PersistedStop = ClientEventStop & { id: number; fractional_index: string };
+
+export function isPersisted(s: ClientEventStop): s is PersistedStop {
+  return s.id !== undefined && !!s.fractional_index;
+}
+
+export default function EventManagementSidePanelClient({ eventId, members, eventStops, onMoveStop, onSelectStop, activeStopId, activeEventStopId }: EventSidePanelProps) {
+  const queryClient = useQueryClient();
+  
   const [activeTab, setActiveTab] = useState<string>("Stops");
   const ref = useRef<HTMLUListElement | null>(null);
 
@@ -68,9 +80,36 @@ export default function EventManagementSidePanelClient({ eventId, members, event
           <DragDropProvider
             onDragEnd={(event) => {
               if (event.canceled) return;
+              const sourceId = event.operation.source?.id;
+              if (sourceId == null) return;
+
               const byId = new Map(eventStops.map((s) => [s.mapbox_id, s]));
               const ids = move(eventStops.map((s) => s.mapbox_id), event);
-              onReorderStops(ids.map((id) => byId.get(id)!));
+              const reordered = ids.map((id) => byId.get(id)!);
+
+              const i = reordered.findIndex((s) => s.mapbox_id === sourceId);
+              if (i === -1) return;
+              if (reordered.every((s, idx) => s.mapbox_id === eventStops[idx].mapbox_id)) return;
+
+              const moved = reordered[i];
+              const prev = reordered[i - 1];
+              const next = reordered[i + 1];
+
+              // Narrows `moved` to PersistedStop. Neighbors must have keys to compute a key between them.
+              if (!isPersisted(moved) || (prev && !prev.fractional_index) || (next && !next.fractional_index)) {
+                return;
+              }
+
+              let key: string;
+              try {
+                key = generateKeyBetween(prev?.fractional_index ?? null, next?.fractional_index ?? null);
+              } catch {
+                // Cached keys are out of order. Resync from the server.
+                queryClient.invalidateQueries({ queryKey: stopsKey(eventId) });
+                return;
+              }
+
+              onMoveStop({ stopId: moved.id, fractionalIndex: key, reordered });
             }}
           >
             <ul ref={ref} className="flex flex-col gap-2">
@@ -269,7 +308,7 @@ function SortableStop({ stop, index, onSelectStop, isSelected, isActive }: Sorta
 
   const id = stop.mapbox_id
   const handleRef = useRef<HTMLButtonElement | null>(null)
-  const { ref, isDragging } = useSortable({ id, index, handle: handleRef, disabled: ability.cannot('update', 'Stop')});
+  const { ref, isDragging } = useSortable({ id, index, handle: handleRef, disabled: ability.cannot('update', 'Stop') || !stop.id || !stop.fractional_index});
 
   return (
     <div

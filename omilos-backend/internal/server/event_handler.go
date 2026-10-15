@@ -49,15 +49,15 @@ func (h *EventHandler) CreateNewEvent(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
-	var event app.Event
-	err := json.NewDecoder(r.Body).Decode(&event)
+	var body app.Event
+	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
 		logger.Events.Warn("failed to decode request body", zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.BadRequest(w, r, err)
 		return
 	}
 
-	newSlug, err := h.client.CreateNewEventTx(ctx, user.Id, event)
+	newSlug, err := h.client.CreateNewEventTx(ctx, user.Id, body)
 	if err != nil {
 		logger.Events.Error("failed to create event", zap.Int64("userId", user.Id), zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.InternalError(w, r, err)
@@ -148,6 +148,14 @@ func (h *EventHandler) GetEventDetails(w http.ResponseWriter, r *http.Request) {
 	httpio.JSON(w, r, http.StatusOK, GetEventPayload{Event: event})
 }
 
+type AddEventStopBody struct {
+	FractionalIndex string  `json:"fractional_index"`
+	MapboxId        string  `json:"mapbox_id"`
+	Name            string  `json:"name"`
+	Address         string  `json:"address"`
+	Latitude        float64 `json:"latitude"`
+	Longitude       float64 `json:"longitude"`
+}
 type AddEventStopPayload struct {
 	NewStop app.EventStop `json:"new_stop"`
 }
@@ -168,9 +176,8 @@ func (h *EventHandler) AddNewEventStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var stop app.EventStop
-	log.Println("Decoding body")
-	err = json.NewDecoder(r.Body).Decode(&stop)
+	var body AddEventStopBody
+	err = json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
 		logger.Events.Warn("failed to decode request body", zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.BadRequest(w, r, err)
@@ -178,14 +185,15 @@ func (h *EventHandler) AddNewEventStop(w http.ResponseWriter, r *http.Request) {
 	}
 
 	eventStop := app.EventStop{
-		MapboxId:  stop.MapboxId,
-		Name:      stop.Name,
-		Address:   stop.Address,
-		Latitude:  stop.Latitude,
-		Longitude: stop.Longitude,
+		FractionalIndex: body.FractionalIndex,
+		MapboxId:        body.MapboxId,
+		Name:            body.Name,
+		Address:         body.Address,
+		Latitude:        body.Latitude,
+		Longitude:       body.Longitude,
 	}
 
-	newStop, err := h.client.AddEventStop(eventId, eventStop)
+	newStop, err := h.client.AddEventStop(r.Context(), eventId, eventStop)
 	if err != nil {
 		logger.Events.Error("failed to add event stop", zap.Int64("eventId", eventId), zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.InternalError(w, r, err)
@@ -195,44 +203,54 @@ func (h *EventHandler) AddNewEventStop(w http.ResponseWriter, r *http.Request) {
 	httpio.JSON(w, r, http.StatusCreated, AddEventStopPayload{NewStop: newStop})
 }
 
-func (h *EventHandler) ReorderEventStops(w http.ResponseWriter, r *http.Request) {
-	_, ok := UserFromContext(r.Context())
-	if !ok {
-		logger.Events.Error("no user in context", zap.String("path", r.URL.Path))
-		httpio.InternalError(w, r, errors.New("no user in context"))
-		return
-	}
+type ReorderEventStopBody struct {
+	FractionalIndex string `json:"fractional_index"`
+}
 
+type ReorderEventStopPayload struct {
+	StopId          int64  `json:"stop_id"`
+	FractionalIndex string `json:"fractional_index"`
+}
+
+func (h *EventHandler) ReorderEventStop(w http.ResponseWriter, r *http.Request) {
 	eventId, err := parseEventIdPathValue(r)
 	if err != nil {
-		logger.Events.Warn("failed to parse eventId path parameter", zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.BadRequest(w, r, err)
 		return
 	}
-
-	var reorderedStopIds []int64
-	err = json.NewDecoder(r.Body).Decode(&reorderedStopIds)
+	stopId, err := parseStopIdPathValue(r)
 	if err != nil {
-		logger.Events.Warn("failed to decode request body", zap.String("path", r.URL.Path), zap.Error(err))
 		httpio.BadRequest(w, r, err)
 		return
 	}
 
-	reorderedStops, err := h.client.ReorderEventStops(context.Background(), eventId, reorderedStopIds)
+	var body ReorderEventStopBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpio.BadRequest(w, r, err)
+		return
+	}
+	if err := app.ValidateFractionalIndex(body.FractionalIndex); err != nil {
+		httpio.BadRequest(w, r, err)
+		return
+	}
+
+	// Role check (canUpdateStops) runs in middleware before this handler.
+	out, err := h.client.ReorderEventStop(r.Context(), eventId, stopId, body.FractionalIndex)
+	logger.Events.Error("failed to reorder stop", zap.Error(err))
+
 	switch {
-	case errors.Is(err, app.ErrStopSetMismatch):
-		httpio.JSON(w, r, http.StatusConflict, reorderedStops) // current canonical list
-	case errors.Is(err, app.ErrEventNotFound):
-		http.Error(w, app.ErrEventNotFound.Error(), http.StatusNotFound)
-		httpio.InternalError(w, r, app.ErrEventNotFound)
+	case errors.Is(err, app.ErrStopNotFound), errors.Is(err, app.ErrEventNotFound):
+		http.Error(w, err.Error(), http.StatusNotFound)
+	case errors.Is(err, app.ErrFractionalIndexTaken):
+		http.Error(w, err.Error(), http.StatusConflict)
 	case err != nil:
 		httpio.InternalError(w, r, err)
 	default:
-		httpio.JSON(w, r, http.StatusOK, StopsPayload{Stops: reorderedStops})
+		httpio.JSON(w, r, http.StatusOK, out) // wrapped as { data: { id, fractional_index } }
 	}
 }
 
-type UpdateActiveStopPayload struct {
+type UpdateActiveStopBody struct {
 	StopId *int64 `json:"stop_id"` // serializes to nil when value is null
 }
 
@@ -251,7 +269,7 @@ func (h *EventHandler) UpdateActiveStop(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	var payload UpdateActiveStopPayload
+	var payload UpdateActiveStopBody
 	err = json.NewDecoder(r.Body).Decode(&payload)
 	if err != nil {
 		logger.Events.Warn("failed to decode request body", zap.String("path", r.URL.Path), zap.Error(err))
