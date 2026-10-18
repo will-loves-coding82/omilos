@@ -16,6 +16,13 @@ import (
 
 var testDB database.Service
 
+const (
+	dbName   = "test-db"
+	dbPwd    = "test-password"
+	dbUser   = "test-user"
+	dbSchema = "test"
+)
+
 func getSqlFiles(dir string) []string {
 	files, err := os.ReadDir(dir)
 	if err != nil {
@@ -31,27 +38,6 @@ func getSqlFiles(dir string) []string {
 }
 
 func mustStartPostgresContainer() (func(context.Context, ...testcontainers.TerminateOption) error, error) {
-
-	os.Setenv("IS_TESTING", "true")
-
-	var (
-		dbName = os.Getenv("OMILOS_DB_DATABASE")
-		dbPwd  = os.Getenv("OMILOS_DB_PASSWORD")
-		dbUser = os.Getenv("OMILOS_DB_USERNAME")
-	)
-
-	if len(dbName) == 0 {
-		log.Fatal("OMILOS_DB_DATABASE cannot be empty")
-	}
-
-	if len(dbPwd) == 0 {
-		log.Fatal("OMILOS_DB_PASSWORD cannot be empty")
-	}
-
-	if len(dbUser) == 0 {
-		log.Fatal("OMILOS_DB_USERNAME cannot be empty")
-	}
-
 	initScripts := append(
 		getSqlFiles(filepath.Join("..", "..", "sql", "init")),
 		getSqlFiles(filepath.Join("..", "..", "sql", "testdata"))...,
@@ -83,7 +69,7 @@ func mustStartPostgresContainer() (func(context.Context, ...testcontainers.Termi
 		return dbContainer.Terminate, err
 	}
 
-	db := database.NewCustom(dbHost, dbPort.Port())
+	db := database.NewCustom(dbUser, dbPwd, dbHost, dbPort.Port(), dbName)
 	testDB = db
 
 	return dbContainer.Terminate, err

@@ -59,9 +59,9 @@ func New() Service {
 	return dbInstance
 }
 
-func NewCustom(customHost string, customPort string) Service {
-	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable&search_path=%s", username, password, customHost, customPort, database, schema)
-	log.Print(connStr)
+func NewCustom(customUser string, customPassword string, customHost string, customPort string, customDatabase string) Service {
+	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", customUser, customPassword, customHost, customPort, customDatabase)
+	log.Printf("Connection string: %s\n", connStr)
 	db, err := sqlx.Open("pgx", connStr)
 	if err != nil {
 		log.Fatal(err)
