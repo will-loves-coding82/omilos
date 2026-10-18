@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -41,6 +42,20 @@ var (
 	schema     = os.Getenv("OMILOS_DB_SCHEMA")
 	dbInstance *service
 )
+
+func GetSqlFiles(dir string) []string {
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		log.Fatalf("failed to read SQL directory %s: %v", dir, err)
+	}
+	var paths []string
+	for _, f := range files {
+		if !f.IsDir() && filepath.Ext(f.Name()) == ".sql" {
+			paths = append(paths, filepath.Join(dir, f.Name()))
+		}
+	}
+	return paths
+}
 
 func New() Service {
 	// Reuse Connection

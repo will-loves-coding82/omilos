@@ -3,7 +3,7 @@ package database
 import (
 	"context"
 	"log"
-	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -12,32 +12,34 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-func mustStartPostgresContainer() (func(context.Context, ...testcontainers.TerminateOption) error, error) {
+const (
+	dbName   = "test-db"
+	dbPwd    = "test-password"
+	dbUser   = "test-user"
+	dbSchema = "test"
+)
 
-	var (
-		dbName = os.Getenv("OMILOS_DB_DATABASE")
-		dbPwd  = os.Getenv("OMILOS_DB_PASSWORD")
-		dbUser = os.Getenv("OMILOS_DB_USERNAME")
+func mustStartPostgresContainer() (func(context.Context, ...testcontainers.TerminateOption) error, error) {
+	initScripts := append(
+		GetSqlFiles(filepath.Join("..", "..", "sql", "init")),
+		GetSqlFiles(filepath.Join("..", "..", "sql", "testdata"))...,
 	)
 
 	dbContainer, err := postgres.Run(
 		context.Background(),
 		"postgres:18.6-alpine",
+		postgres.WithOrderedInitScripts(initScripts...),
 		postgres.WithDatabase(dbName),
 		postgres.WithUsername(dbUser),
 		postgres.WithPassword(dbPwd),
 		testcontainers.WithWaitStrategy(
 			wait.ForLog("database system is ready to accept connections").
 				WithOccurrence(2).
-				WithStartupTimeout(5*time.Second)),
+				WithStartupTimeout(2*time.Minute)),
 	)
 	if err != nil {
-		return nil, err
+		log.Fatal(err)
 	}
-
-	database = dbName
-	password = dbPwd
-	username = dbUser
 
 	dbHost, err := dbContainer.Host(context.Background())
 	if err != nil {
@@ -51,6 +53,10 @@ func mustStartPostgresContainer() (func(context.Context, ...testcontainers.Termi
 
 	host = dbHost
 	port = dbPort.Port()
+	database = dbName
+	username = dbUser
+	password = dbPwd
+	schema = dbSchema
 
 	return dbContainer.Terminate, err
 }

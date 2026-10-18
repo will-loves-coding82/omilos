@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"omilos-backend/internal/database"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -23,24 +22,10 @@ const (
 	dbSchema = "test"
 )
 
-func getSqlFiles(dir string) []string {
-	files, err := os.ReadDir(dir)
-	if err != nil {
-		log.Fatalf("failed to read SQL directory %s: %v", dir, err)
-	}
-	var paths []string
-	for _, f := range files {
-		if !f.IsDir() && filepath.Ext(f.Name()) == ".sql" {
-			paths = append(paths, filepath.Join(dir, f.Name()))
-		}
-	}
-	return paths
-}
-
 func mustStartPostgresContainer() (func(context.Context, ...testcontainers.TerminateOption) error, error) {
 	initScripts := append(
-		getSqlFiles(filepath.Join("..", "..", "sql", "init")),
-		getSqlFiles(filepath.Join("..", "..", "sql", "testdata"))...,
+		database.GetSqlFiles(filepath.Join("..", "..", "sql", "init")),
+		database.GetSqlFiles(filepath.Join("..", "..", "sql", "testdata"))...,
 	)
 
 	dbContainer, err := postgres.Run(
