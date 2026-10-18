@@ -431,10 +431,6 @@ func (e *EventClient) AddEventStop(ctx context.Context, eventId int64, stop Even
 	}
 	defer tx.Rollback()
 
-	if err := lockEvent(ctx, tx, eventId); err != nil {
-		return EventStop{}, err
-	}
-
 	n, err := countStops(ctx, tx, eventId)
 	if err != nil {
 		return EventStop{}, err
@@ -473,10 +469,6 @@ func (e *EventClient) ReorderEventStop(ctx context.Context, eventId, stopId int6
 		return ReorderStopResult{}, err
 	}
 	defer tx.Rollback()
-
-	if err := lockEvent(ctx, tx, eventId); err != nil {
-		return ReorderStopResult{}, err
-	}
 
 	var out ReorderStopResult
 	err = tx.GetContext(ctx, &out, reorderEventStopQuery, fractionalIndex, eventId, stopId)
@@ -529,21 +521,4 @@ func (e *EventClient) DeleteEventStop(eventId int64, stopId int64) error {
 	}
 
 	return nil
-}
-
-func sameIDSet(current []EventStop, ids []int64) bool {
-	if len(current) != len(ids) {
-		return false
-	}
-	have := make(map[int64]struct{}, len(current))
-	for _, s := range current {
-		have[int64(s.Id)] = struct{}{}
-	}
-	for _, id := range ids {
-		if _, ok := have[id]; !ok {
-			return false
-		}
-		delete(have, id) // catches duplicates in ids
-	}
-	return len(have) == 0
 }
