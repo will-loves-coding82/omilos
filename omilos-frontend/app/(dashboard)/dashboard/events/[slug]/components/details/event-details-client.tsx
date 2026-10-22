@@ -9,7 +9,7 @@ import { ReorderStopResult, StopMemberStatus, StopStatus } from '@/app/types/api
 import { Coordinates, ClientEventStop, ClientEvent, searchResultToClientEventStop, ClientStopMemberStatus, toClientEvent, toClientEventMember, toClientEventStop, ClientEventMember } from '@/app/types/client-types';
 
 import { usePageActions } from '../../../../components/context/header-actions-context';
-import { addEventStop, getEventDetails, getEventMembers, getEventStops, reorderEventStop, setActiveEventStop, updateStopMemberStatus } from '@/app/actions/event-actions';
+import { addEventStop, deleteEventStop, getEventDetails, getEventMembers, getEventStops, reorderEventStop, setActiveEventStop, updateStopMemberStatus } from '@/app/actions/event-actions';
 import { generateKeyBetween } from "jittered-fractional-indexing";
 
 import EventStopSidePanel from '../side-panels/stop-details-side-panel-client';
@@ -22,7 +22,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import type { Point } from 'geojson';
 
 import { UserButton, useUser } from '@clerk/nextjs';
-import { ChevronDown, CircleCheck, Maximize2, Minimize2, PanelRightClose, PanelRightOpen, X } from 'lucide-react';
+import { ChevronDown, CircleCheck, Maximize2, Minimize2, PanelRightClose, PanelRightOpen, TriangleAlert, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { eventKey, membersKey, stopsKey, userStopStatusMutationKey } from '@/app/providers/query-keys';
 import { AnimatePresence, motion } from 'motion/react';
@@ -214,31 +214,62 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
     setUserStopStatusMtn.mutate({ stopId, status });
   }
 
- const addEventStopMtn = useMutation({
-  mutationKey: ["event", eventId, "create-stop"] as const,
-  mutationFn: async (stop: ClientEventStop): Promise<ClientEventStop> => {
-    const current = queryClient.getQueryData<ClientEventStop[]>(stopsKey(eventId)) ?? [];
-    const lastKey = current.filter(isPersisted).at(-1)?.fractional_index ?? null;
-    const fractionalIndex = generateKeyBetween(lastKey, null);
+  const addEventStopMtn = useMutation({
+    mutationKey: ["event", eventId, "create-stop"] as const,
+    mutationFn: async (stop: ClientEventStop): Promise<ClientEventStop> => {
+      const current = queryClient.getQueryData<ClientEventStop[]>(stopsKey(eventId)) ?? [];
+      const lastKey = current.filter(isPersisted).at(-1)?.fractional_index ?? null;
+      const fractionalIndex = generateKeyBetween(lastKey, null);
 
-    const res = await addEventStop(eventId, { ...stop, fractional_index: fractionalIndex });
-    if (!res.success || !res.data) throw new Error(res.message ?? "Failed to add stop");
-    return toClientEventStop(res.data.newStop);
-  },
-  onSuccess: (data) => {
-    queryClient.setQueryData<ClientEventStop[]>(stopsKey(eventId), (old) => [
-      ...(old ?? []),
-      { ...data, stop_member_status_arr: [] },
-    ]);
+      const res = await addEventStop(eventId, { ...stop, fractional_index: fractionalIndex });
+      if (!res.success || !res.data) throw new Error(res.message ?? "Failed to add stop");
+      return toClientEventStop(res.data.newStop);
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData<ClientEventStop[]>(stopsKey(eventId), (old) => [
+        ...(old ?? []),
+        { ...data, stop_member_status_arr: [] },
+      ]);
 
-    setShowStopMarkerPopup(false);
-  },
-});
+      setShowStopMarkerPopup(false);
+    },
+  });
 
   async function onAddEventStop() {
     if (!clerkUser?.id) return;
     if (!selectedStop) return;
     addEventStopMtn.mutate(selectedStop);
+  }
+
+  const deleteEventStopMtn = useMutation({
+    mutationKey: ["event", eventId, "delete-stop"] as const,
+    mutationFn: async (stopId: number): Promise<number> => {
+      const res = await deleteEventStop(eventId, stopId);
+      if (!res.success) throw new Error(res.message ?? "Failed to delete stop");
+      return stopId;
+    },
+    onMutate: async (stopId) => {
+      await queryClient.cancelQueries({ queryKey: stopsKey(eventId) });
+      const previous = queryClient.getQueryData<ClientEventStop[]>(stopsKey(eventId));
+      queryClient.setQueryData<ClientEventStop[]>(stopsKey(eventId), (old) =>
+        old?.filter((s) => s.id !== stopId),
+      );
+      return { previous };
+    },
+    onSuccess: () => {
+      setIsDeleteStopModalOpen(false);
+      setIsEventStopPanelOpen(false);
+      setSelectedEventStop(null);
+    },
+    onError: (_e, _stopId, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(stopsKey(eventId), ctx.previous);
+      console.error("Couldn't delete stop");
+    },
+  });
+
+  function onConfirmDeleteStop() {
+    if (selectedEventStop?.id === undefined) return;
+    deleteEventStopMtn.mutate(selectedEventStop.id);
   }
 
   const moveStop = useMutation({
@@ -380,7 +411,7 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
           <>
             {/* Darkens the background and allows the user to dismiss the modal by clicking outside it */}
             <motion.div
-              className="fixed inset-0 bg-black/40 z-50"
+              className="fixed inset-0 bg-black/60 z-50"
               onClick={() => setIsDeleteStopModalOpen(false)}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -389,18 +420,36 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
             />
 
             <motion.div
-              className="fixed top-1/2 left-1/2 z-50 h-[240px] w-[400px] bg-bg-secondary border-1 border-border-primary rounded-xl shadow-md overflow-hidden p-4"
+              className="fixed top-1/2 left-1/2 z-50 h-fit w-[400px] bg-bg-primary border-1 border-border-primary rounded-xl shadow-md overflow-hidden p-4"
               initial={{ opacity: 0, scale: 0.95, x: "-50%", y: "-50%" }}
               animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
               exit={{ opacity: 0, scale: 0.95, x: "-50%", y: "-50%" }}
               transition={{ duration: 0.15 }}
             >
-              <section className="flex w-full justify-between">
-                <span className="flex flex-col">
-                  <h2 className="text-xl font-medium">Delete Stop {selectedEventStop?.name}?</h2>
-                  <p className="text-text-secondary text-sm">This action cannot be undone</p>
-                </span>
-                <button onClick={() => setIsDeleteStopModalOpen(false)} className="hover:cursor-pointer bg-bg-secondary rounded-sm p-1 w-fit h-fit"><X size={16} /></button>
+              <section className="flex flex-col gap-8 w-full justify-between">
+                <div className="flex w-full justify-between">
+                  <header>
+                    <h2 className="text-xl font-medium">Delete Stop?</h2>
+                    <p className="text-text-secondary text-md">This action cannot be undone</p>
+                  </header>
+
+                  <button onClick={() => setIsDeleteStopModalOpen(false)} className="hover:cursor-pointer hover:bg-bg-tertiary bg-bg-secondary rounded-md p-2 w-fit h-fit"><X strokeWidth={3} size={16} /></button>
+                </div>
+                <div className="flex w-full gap-4 p-3 bg-bg-danger/20 rounded-md">
+                  <TriangleAlert size={24} className="text-text-danger" />
+                  <p className="text-text-danger">{selectedEventStop?.name} will be removed</p>
+                </div>
+
+                <div className="flex gap-4">
+                  <button onClick={() => setIsDeleteStopModalOpen(false)} className="bg-bg-secondary hover:bg-bg-tertiary hover:cursor-pointer w-full py-2 px-4 rounded-lg">Cancel</button>
+                  <button
+                    onClick={onConfirmDeleteStop}
+                    disabled={deleteEventStopMtn.isPending}
+                    className="bg-bg-danger hover:cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed w-full py-2 px-4 rounded-lg"
+                  >
+                    {deleteEventStopMtn.isPending ? "Deleting..." : "Delete"}
+                  </button>
+                </div>
               </section>
             </motion.div>
           </>
@@ -543,13 +592,13 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
                         <h3 className='text-xl font-semibold text-text-primary'>Stop Details</h3>
                         {
                           activeStopId!! && activeStopId === s.id ?
-                          <span className="w-fit flex items-center gap-1 bg-bg-active text-text-active text-xs font-medium rounded-lg px-2 py-1">
-                            Active
-                          </span>
-                          :
-                          <span className="w-fit flex items-center gap-1 bg-bg-danger/40 text-text-danger text-xs font-medium rounded-lg px-2 py-1">
-                            Inactive
-                          </span>
+                            <span className="w-fit flex items-center gap-1 bg-bg-active text-text-active text-xs font-medium rounded-lg px-2 py-1">
+                              Active
+                            </span>
+                            :
+                            <span className="w-fit flex items-center gap-1 bg-bg-danger/40 text-text-danger text-xs font-medium rounded-lg px-2 py-1">
+                              Inactive
+                            </span>
 
                         }
                       </header>
@@ -649,13 +698,13 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
                   </Popup>
                 )}
                 <Marker
-                scale={0.8}
-                  key={`${s.mapbox_id}-${activeStopId!! && activeStopId === s.id  ? "active" : "idle"}`} 
+                  scale={0.8}
+                  key={`${s.mapbox_id}-${activeStopId!! && activeStopId === s.id ? "active" : "idle"}`}
                   onClick={(e) => {
                     e.originalEvent.stopPropagation();
                     setOpenStopId(s.mapbox_id);
                   }}
-                  
+
                   color={activeStopId!! && activeStopId === s.id ? "#71ba32" : "#0662db"}
                   longitude={s.longitude}
                   latitude={s.latitude}

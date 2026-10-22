@@ -1,7 +1,7 @@
 "use client";
 
-import { ClientEventMember, ClientEventStop} from "@/app/types/client-types"
-import {  Car, CircleCheck, Clock, Trash, X, XCircle } from "lucide-react"
+import { ClientEventMember, ClientEventStop } from "@/app/types/client-types"
+import { Car, CircleCheck, Clock, Trash, X, XCircle } from "lucide-react"
 import Image from "next/image"
 import { StopStatus } from "@/app/types/api-types";
 import { Can } from "@/app/providers/ability-provider";
@@ -23,16 +23,15 @@ const STOP_STATUS_CONFIG: Record<StopStatus, { label: string, icon: typeof Clock
   no_show: { label: "No show", icon: XCircle, className: "bg-bg-danger/20 text-text-danger" },
 }
 
-export default function EventStopSidePanel({stop, members, isOpen, isActive, onDismiss, onDeleteStop, onToggleActive}: EventStopSidePanelProps) {
+export default function EventStopSidePanel({ stop, members, isOpen, isActive, onDismiss, onDeleteStop, onToggleActive }: EventStopSidePanelProps) {
   return (
     <div
-      className={`absolute inset-y-0 right-0 z-10 w-full bg-bg-primary md:w-[380px] shadow-md transition-transform duration-300 ${
-        isOpen ? 'translate-x-0' : 'translate-x-full'
-      }`}
+      className={`absolute inset-y-0 right-0 z-10 w-full bg-bg-primary md:w-[380px] shadow-md transition-transform duration-300 ${isOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
     >
       <div className="flex justify-between w-full border-b-1 p-3 border-border-primary">
         <h3 className="text-lg font-semibold text-text-primary">Stop Details</h3>
-        <button onClick={onDismiss} id="dismiss-btn" className="bg-button-secondary hover:cursor-pointer rounded-md p-1 w-7 h-7 flex justify-center items-center"><X size={16}/></button>
+        <button onClick={onDismiss} id="dismiss-btn" className="bg-button-secondary hover:cursor-pointer hover:bg-bg-tertiary rounded-md p-2 w-fit h-fit flex justify-center items-center"><X size={16} strokeWidth={3} /></button>
       </div>
 
       <div className="p-3">
@@ -40,42 +39,40 @@ export default function EventStopSidePanel({stop, members, isOpen, isActive, onD
         <p className="text-text-secondary">{stop.address ?? "No address"}</p>
       </div>
 
-      <div className="flex flex-col gap-2 px-3">      
+      <div className="flex flex-col gap-2 px-3">
         {stop.id !== undefined && (
           <>
-          <Can I='update' a='Stop'>    
-            <div className="bg-bg-secondary w-full rounded-lg flex items-center justify-between p-3">
-              <p className="text-text-secondary">Active Status</p>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => onToggleActive(!isActive)}
-                  aria-pressed={isActive}
-                  aria-label="Toggle active status"
-                  className={`hover:cursor-pointer relative w-9 h-5 rounded-full transition-colors duration-200 ${
-                    isActive ? 'bg-bg-info' : 'bg-bg-tertiary'
-                  }`}
+            <Can I='update' a='Stop'>
+              <div className="bg-bg-secondary w-full rounded-lg flex items-center justify-between p-3">
+                <p className="text-text-secondary">Active Status</p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => onToggleActive(!isActive)}
+                    aria-pressed={isActive}
+                    aria-label="Toggle active status"
+                    className={`hover:cursor-pointer relative w-9 h-5 rounded-full transition-colors duration-200 ${isActive ? 'bg-bg-info' : 'bg-bg-tertiary'
+                      }`}
                   >
-                  <span
-                    className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 ${
-                      isActive ? 'translate-x-4' : 'translate-x-0'
-                    }`}
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 ${isActive ? 'translate-x-4' : 'translate-x-0'
+                        }`}
                     />
+                  </button>
+                </div>
+              </div>
+            </Can>
+
+            <Can I='delete' a='Stop'>
+              <div className="bg-bg-secondary w-full rounded-lg flex items-center justify-between p-3">
+                <p className="text-text-secondary">Delete stop</p>
+                <button
+                  onClick={() => onDeleteStop(stop.id!)}
+                  className="hover:cursor-pointer"
+                >
+                  <Trash size={16} className="text-text-danger" />
                 </button>
               </div>
-            </div>
-          </Can>
-
-          <Can I='delete' a='Stop'>    
-            <div className="bg-bg-secondary w-full rounded-lg flex items-center justify-between p-3">
-              <p className="text-text-secondary">Delete stop</p>
-              <button
-                onClick={() => onDeleteStop(stop.id!)}
-                className="hover:cursor-pointer"
-                >
-                <Trash size={16} className="text-text-danger"/>
-              </button>
-            </div>
-          </Can>
+            </Can>
           </>
         )}
       </div>
@@ -109,7 +106,7 @@ export default function EventStopSidePanel({stop, members, isOpen, isActive, onD
                 </div>
 
                 <div className={`flex items-center gap-1 text-xs font-medium rounded-full px-2 py-0.5 ${className}`}>
-                  <Icon size={12} strokeWidth={3}/>
+                  <Icon size={12} strokeWidth={3} />
                   {label}
                 </div>
               </div>
