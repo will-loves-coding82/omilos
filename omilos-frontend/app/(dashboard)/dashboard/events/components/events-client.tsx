@@ -14,37 +14,37 @@ export type EventsClientProps = {
   events: ClientEvent[]
 }
 
-export function EventsClient({events}: EventsClientProps) {
+export function EventsClient({ events }: EventsClientProps) {
   const [isCreateEventModalOpen, setCreateEventModalOpen] = useState(false);
   const router = useRouter();
 
   function openCreateModal() {
-      setCreateEventModalOpen(true);
+    setCreateEventModalOpen(true);
   }
 
   function closeCreateModal() {
     setCreateEventModalOpen(false);
   }
 
-   // Renders custom header actions for this event
+  // Renders custom header actions for this event
   usePageActions(
     <span className='flex items-center gap-4'>
-      <UserButton/>
+      <UserButton />
     </span>
   )
 
   return (
     <section className="flex flex-col w-full h-full max-w-[1700px] mx-auto py-6 gap-16">
-      <CreateEventModal isOpen={isCreateEventModalOpen} onClose={closeCreateModal}/>
+      <CreateEventModal isOpen={isCreateEventModalOpen} onClose={closeCreateModal} />
       <section id="header" className="flex justify-between w-full px-4">
         <div id="options-group" className="flex gap-8">
-          <button id="create-event-btn" className="hover:cursor-pointer rounded-lg px-4 py-2 bg-bg-secondary font-medium" onClick={()=>openCreateModal()}>Create</button>
+          <button id="create-event-btn" className="hover:cursor-pointer rounded-lg px-4 py-2 bg-bg-secondary font-medium" onClick={() => openCreateModal()}>Create</button>
         </div>
       </section>
-      
+
       <section id="collection" className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 px-4 w-full">
         {events.map(h => (
-          <EventPreviewCard key={h.slug} event={h} onClick={() => router.push(`/dashboard/events/${h.slug}`) }/>
+          <EventPreviewCard key={h.slug} event={h} onClick={() => router.push(`/dashboard/events/${h.slug}`)} />
         ))}
       </section>
     </section>
@@ -95,7 +95,7 @@ function EventPreviewCard({ event, onClick }: { event: ClientEvent, onClick: () 
             >
               <section className="flex w-full justify-between">
                 <h2 className="text-xl font-medium">Event Members</h2>
-                <button onClick={()=>setIsMembersModalOpen(false)} className="hover:cursor-pointer bg-bg-secondary rounded-sm p-1 w-fit h-fit"><X size={16}/></button>
+                <button onClick={() => setIsMembersModalOpen(false)} className="hover:cursor-pointer bg-bg-secondary rounded-sm p-1 w-fit h-fit"><X size={16} /></button>
               </section>
 
               <ul className="flex flex-col gap-4 mt-8">
@@ -103,23 +103,23 @@ function EventPreviewCard({ event, onClick }: { event: ClientEvent, onClick: () 
                   event.members.map(member => (
                     <div className="flex justify-between items-center w-full" key={member.user.id}>
 
-                    <div className="flex gap-2">
-                      <div className="w-[24px] h-[24px] pt-1">
-                        <Image
-                          width={24}
-                          height={24}
-                          className="rounded-full"
-                          alt="user profile"
-                          src={member.user.image_url!}
-                        />
-                      </div>
+                      <div className="flex gap-2">
+                        <div className="w-[24px] h-[24px] pt-1">
+                          <Image
+                            width={24}
+                            height={24}
+                            className="rounded-full"
+                            alt="user profile"
+                            src={member.user.image_url!}
+                          />
+                        </div>
 
-                      <div className="flex flex-col">
-                        <p className="text-text-primary text-md">{member.user.username}</p>
-                        <p className="text-text-secondary text-sm">{member.user.email}</p>
+                        <div className="flex flex-col">
+                          <p className="text-text-primary text-md">{member.user.username}</p>
+                          <p className="text-text-secondary text-sm">{member.user.email}</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
                   ))
                 }
               </ul>
@@ -152,20 +152,20 @@ function EventPreviewCard({ event, onClick }: { event: ClientEvent, onClick: () 
           <>
             {event.members?.filter(m => m.user.id === event.host_id).map((m) =>
               m.user.image_url?.length ?
-              <Image
-                key={m.user.id}
-                className="rounded-full w-7 h-7 object-cover"
-                height={32}
-                width={32}
-                alt="user profile"
-                src={m.user.image_url}/>
-              :
-              <div key={m.user.id} className="h-8 w-8 rounded-full bg-bg-secondary flex items-center justify-center text-xs font-medium text-secondary">
-                {m.user.first_name[0] + m.user.last_name[0]}
-              </div>
+                <Image
+                  key={m.user.id}
+                  className="rounded-full w-7 h-7 object-cover"
+                  height={32}
+                  width={32}
+                  alt="user profile"
+                  src={m.user.image_url} />
+                :
+                <div key={m.user.id} className="h-8 w-8 rounded-full bg-bg-secondary flex items-center justify-center text-xs font-medium text-secondary">
+                  {m.user.first_name[0] + m.user.last_name[0]}
+                </div>
             )}
 
-            {event.members?.filter(m => m.user.id === event.host_id).map((m) => 
+            {event.members?.filter(m => m.user.id === event.host_id).map((m) =>
               <p key={m.user.clerk_id} className="text-text-secondary text-sm">{m.user.first_name + " " + m.user.last_name}</p>
             )}
 
@@ -176,12 +176,12 @@ function EventPreviewCard({ event, onClick }: { event: ClientEvent, onClick: () 
         <section className="pt-6 px-1 flex justify-between">
           <span className="flex gap-2">
             <div className="bg-bg-secondary shadow-sm rounded-md w-fit py-1 px-2 flex items-center gap-1">
-              <Calendar size={16} className="text-text-secondary"/>
+              <Calendar size={16} className="text-text-secondary" />
               <p className="text-xs text-text-secondary">{new Date(event.date).toDateString()}</p>
             </div>
 
             <div className="bg-bg-secondary shadow-sm rounded-md w-fit py-1 px-2 flex items-center gap-1">
-              <UserGroup size={16} className="text-text-secondary"/>
+              <UserGroup size={16} className="text-text-secondary" />
               <p className="text-xs text-text-secondary" >{event.members.length + " " + "going"}</p>
             </div>
           </span>
@@ -192,9 +192,9 @@ function EventPreviewCard({ event, onClick }: { event: ClientEvent, onClick: () 
                 e.stopPropagation();
                 setIsMenuOpen(prev => !prev);
               }}
-              className="hover:cursor-pointer bg-bg-secondary shadow-md p-1 rounded-md"
+              className="bg-bg-secondary hover:bg-bg-tertiary hover:cursor-pointer shadow-md p-1 rounded-md"
             >
-              <Ellipsis size={18}/>
+              <Ellipsis size={18} />
             </button>
 
             <AnimatePresence>
@@ -213,7 +213,7 @@ function EventPreviewCard({ event, onClick }: { event: ClientEvent, onClick: () 
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary rounded-t-xl hover:bg-bg-secondary hover:cursor-pointer"
                   >
-                    <UserGroup size={16}/>
+                    <UserGroup size={16} />
                     Members
                   </button>
                   <button
@@ -223,11 +223,11 @@ function EventPreviewCard({ event, onClick }: { event: ClientEvent, onClick: () 
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:bg-bg-secondary hover:cursor-pointer"
                   >
-                    <SquareArrowOutUpRight size={16}/>
+                    <SquareArrowOutUpRight size={16} />
                     View details
                   </button>
                   <button onClick={(e) => e.stopPropagation()} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-danger rounded-b-xl hover:bg-bg-secondary hover:cursor-pointer">
-                    <Trash2 size={16}/>
+                    <Trash2 size={16} />
                     Delete
                   </button>
                 </motion.div>

@@ -15,33 +15,34 @@
   --color-bg-warning: var(--color-warning);
   --color-bg-active: #ade92a62;
   --color-bg-skeleton: #e8e8e8;
-  
+
   --color-text-primary: #000000;
   --color-text-secondary: #737373;
   --color-text-disabled: rgb(0 0 0 / 20%);
   --color-text-inverse: #ffffff;
   --color-text-active: #71ba32;
   --color-text-danger: var(--color-danger);
-  
+
   --color-danger: #f34c4c;
   --color-info: #2d7de4;
   --color-warning: #ffcb20;
   --color-success: #71ba32;
-  
+
   --color-border-primary: #ededed;
-  --color-border-active:#ade92a90;
+  --color-border-active: #ade92a90;
   --color-border-transparent: transparent;
 
   --color-button-primary: #171717;
   --color-button-secondary: #f6f6f6;
   --color-button-tertiary: #dadada;
-  
+
   --color-badge-bg: var(--color-danger);
   --color-badge-border: var(--color-bg-primary);
   --color-badge-text: #ffffff;
 
   /* Breadcrumb header */
-  --header-height: 3.5rem; /* 56px */
+  --header-height: 3.5rem;
+  /* 56px */
 }
 
 @theme inline {
@@ -71,7 +72,7 @@
   --color-text-warning: var(--color-warning);
   --color-text-success: var(--color-success);
   --color-text-active: var(--color-text-active);
-  
+
   /* Utility colors */
   --color-button-primary: var(--color-button-primary);
   --color-button-secondary: var(--color-button-secondary);
@@ -109,6 +110,7 @@
     --color-bg-skeleton: #2e2e2e;
 
     --color-border-primary: #292929;
+    --color-border-transparent: #292929;
 
     --color-button-primary: #171717;
     --color-button-secondary: #171717;
@@ -122,15 +124,29 @@ body {
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
+@keyframes marker-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.7;
+  }
+
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
 @keyframes event-popup-in {
   0% {
     opacity: 0;
     transform: scale(0.7) translateY(6px);
   }
+
   60% {
     opacity: 1;
     transform: scale(1.05) translateY(-2px);
   }
+
   100% {
     opacity: 1;
     transform: scale(1) translateY(0);

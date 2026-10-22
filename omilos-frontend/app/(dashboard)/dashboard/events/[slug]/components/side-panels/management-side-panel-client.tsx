@@ -329,8 +329,7 @@ function SortableStop({ stop, index, onSelectStop, isSelected, isActive }: Sorta
           <p className={`text-md transition-colors duration-100 ease-in`}>{stop.address}</p>
         </div>
         {isActive && (
-          <span className="w-fit flex items-center gap-1 bg-bg-active text-text-active text-xs font-medium rounded-md px-2 py-0.5">
-            <CircleCheck size={12} strokeWidth={3} />
+          <span className="w-fit flex items-center gap-1 bg-bg-active text-text-active text-xs font-medium rounded-md px-2 py-1">
             Active
           </span>
         )}

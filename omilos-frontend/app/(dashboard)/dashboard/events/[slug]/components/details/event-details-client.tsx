@@ -136,7 +136,6 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
     },
   });
 
-
   const eventStops = stopsData ?? [];
   const eventMembers = membersData ?? [];
   const activeStopId = event.active_stop_id ?? null;
@@ -228,9 +227,11 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
   },
   onSuccess: (data) => {
     queryClient.setQueryData<ClientEventStop[]>(stopsKey(eventId), (old) => [
-        ...(old ?? []),
-        { ...data, stop_member_status_arr: [] },
-      ]);
+      ...(old ?? []),
+      { ...data, stop_member_status_arr: [] },
+    ]);
+
+    setShowStopMarkerPopup(false);
   },
 });
 
@@ -240,9 +241,8 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
     addEventStopMtn.mutate(selectedStop);
   }
 
-
   const moveStop = useMutation({
-    mutationKey: ["event", eventId, "move-stop"] as const,
+    mutationKey: stopsKey(eventId),
     mutationFn: async ({ stopId, fractionalIndex }: StopMove): Promise<ReorderStopResult> => {
       const res = await reorderEventStop(eventId, stopId, fractionalIndex);
       if (!res.success) throw new MoveError(!!res.conflict, res.message ?? "Failed to move stop");
@@ -273,8 +273,6 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
       );
     },
   });
-
-
 
   // Track OS color scheme so the map style can switch with it
   useEffect(() => {
@@ -518,10 +516,10 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
                 </Popup>
               )}
 
-              <Marker onClick={(e) => {
+              <Marker scale={0.8} onClick={(e) => {
                 e.originalEvent.stopPropagation();
                 setShowStopMarkerPopup(true);
-              }} color="#0662db" longitude={stopMarkerCoord.lon!} latitude={stopMarkerCoord.lat!} />
+              }} color="#ffcb20" longitude={stopMarkerCoord.lon!} latitude={stopMarkerCoord.lat!} />
             </>
           )}
 
@@ -531,7 +529,7 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
                 {openStopId === s.mapbox_id && (
                   <Popup
                     className='event-popup flex'
-                    anchor='bottom'
+                    anchor='top'
                     onClose={() => {
                       setOpenStopId(null);
                       setIsEventStopPanelOpen(false);
@@ -544,11 +542,15 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
                       <header className='flex justify-between gap-2 pr-9 w-full'>
                         <h3 className='text-xl font-semibold text-text-primary'>Stop Details</h3>
                         {
-                          activeStopId!! && activeStopId === s.id &&
+                          activeStopId!! && activeStopId === s.id ?
                           <span className="w-fit flex items-center gap-1 bg-bg-active text-text-active text-xs font-medium rounded-lg px-2 py-1">
-                            <CircleCheck size={12} strokeWidth={3} />
                             Active
                           </span>
+                          :
+                          <span className="w-fit flex items-center gap-1 bg-bg-danger/40 text-text-danger text-xs font-medium rounded-lg px-2 py-1">
+                            Inactive
+                          </span>
+
                         }
                       </header>
 
@@ -647,14 +649,33 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
                   </Popup>
                 )}
                 <Marker
+                scale={0.8}
+                  key={`${s.mapbox_id}-${activeStopId!! && activeStopId === s.id  ? "active" : "idle"}`} 
                   onClick={(e) => {
                     e.originalEvent.stopPropagation();
                     setOpenStopId(s.mapbox_id);
                   }}
-                  color="#0662db"
+                  
+                  color={activeStopId!! && activeStopId === s.id ? "#71ba32" : "#0662db"}
                   longitude={s.longitude}
                   latitude={s.latitude}
-                />
+                >
+                  {/* <div className="relative flex h-6 w-6 items-center justify-center">
+                    {activeStopId!! && activeStopId === s.id  && (
+                      <span
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0 rounded-full bg-[#71ba32]"
+                        style={{ animation: "marker-pulse 1.8s ease-out infinite" }}
+                      />
+                    )}
+                    
+                    <span
+                      className="relative h-4 w-4 rounded-full border-2 border-white shadow"
+                      style={{ backgroundColor: activeStopId!! && activeStopId === s.id  ? "#71ba32" : "#0662db" }}
+                    />
+                  </div> */}
+
+                </Marker>
               </div>
             ))
           }
