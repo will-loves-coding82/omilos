@@ -80,16 +80,13 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
     return () => { clearTimeout(timer) }
   }, [searchQuery])
 
-  // Step 3 (and its file input) unmounts when navigating away and remounts when
-  // navigating back, which drops whatever was previously assigned to its native
-  // .files. Re-attach the already-cropped file so it isn't silently lost on submit.
-  useEffect(() => {
-    if (step === 3 && imageFile && fileInputRef.current) {
-      const dataTransfer = new DataTransfer()
-      dataTransfer.items.add(imageFile)
-      fileInputRef.current.files = dataTransfer.files
+
+  function onSubmit(formData: FormData) {
+    if (imageFile) {
+      formData.set("coverImage", imageFile)
     }
-  }, [step, imageFile])
+    return formAction(formData)
+  }
 
   useEffect(() => {
     if (!debouncedSearchQuery.trim()) {
@@ -223,7 +220,7 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
               </section>
 
               {/* Multistep Form */}
-              <form action={formAction}>
+              <form action={onSubmit}>
                 <AnimatePresence mode="wait" custom={direction} initial={false}>
                   {
                     step === 1 &&
