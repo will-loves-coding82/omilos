@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { DragDropProvider } from '@dnd-kit/react';
 import { useSortable } from '@dnd-kit/react/sortable';
 import { move } from '@dnd-kit/helpers';
-import { CheckIcon, ChevronDownIcon, CircleCheck, EllipsisVertical, GripVertical, Trash2, UserCircle, X } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, EllipsisVertical, FilterIcon, GripVertical, Trash2, UserCircle, UserRoundPlus } from "lucide-react";
 import { ClientEventMember, ClientEventStop } from "@/app/types/client-types";
 import TabButton from "../../../components/tab-button";
 import Image from "next/image";
@@ -17,10 +17,19 @@ import { MemberRole } from "@/app/types/api-types";
 import { updateEventMemberRole } from "@/app/actions/event-actions";
 import { generateKeyBetween } from "jittered-fractional-indexing";
 import { useQueryClient } from "@tanstack/react-query";
-import { stopsKey } from "@/app/providers/query-keys";
+import { membersKey, stopsKey } from "@/app/providers/query-keys";
 import { MoveStopVars } from "../details/event-details-client";
+import { InviteMembersModal } from "./invite-members-modal";
 
 const PANEL_WIDTH_DESKTOP = "374px";
+
+type RoleFilter = "all" | "editor" | "viewer";
+
+const ROLE_FILTER_OPTIONS: { value: RoleFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "editor", label: "Editors" },
+  { value: "viewer", label: "Viewers" },
+];
 
 type EventSidePanelProps = {
   eventId: number,
@@ -40,9 +49,25 @@ export function isPersisted(s: ClientEventStop): s is PersistedStop {
 
 export default function EventManagementSidePanelClient({ eventId, members, eventStops, onMoveStop, onSelectStop, activeStopId, activeEventStopId }: EventSidePanelProps) {
   const queryClient = useQueryClient();
-  
+
   const [activeTab, setActiveTab] = useState<string>("Stops");
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [participantQuery, setParticipantQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const ref = useRef<HTMLUListElement | null>(null);
+
+  // Client-side filter over the loaded members by role, then by username,
+  // first/last name, or full name. Copies before sorting so the members prop isn't mutated.
+  const normalizedQuery = participantQuery.trim().toLowerCase();
+  const filteredMembers = members
+    .filter(({ user, member_role }) => {
+      if (roleFilter !== "all" && member_role !== roleFilter) return false;
+      if (!normalizedQuery) return true;
+      const fullName = `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim();
+      return [user.username, user.first_name, user.last_name, fullName]
+        .some((field) => field?.toLowerCase().includes(normalizedQuery));
+    })
+    .sort((a, b) => a.rsvp_status.localeCompare(b.rsvp_status));
 
   // Expose this panel's width as a CSS variable (desktop only, since on
   // mobile it's a full-screen overlay and doesn't need to offset anything)
@@ -68,7 +93,7 @@ export default function EventManagementSidePanelClient({ eventId, members, event
 
   return (
     <div className="absolute inset-0 z-10 bg-bg-primary md:inset-auto md:top-0 md:h-full md:w-[var(--panel-width)] md:shadow-md transition-[left] duration-300 overflow-y-scroll">
-      
+
       <section className="flex items-center gap-4 p-4 border-b border-border-primary bg-bg-primary">
         <TabButton label="Stops" activeTab={activeTab} onClick={setActiveTab} />
         <TabButton label="Participants" activeTab={activeTab} onClick={setActiveTab} />
@@ -128,171 +153,244 @@ export default function EventManagementSidePanelClient({ eventId, members, event
         }
         {
           activeTab === "Participants" &&
-          <ul className="flex flex-col gap-4">
-            {
-              members.sort((a, b) => a.rsvp_status.localeCompare(b.rsvp_status)).map((member, _) => (
-                <MemberCard eventId={eventId} key={member.user.clerk_id} member={member}/>
-              ))
-            }
-          </ul>
+
+          <div className="flex flex-col gap-8">
+            <span className="flex gap-2 justify-evenly items-center">
+              <input
+                autoFocus
+                placeholder="Search participants"
+                value={participantQuery}
+                onChange={(e) => setParticipantQuery(e.target.value)}
+                className="bg-bg-secondary w-full rounded-lg py-2 px-3"
+                autoComplete="off"
+              />
+
+              <Can I='create' a='Member'>
+                <button
+                  onClick={() => setIsInviteModalOpen(true)}
+                  aria-label="Invite members"
+                  className="flex items-center gap-1 p-2 rounded-lg bg-bg-secondary hover:cursor-pointer"
+                >
+                  <UserRoundPlus size={20} />
+                </button>
+
+                <Listbox value={roleFilter} onChange={setRoleFilter}>
+                  <ListboxButton
+                    aria-label="Filter participants by role"
+                    className={clsx(
+                      "relative flex items-center gap-1 p-2 rounded-lg hover:cursor-pointer hover:bg-bg-tertiary",
+                      "focus:not-data-focus:outline-none data-focus:outline-2 data-focus:-outline-offset-2 data-focus:outline-white/25",
+                      roleFilter === "all" ? "bg-bg-secondary" : "bg-bg-tertiary"
+                    )}
+                  >
+                    <FilterIcon size={20} />
+                    {roleFilter !== "all" && (
+                      <span className="absolute top-1 right-1 size-2 rounded-full bg-bg-info" aria-hidden="true" />
+                    )}
+                  </ListboxButton>
+                  <ListboxOptions
+                    anchor="bottom end"
+                    transition
+                    className={clsx(
+                      "w-36 rounded-lg bg-bg-secondary border-1 border-border-primary [--anchor-gap:--spacing(1)] focus:outline-none z-20",
+                      "transition duration-100 ease-in data-leave:data-closed:opacity-0"
+                    )}
+                  >
+                    {ROLE_FILTER_OPTIONS.map((option) => (
+                      <ListboxOption
+                        key={option.value}
+                        value={option.value}
+                        className="group flex cursor-default items-center gap-2 px-3 py-1.5 select-none data-focus:bg-bg-tertiary"
+                      >
+                        <CheckIcon className="invisible size-4 group-data-selected:visible" />
+                        {option.label}
+                      </ListboxOption>
+                    ))}
+                  </ListboxOptions>
+                </Listbox>
+              </Can>
+            </span>
+            <InviteMembersModal
+              eventId={eventId}
+              members={members}
+              isOpen={isInviteModalOpen}
+              onClose={() => setIsInviteModalOpen(false)}
+            />
+
+            <ul className="flex flex-col gap-4">
+              {
+                filteredMembers.map((member) => (
+                  <MemberCard eventId={eventId} key={member.user.clerk_id} member={member} />
+                ))
+              }
+              {(normalizedQuery || roleFilter !== "all") && filteredMembers.length === 0 && (
+                <p className="text-sm text-text-secondary text-center mt-4">No participants match your filters</p>
+              )}
+            </ul>
+          </div>
         }
       </section>
     </div>
   );
 }
 
-function MemberCard({eventId, member}: {eventId: number, member: ClientEventMember}) {
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [selectedRole, setSelectedRole] = useState<Omit<MemberRole, 'host'>>(member.member_role);
+function MemberCard({ eventId, member }: { eventId: number, member: ClientEventMember }) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<Omit<MemberRole, 'host'>>(member.member_role);
 
-    const menuRef = useRef<HTMLButtonElement>(null);
-    const ability = useAbility<AppAbility>();
+  const menuRef = useRef<HTMLButtonElement>(null);
+  const ability = useAbility<AppAbility>();
+  const queryClient = useQueryClient();
 
-    useEffect(() => {
-      if (!isMenuOpen) return;
+  useEffect(() => {
+    if (!isMenuOpen) return;
 
-      function handleClickOutside(e: MouseEvent) {
-        if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-          setIsMenuOpen(false);
-        }
-      }
-
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [isMenuOpen]);
-
-    
-    async function onUpdateRole(newRole: Omit<MemberRole, 'host'>) {
-      try {
-        const res = await updateEventMemberRole(eventId, member.user.id, newRole)
-        if (!res.success) {
-          console.log("Failed to update member role")
-        }
-        else {
-          setSelectedRole(newRole);
-        }
-      }
-      catch(err) {
-        console.log("Error updating member role: " + err)
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setIsMenuOpen(false);
       }
     }
 
-    return (
-      <div className="flex justify-between items-center w-full" key={member.user.id}>
-        <div className="flex gap-2">
-          <div className="w-[24px] h-[24px] pt-1">
-            <Image
-              width={24}
-              height={24}
-              className="rounded-full"
-              alt="user profile"
-              src={member.user.image_url!}
-            />
-          </div>
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isMenuOpen]);
 
-          <div className="flex flex-col">
-            <p className="text-text-primary text-md">{member.user.username}</p>
-            <p className="text-text-secondary text-xs">{member.user.first_name + ' ' + member.user.last_name}</p>
-          </div>
+
+  async function onUpdateRole(newRole: Omit<MemberRole, 'host'>) {
+    try {
+      const res = await updateEventMemberRole(eventId, member.user.id, newRole)
+      if (!res.success) {
+        console.log("Failed to update member role")
+      }
+      else {
+        setSelectedRole(newRole);
+        // Keep the shared members cache in sync so the role filter reflects the change
+        queryClient.setQueryData<ClientEventMember[]>(membersKey(eventId), (old) =>
+          old?.map((m) => m.user.id === member.user.id ? { ...m, member_role: newRole as MemberRole } : m),
+        );
+      }
+    }
+    catch (err) {
+      console.log("Error updating member role: " + err)
+    }
+  }
+
+  return (
+    <div className="flex justify-between items-center w-full" key={member.user.id}>
+      <div className="flex gap-2">
+        <div className="w-[24px] h-[24px] pt-1">
+          <Image
+            width={24}
+            height={24}
+            className="rounded-full"
+            alt="user profile"
+            src={member.user.image_url!}
+          />
         </div>
 
-        
-        <div className="relative">
-          <span className="flex gap-2">
-            {member.member_role === "host" && 
-              <div className="w-fit h-fit flex justify-center items-center bg-bg-info px-3 py-1 rounded-lg text-md text-white">
-                Host
-              </div>
-            }
+        <div className="flex flex-col">
+          <p className="text-text-primary text-md">{member.user.username}</p>
+          <p className="text-text-secondary text-xs">{member.user.first_name + ' ' + member.user.last_name}</p>
+        </div>
+      </div>
 
 
-            {member.member_role !== "host" && 
-              <Listbox value={selectedRole} onChange={(value) => { onUpdateRole(value as MemberRole); }}>
-                <ListboxButton
-                  disabled={ability.cannot('update', 'Member')}
-                  className={clsx(
+      <div className="relative">
+        <span className="flex gap-2">
+          {member.member_role === "host" &&
+            <div className="w-fit h-fit flex justify-center items-center bg-bg-info px-3 py-1 rounded-lg text-md text-white">
+              Host
+            </div>
+          }
+
+
+          {member.member_role !== "host" &&
+            <Listbox value={selectedRole} onChange={(value) => { onUpdateRole(value as MemberRole); }}>
+              <ListboxButton
+                disabled={ability.cannot('update', 'Member')}
+                className={clsx(
                   'flex items-center gap-3 rounded-lg bg-bg-secondary py-1 px-4 justify-between text-md text-text-primary',
                   'focus:not-data-focus:outline-none data-focus:outline-2 data-focus:-outline-offset-2 data-focus:outline-white/25',
                   `${ability.can('update', 'Member') && "hover:cursor-pointer hover:bg-bg-tertiary"}`
                 )}
-                >
-                  {selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)}
-                  {
-                    ability.can('update', 'Member') &&
-                    <ChevronDownIcon
-                      className="group pointer-events-none  size-4"
-                      aria-hidden="true"
-                    />
-                  }
-                </ListboxButton>
-                <ListboxOptions
-                  anchor="bottom"
-                  transition
-                  className={clsx(
-                    'w-(--button-width) rounded-lg bg-bg-secondary border-1 border-border-primary [--anchor-gap:--spacing(1)] focus:outline-none',
-                    'transition duration-100 ease-in data-leave:data-closed:opacity-0'
-                  )}
-                  
-                >
-                  <ListboxOption key={0} value="editor" className="group flex cursor-default items-center gap-2 px-3 py-1.5 select-none data-focus:bg-bg-tertiary">
-                    <CheckIcon className="invisible size-4 group-data-selected:visible" />
-                    Editor
-                  </ListboxOption>
-                  <ListboxOption key={1} value="viewer" className="group flex cursor-default items-center gap-2 px-3 py-1.5 select-none data-focus:bg-bg-tertiary">
-                    <CheckIcon className="invisible size-4 group-data-selected:visible" />
-                    Viewer
-                  </ListboxOption>
-                </ListboxOptions>
-              </Listbox>
-            }
-
-            <button
-               ref={menuRef} 
-               onClick={(e) => {
-                e.stopPropagation();
-                setIsMenuOpen(prev => !prev);
-              }}
-              className="bg-bg-secondary hover:bg-bg-tertiary hover:cursor-pointer w-fit h-fit p-2 rounded-lg"
               >
-              <EllipsisVertical size={18}/>
-            </button>
-          </span>
+                {selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)}
+                {
+                  ability.can('update', 'Member') &&
+                  <ChevronDownIcon
+                    className="group pointer-events-none  size-4"
+                    aria-hidden="true"
+                  />
+                }
+              </ListboxButton>
+              <ListboxOptions
+                anchor="bottom"
+                transition
+                className={clsx(
+                  'w-(--button-width) rounded-lg bg-bg-secondary border-1 border-border-primary [--anchor-gap:--spacing(1)] focus:outline-none',
+                  'transition duration-100 ease-in data-leave:data-closed:opacity-0'
+                )}
 
-          <AnimatePresence>
-            {isMenuOpen &&
-               <motion.div
-                  className="absolute right-0 top-full mt-2 w-32 bg-bg-primary border border-border-transparent shadow-md rounded-xl z-10 overflow-hidden"
-                  initial={{ opacity: 0, scale: 0.95, y: 4 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: 4 }}
-                  transition={{ duration: 0.12 }}
+              >
+                <ListboxOption key={0} value="editor" className="group flex cursor-default items-center gap-2 px-3 py-1.5 select-none data-focus:bg-bg-tertiary">
+                  <CheckIcon className="invisible size-4 group-data-selected:visible" />
+                  Editor
+                </ListboxOption>
+                <ListboxOption key={1} value="viewer" className="group flex cursor-default items-center gap-2 px-3 py-1.5 select-none data-focus:bg-bg-tertiary">
+                  <CheckIcon className="invisible size-4 group-data-selected:visible" />
+                  Viewer
+                </ListboxOption>
+              </ListboxOptions>
+            </Listbox>
+          }
+
+          <button
+            ref={menuRef}
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsMenuOpen(prev => !prev);
+            }}
+            className="bg-bg-secondary hover:bg-bg-tertiary hover:cursor-pointer w-fit h-fit p-2 rounded-lg"
+          >
+            <EllipsisVertical size={18} />
+          </button>
+        </span>
+
+        <AnimatePresence>
+          {isMenuOpen &&
+            <motion.div
+              className="absolute right-0 top-full mt-2 w-32 bg-bg-primary border border-border-transparent shadow-md rounded-xl z-10 overflow-hidden"
+              initial={{ opacity: 0, scale: 0.95, y: 4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 4 }}
+              transition={{ duration: 0.12 }}
+            >
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:bg-bg-secondary hover:cursor-pointer"
+              >
+                <UserCircle size={16} />
+                Info
+              </button>
+              <Can I='update' a='Member'>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                  }}
+                  className="w-full flex items-center rounded-b-xl gap-2 px-3 py-2 text-sm font-medium text-text-danger hover:bg-bg-secondary hover:cursor-pointer"
                 >
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:bg-bg-secondary hover:cursor-pointer"
-                  >
-                    <UserCircle size={16}/>
-                    Info
-                  </button>
-                  <Can I='update' a='Member'>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                      }}
-                      className="w-full flex items-center rounded-b-xl gap-2 px-3 py-2 text-sm font-medium text-text-danger hover:bg-bg-secondary hover:cursor-pointer"
-                    >
-                      <Trash2 size={16}/>
-                      Remove
-                    </button>
-                  </Can>
-              </motion.div>
-            }
-          </AnimatePresence>
-        </div>
+                  <Trash2 size={16} />
+                  Remove
+                </button>
+              </Can>
+            </motion.div>
+          }
+        </AnimatePresence>
       </div>
-    )
+    </div>
+  )
 }
 
 type SortableStopProps = {
@@ -308,7 +406,7 @@ function SortableStop({ stop, index, onSelectStop, isSelected, isActive }: Sorta
 
   const id = stop.mapbox_id
   const handleRef = useRef<HTMLButtonElement | null>(null)
-  const { ref, isDragging } = useSortable({ id, index, handle: handleRef, disabled: ability.cannot('update', 'Stop') || !stop.id || !stop.fractional_index});
+  const { ref, isDragging } = useSortable({ id, index, handle: handleRef, disabled: ability.cannot('update', 'Stop') || !stop.id || !stop.fractional_index });
 
   return (
     <div
@@ -316,7 +414,7 @@ function SortableStop({ stop, index, onSelectStop, isSelected, isActive }: Sorta
       onClick={() => onSelectStop(stop)}
       className={
         clsx(
-          "bg-bg-secondary border-l-3 h-[108px] transition-colors duration-100 ease-in p-3 flex justify-between gap-1 rounded-lg", 
+          "bg-bg-secondary border-l-3 h-[108px] transition-colors duration-100 ease-in p-3 flex justify-between gap-1 rounded-lg",
           isSelected ? "border-border-active" : "border-border-transparent",
           ability.can('update', 'Stop') && "hover:cursor-pointer",
           isDragging && 'opacity-50'

@@ -14,6 +14,7 @@ import { searchUsers } from "@/app/actions/user-actions";
 import { createNewEvent } from "@/app/actions/event-actions";
 import { ActionResponse } from "@/app/actions/action-types";
 import { Event } from "@/app/types/api-types";
+import { toEventDateString } from "@/app/utils";
 
 type CreateEventModalProps = {
   isOpen: boolean,
@@ -216,7 +217,9 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
             <div className="h-full flex flex-col overflow-y-auto pl-8 p-4 [scrollbar-gutter:stable]">
               {/* Dismiss modal button */}
               <section className="flex justify-end w-full">
-                <button onClick={() => onClose()}><CircleX className="text-text-secondary" /></button>
+                <button onClick={() => onClose()} className="hover:cursor-pointer hover:bg-bg-tertiary bg-bg-secondary rounded-md p-2 w-fit h-fit">
+                  <X strokeWidth={3} size={16} />
+                </button>
               </section>
 
               {/* Multistep Form */}
@@ -256,7 +259,7 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
                           onChange={setDate}
                           className="bg-bg-secondary w-full rounded-md py-2 px-4 flex items-center justify-between gap-3 text-sm text-text-primary hover:bg-bg-secondary/70"
                         />
-                        <input type="hidden" name="date" value={date ? date.toISOString() : ""} />
+                        <input type="hidden" name="date" value={date ? toEventDateString(date) : ""} />
                       </section>
 
 
@@ -264,7 +267,7 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
                         type="button"
                         onClick={nextStep}
                         disabled={!isStep1Valid}
-                        className="bg-button-primary text-white px-4 py-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="bg-button-primary hover:cursor-pointer text-white px-4 py-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         Continue
                       </button>
@@ -289,7 +292,7 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
                             here so they're still present in FormData on submit. */}
                         <input type="hidden" name="title" value={title} />
                         <input type="hidden" name="description" value={description} />
-                        <input type="hidden" name="date" value={date ? date.toISOString() : ""} />
+                        <input type="hidden" name="date" value={date ? toEventDateString(date) : ""} />
 
                         <div className="relative">
                           <input
@@ -363,7 +366,7 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
                           type="button"
                           onClick={nextStep}
                           disabled={!isStep1Valid}
-                          className="bg-button-primary text-white p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed mt-12"
+                          className="bg-button-primary hover:cursor-pointer text-white p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed mt-12"
                         >
                           Continue
                         </button>
@@ -371,7 +374,7 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
                           type="button"
                           onClick={prevStep}
                           disabled={!isStep1Valid}
-                          className="text-text-danger p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="hover:cursor-pointer text-text-danger p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           Back
                         </button>
@@ -395,7 +398,7 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
                       <h2 className="text-2xl text-center font-medium">{steps[step - 1].title}</h2>
                       <input type="hidden" name="title" value={title} />
                       <input type="hidden" name="description" value={description} />
-                      <input type="hidden" name="date" value={date ? date.toISOString() : ""} />
+                      <input type="hidden" name="date" value={date ? toEventDateString(date) : ""} />
                       {selectedUsers.map(u => (
                         <input key={u.id} type="hidden" name="inviteeIds" value={u.id} />
                       ))}
@@ -460,7 +463,7 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
                               <button
                                 type="button"
                                 onClick={cancelCrop}
-                                className="bg-bg-secondary text-text-primary px-4 py-2 rounded-md"
+                                className="bg-bg-secondary hover:cursor-pointer text-text-primary px-4 py-2 rounded-md"
                               >
                                 Cancel
                               </button>
@@ -483,14 +486,14 @@ export function CreateEventModal({ isOpen, onClose }: CreateEventModalProps) {
                         <button
                           type="submit"
                           disabled={pending}
-                          className="bg-button-primary text-white p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="bg-button-primary hover:cursor-pointer text-white p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           {pending ? "...Submitting" : "Submit"}
                         </button>
                         <button
                           type="button"
                           onClick={prevStep}
-                          className="text-text-danger p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="hover:cursor-pointer text-text-danger p-2 rounded-md disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           Back
                         </button>

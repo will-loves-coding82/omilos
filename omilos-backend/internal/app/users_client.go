@@ -34,7 +34,7 @@ const createNewUserQuery = `
 const searchUsersQuery = `
 	SELECT id, clerk_id, username, first_name, last_name, email, image_url
 	FROM users
-	WHERE first_name % $1 OR last_name % $1 OR email % $1;
+	WHERE username % $1 OR username ILIKE $1 || '%' OR first_name % $1 OR last_name % $1 OR email % $1;
 `
 
 const getUserByClerkIdQuery = `

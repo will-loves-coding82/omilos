@@ -177,7 +177,7 @@ const getEventDetailsQuery = `
 
 const getEventMembersQuery = `
 	SELECT 
-		em.member_role, em.rsvp_status, em.status_updated_at, em.created_at,
+		em.member_role, em.rsvp_status, COALESCE(em.status_updated_at, em.created_at) AS status_updated_at, em.created_at,
 		jsonb_build_object(
 			'id', u.id,
 			'clerk_id', u.clerk_id,
@@ -236,6 +236,22 @@ const updateEventMemberRoleQuery = `
 	SET member_role = $1
 	WHERE event_id = $2
 	AND user_id = $3;
+`
+
+// Invites a user to an event as a pending 'viewer'. Users who previously
+// declined are re-invited; existing pending/accepted members are left as-is.
+const inviteEventMemberQuery = `
+	INSERT INTO event_members (user_id, event_id, member_role, status_updated_at)
+	VALUES ($1, $2, 'viewer', NOW())
+	ON CONFLICT (user_id, event_id) DO UPDATE
+	SET rsvp_status = 'pending', status_updated_at = NOW()
+	WHERE event_members.rsvp_status = 'declined';
+`
+
+const updateEventDetailsQuery = `
+	UPDATE events
+	SET title = $1, description = $2, date = $3, image_url = $4
+	WHERE id = $5;
 `
 
 const addEventStopQuery = `
@@ -342,7 +358,7 @@ func (e *EventClient) CreateNewEventTx(ctx context.Context, hostId int64, event 
 	// Add invited event members. Each one has a pending rsvp_status with a 'viewer'
 	// role by default and a default status_updated_at value of NOW()
 	for _, memberId := range event.MemberIds {
-		_, err = tx.Exec(`INSERT INTO event_members(user_id, event_id, member_role) VALUES($1, $2, 'viewer');`, memberId, eventId)
+		_, err = tx.Exec(`INSERT INTO event_members(user_id, event_id, member_role, status_updated_at) VALUES($1, $2, 'viewer', NOW());`, memberId, eventId)
 		if err != nil {
 			return "", err
 		}
@@ -391,6 +407,29 @@ func (e *EventClient) UpdateEventMemberRole(eventId int64, userId int64, newRole
 		return errors.New("Making another member a host is not allowed")
 	}
 	_, err := e.db.Conn().Exec(updateEventMemberRoleQuery, newRole, eventId, userId)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// InviteEventMember is a host-only action that sends an invite to an
+// existing event by adding the user as a pending member.
+func (e *EventClient) InviteEventMember(eventId int64, userId int64) error {
+	_, err := e.db.Conn().Exec(inviteEventMemberQuery, userId, eventId)
+	return err
+}
+
+// UpdateEventDetails is a host-only action that overwrites an event's
+// title, description, date, and cover image URL.
+func (e *EventClient) UpdateEventDetails(eventId int64, event Event) error {
+	parsedDate, err := time.Parse(time.RFC3339, event.Date)
+	if err != nil {
+		return err
+	}
+
+	_, err = e.db.Conn().Exec(updateEventDetailsQuery, event.Title, event.Description, parsedDate, event.ImageURL, eventId)
 	if err != nil {
 		return err
 	}

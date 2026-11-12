@@ -22,11 +22,13 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import type { Point } from 'geojson';
 
 import { UserButton, useUser } from '@clerk/nextjs';
-import { ChevronDown, CircleCheck, Maximize2, Minimize2, PanelRightClose, PanelRightOpen, TriangleAlert, X } from 'lucide-react';
+import { Check, ChevronDown, CircleCheck, Maximize2, Minimize2, PanelRightClose, PanelRightOpen, TriangleAlert, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { eventKey, membersKey, stopsKey, userStopStatusMutationKey } from '@/app/providers/query-keys';
 import { AnimatePresence, motion } from 'motion/react';
 import { Can } from '@/app/providers/ability-provider';
+import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from '@headlessui/react';
+import clsx from 'clsx';
 
 
 const SearchBox = dynamic(
@@ -399,7 +401,7 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
   usePageActions(
     <span className='flex items-center gap-4'>
       <UserButton />
-      <button onClick={() => setIsEventDetailsPanelOpen(true)} className='bg-button-primary hover:cursor-pointer border-1 border-border-transparent text-white text-sm rounded-lg px-5 py-1'>Info</button>
+      <button onClick={() => setIsEventDetailsPanelOpen(true)} className='bg-button-primary hover:cursor-pointer border-1 border-border-transparent text-white text-sm rounded-lg px-4 py-1'>Info</button>
     </span>
   )
 
@@ -445,7 +447,7 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
                   <button
                     onClick={onConfirmDeleteStop}
                     disabled={deleteEventStopMtn.isPending}
-                    className="bg-bg-danger hover:cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed w-full py-2 px-4 rounded-lg"
+                    className="bg-bg-danger text-white hover:cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed w-full py-2 px-4 rounded-lg"
                   >
                     {deleteEventStopMtn.isPending ? "Deleting..." : "Delete"}
                   </button>
@@ -560,7 +562,9 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
                       <h3 className='text-xl font-semibold text-text-primary'>{selectedStop?.name}</h3>
                       <p className='text-lg text-text-secondary'>{selectedStop?.address}</p>
                     </header>
-                    <button onClick={onAddEventStop} className='mt-full bg-button-primary text-white p-2 text-lg rounded-md hover:cursor-pointer'>Add Stop</button>
+                    <button onClick={onAddEventStop} className='mt-full bg-button-primary text-white p-2 text-lg rounded-md hover:cursor-pointer'>
+                      {addEventStopMtn.isPending ? "Adding..." : "Add Stop"}
+                    </button>
                   </div>
                 </Popup>
               )}
@@ -612,22 +616,53 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
                         </span>
 
                         <div className='flex justify-between items-center w-full' >
-                          <div className='relative'>
-                            <select
-                              value={s.stop_member_status_arr?.find(m => m.clerk_id === clerkUser?.id)?.stop_status ?? "not_started"}
-                              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                                if (s.id === undefined) return;
-                                onUpdateUserStopStatus(s.id, e.target.value as StopStatus);
-                              }}
-                              className='appearance-none bg-bg-secondary w-36 py-2 pl-4 pr-9 rounded-lg text-text-primary text-md'
+                          <Listbox
+                            value={s.stop_member_status_arr?.find(m => m.clerk_id === clerkUser?.id)?.stop_status ?? "not_started"}
+                            onChange={(value: StopStatus) => {
+                              if (s.id === undefined) return;
+                              onUpdateUserStopStatus(s.id, value);
+                            }}
+                          >
+                            <ListboxButton
+                              className={clsx(
+                                'relative flex items-center justify-between gap-2 bg-bg-secondary w-36 py-2 pl-4 pr-9 rounded-lg text-text-primary text-md',
+                                'focus:not-data-focus:outline-none data-focus:outline-2 data-focus:-outline-offset-2 data-focus:outline-white/25'
+                              )}
                             >
-                              <option value="not_started">Not started</option>
-                              <option value="in_progress">In Progress</option>
-                              <option value="arrived">Arrived</option>
-                              <option value="no_show">No Show</option>
-                            </select>
-                            <ChevronDown size={16} className='pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary' />
-                          </div>
+                              {{
+                                not_started: "Not started",
+                                in_progress: "In Progress",
+                                arrived: "Arrived",
+                                no_show: "No Show",
+                              }[s.stop_member_status_arr?.find(m => m.clerk_id === clerkUser?.id)?.stop_status ?? "not_started"]}
+                              <ChevronDown size={16} className='pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary' />
+                            </ListboxButton>
+                            <ListboxOptions
+                              anchor="bottom"
+                              transition
+                              className={clsx(
+                                'w-(--button-width) rounded-lg bg-bg-secondary border-1 border-border-primary [--anchor-gap:--spacing(1)] focus:outline-none',
+                                'transition duration-100 ease-in data-leave:data-closed:opacity-0'
+                              )}
+                            >
+                              <ListboxOption value="not_started" className="group flex cursor-default items-center gap-2 px-3 py-1.5 select-none data-focus:bg-bg-tertiary">
+                                <Check className="invisible size-4 group-data-selected:visible" />
+                                Not started
+                              </ListboxOption>
+                              <ListboxOption value="in_progress" className="group flex cursor-default items-center gap-2 px-3 py-1.5 select-none data-focus:bg-bg-tertiary">
+                                <Check className="invisible size-4 group-data-selected:visible" />
+                                In Progress
+                              </ListboxOption>
+                              <ListboxOption value="arrived" className="group flex cursor-default items-center gap-2 px-3 py-1.5 select-none data-focus:bg-bg-tertiary">
+                                <Check className="invisible size-4 group-data-selected:visible" />
+                                Arrived
+                              </ListboxOption>
+                              <ListboxOption value="no_show" className="group flex cursor-default items-center gap-2 px-3 py-1.5 select-none data-focus:bg-bg-tertiary">
+                                <Check className="invisible size-4 group-data-selected:visible" />
+                                No Show
+                              </ListboxOption>
+                            </ListboxOptions>
+                          </Listbox>
 
                           <button
                             onClick={() => { setSelectedEventStop(s); setIsEventStopPanelOpen(prev => !prev); }}

@@ -420,6 +420,85 @@ func (h *EventHandler) UpdateEventMemberRole(w http.ResponseWriter, r *http.Requ
 	httpio.JSON(w, r, http.StatusOK, nil)
 }
 
+type InviteEventMemberBody struct {
+	UserId int64 `json:"user_id"`
+}
+
+func (h *EventHandler) InviteEventMember(w http.ResponseWriter, r *http.Request) {
+	eventId, err := parseEventIdPathValue(r)
+	if err != nil {
+		logger.Events.Warn("failed to parse eventId path parameter", zap.String("path", r.URL.Path), zap.Error(err))
+		httpio.BadRequest(w, r, err)
+		return
+	}
+
+	var body InviteEventMemberBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		logger.Events.Warn("failed to decode request body", zap.String("path", r.URL.Path), zap.Error(err))
+		httpio.BadRequest(w, r, err)
+		return
+	}
+
+	if body.UserId == 0 {
+		logger.Events.Warn("userId cannot be 0", zap.String("path", r.URL.Path))
+		httpio.BadRequest(w, r, ErrValidationFailed)
+		return
+	}
+
+	if err := h.client.InviteEventMember(eventId, body.UserId); err != nil {
+		logger.Events.Error("failed to invite event member", zap.Int64("eventId", eventId), zap.Int64("userId", body.UserId), zap.Error(err))
+		httpio.InternalError(w, r, err)
+		return
+	}
+
+	logger.Events.Info("successfully invited event member", zap.Int64("eventId", eventId), zap.Int64("userId", body.UserId))
+	httpio.JSON(w, r, http.StatusCreated, nil)
+}
+
+type UpdateEventDetailsBody struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Date        string `json:"date"`
+	ImageURL    string `json:"image_url"`
+}
+
+func (h *EventHandler) UpdateEventDetails(w http.ResponseWriter, r *http.Request) {
+	eventId, err := parseEventIdPathValue(r)
+	if err != nil {
+		logger.Events.Warn("failed to parse eventId path parameter", zap.String("path", r.URL.Path), zap.Error(err))
+		httpio.BadRequest(w, r, err)
+		return
+	}
+
+	var body UpdateEventDetailsBody
+	err = json.NewDecoder(r.Body).Decode(&body)
+	if err != nil {
+		logger.Events.Warn("failed to decode request body", zap.String("path", r.URL.Path), zap.Error(err))
+		httpio.BadRequest(w, r, err)
+		return
+	}
+
+	if body.Title == "" {
+		logger.Events.Warn("title cannot be empty", zap.String("path", r.URL.Path))
+		httpio.BadRequest(w, r, errors.New("title cannot be empty"))
+		return
+	}
+
+	err = h.client.UpdateEventDetails(eventId, app.Event{
+		Title:       body.Title,
+		Description: body.Description,
+		Date:        body.Date,
+		ImageURL:    body.ImageURL,
+	})
+	if err != nil {
+		logger.Events.Error("failed to update event details", zap.Int64("eventId", eventId), zap.String("path", r.URL.Path), zap.Error(err))
+		httpio.InternalError(w, r, err)
+		return
+	}
+
+	httpio.JSON(w, r, http.StatusOK, nil)
+}
+
 type GetEventMembersPayload struct {
 	Members []app.EventMember `json:"members"`
 }

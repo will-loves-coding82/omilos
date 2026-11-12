@@ -239,6 +239,121 @@ export async function updateEventMemberRole(eventId: number, memberId: number, n
   }
 }
 
+export async function inviteEventMember(eventId: number, userId: number): Promise<ActionResponse<null>> {
+  try {
+    const res = await apiFetch(API_ROUTES.events.members.invite(eventId), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ user_id: userId }),
+    })
+
+    if (!res.ok) {
+      const body = await res.text()
+      console.error("Invite event member failed:", res.status, body)
+      return {
+        success: false,
+        data: null,
+        message: "Failed to invite user",
+      }
+    }
+
+    return {
+      success: true,
+      data: null,
+    }
+  } catch (err) {
+    console.error("Error inviting event member:", err)
+    return {
+      success: false,
+      data: null,
+      message: err instanceof Error ? err.message : "An unknown error occurred",
+    }
+  }
+}
+
+export async function updateEventDetails(eventId: number, formData: FormData): Promise<ActionResponse<{image_url?: string} | null>> {
+  const parsed = eventDetailsSchema.safeParse({
+    title: formData.get("title"),
+    description: formData.get("description") || undefined,
+    date: formData.get("date"),
+  });
+
+  if (!parsed.success) {
+    return {
+      success: false,
+      data: null,
+      message: "Invalid event details",
+      error: z.flattenError(parsed.error).fieldErrors,
+    };
+  }
+
+  const coverImage = formData.get("coverImage")
+  // The caller sends back the event's current image_url so an edit that doesn't
+  // touch the cover image leaves it intact rather than clearing the column.
+  let imageUrl = (formData.get("currentImageUrl") as string | null) ?? ""
+
+  try {
+    if (coverImage instanceof File && coverImage.size > 0) {
+      // Generate a presigned URL to upload to S3
+      const presignRes = await apiFetch(API_ROUTES.presign.create(coverImage.name))
+      if (!presignRes.ok) {
+        return { success: false, data: null, message: "Failed to fetch presigned url" }
+      }
+
+      const { data: presignData } = await presignRes.json()
+      const presigned_url = presignData.presigned_url
+
+      // Upload directly to S3 using the presigned URL, which carries its own
+      // auth via signed query params — apiFetch would attach our Clerk bearer
+      // token, which S3 rejects since it wasn't part of the signed request.
+      const imageBytes = await coverImage.arrayBuffer()
+      const uploadRes = await fetch(presigned_url, {
+        method: "PUT",
+        headers: { "Content-Type": coverImage.type },
+        body: imageBytes,
+      })
+
+      if (!uploadRes.ok) {
+        const body = await uploadRes.text()
+        console.error("S3 upload failed:", uploadRes.status, body)
+        return { success: false, data: null, message: "Failed to upload cover image" }
+      }
+
+      imageUrl = presigned_url.split("?")[0]
+    }
+
+    const res = await apiFetch(API_ROUTES.events.update(eventId), {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        title: parsed.data.title,
+        description: parsed.data.description ?? "",
+        date: parsed.data.date,
+        image_url: imageUrl,
+      })
+    })
+
+    if (!res.ok) {
+      const body = await res.text()
+      console.error("Update event details failed:", res.status, body)
+      return { success: false, data: null, message: "Failed to update event details" }
+    }
+
+    return { success: true, data: { image_url: imageUrl || undefined } }
+  } catch (err) {
+    console.error("Error updating event details:", err)
+    return {
+      success: false,
+      data: null,
+      message: err instanceof Error ? err.message : "An unknown error occurred",
+    }
+  }
+}
+
 export async function getEventStops(eventId: number) : Promise<ActionResponse<{stops: EventStop[]}>> {
   try {
     const res = await apiFetch(API_ROUTES.events.stops.list(eventId), {method: "GET"})

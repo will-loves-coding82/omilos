@@ -95,12 +95,20 @@ func (s *Server) RegisterRoutes(database database.Service) http.Handler {
 				r.Use(EventMiddleware(eventClient, enforcer))
 				r.Get("/members", eventHandler.GetEventMembers)
 				r.Patch("/members/role", eventHandler.UpdateEventMemberRole)
+				r.Patch("/", eventHandler.UpdateEventDetails)
 			})
 
 			r.Group(func(r chi.Router) {
 				r.Use(WithResource(app.ResourceSubjectRole))
 				r.Use(EventMiddleware(eventClient, enforcer))
 				r.Patch("/roles/{userId}", eventHandler.UpdateEventMemberRole)
+			})
+
+			// Only hosts can invite (no non-host role is granted Member:create)
+			r.Group(func(r chi.Router) {
+				r.Use(WithResource(app.ResourceSubjectMember))
+				r.Use(EventMiddleware(eventClient, enforcer))
+				r.Post("/members", eventHandler.InviteEventMember)
 			})
 
 			r.Group(func(r chi.Router) {

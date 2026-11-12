@@ -7,8 +7,9 @@ import { useRouter } from "next/navigation";
 import { ClientEvent } from "@/app/types/client-types";
 import { usePageActions } from "../../components/context/header-actions-context";
 import { UserButton } from "@clerk/nextjs";
-import { Calendar, Ellipsis, EllipsisVertical, FileText, SquareArrowOutUpRight, Trash2, UserGroup, X } from "lucide-react";
+import { Calendar, Ellipsis, SquareArrowOutUpRight, Trash2, UserGroup, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import { formatEventDate } from "@/app/utils";
 
 export type EventsClientProps = {
   events: ClientEvent[]
@@ -38,10 +39,9 @@ export function EventsClient({ events }: EventsClientProps) {
       <CreateEventModal isOpen={isCreateEventModalOpen} onClose={closeCreateModal} />
       <section id="header" className="flex justify-between w-full px-4">
         <div id="options-group" className="flex gap-8">
-          <button id="create-event-btn" className="hover:cursor-pointer rounded-lg px-4 py-2 bg-bg-secondary font-medium" onClick={() => openCreateModal()}>Create</button>
+          <button id="create-event-btn" className="hover:cursor-pointer bg-button-primary text-white rounded-lg px-4 py-2 bg-bg-secondary font-medium" onClick={() => openCreateModal()}>Create</button>
         </div>
       </section>
-
       <section id="collection" className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 px-4 w-full">
         {events.map(h => (
           <EventPreviewCard key={h.slug} event={h} onClick={() => router.push(`/dashboard/events/${h.slug}`)} />
@@ -87,7 +87,7 @@ function EventPreviewCard({ event, onClick }: { event: ClientEvent, onClick: () 
             />
 
             <motion.div
-              className="fixed top-1/2 left-1/2 z-50 h-[500px] w-[500px] bg-bg-primary rounded-xl shadow-md overflow-hidden p-4"
+              className="fixed top-1/2 left-1/2 z-50 h-[500px] w-[500px] bg-bg-primary border border-border-transparent shadow-md rounded-xl overflow-hidden p-4"
               initial={{ opacity: 0, scale: 0.95, x: "-50%", y: "-50%" }}
               animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
               exit={{ opacity: 0, scale: 0.95, x: "-50%", y: "-50%" }}
@@ -95,7 +95,9 @@ function EventPreviewCard({ event, onClick }: { event: ClientEvent, onClick: () 
             >
               <section className="flex w-full justify-between">
                 <h2 className="text-xl font-medium">Event Members</h2>
-                <button onClick={() => setIsMembersModalOpen(false)} className="hover:cursor-pointer bg-bg-secondary rounded-sm p-1 w-fit h-fit"><X size={16} /></button>
+                <button onClick={() => setIsMembersModalOpen(false)} className="hover:cursor-pointer hover:bg-bg-tertiary bg-bg-secondary rounded-md p-2 w-fit h-fit">
+                  <X strokeWidth={3} size={16} />
+                </button>
               </section>
 
               <ul className="flex flex-col gap-4 mt-8">
@@ -130,8 +132,8 @@ function EventPreviewCard({ event, onClick }: { event: ClientEvent, onClick: () 
       </AnimatePresence>
 
 
-      <div className="mx-auto w-full max-w-[400px] md:w-full md:max-w-[480px] lg:max-w-full bg-bg-primary border-1 border-border-primary shadow-md rounded-2xl flex flex-col gap-1 p-4 overflow-hidden">
-        <section className="relative h-[200px] rounded-lg bg-bg-secondary overflow-hidden">
+      <div className="mx-auto w-full max-w-[400px] md:w-full md:max-w-[480px] lg:max-w-full bg-bg-primary border-1 border-border-primary shadow-md rounded-2xl flex flex-col justify-between gap-4 p-4 overflow-hidden">
+        <section className="relative h-[264px] rounded-lg bg-bg-secondary overflow-hidden">
           {event.image_url &&
             <Image
               fill
@@ -143,41 +145,45 @@ function EventPreviewCard({ event, onClick }: { event: ClientEvent, onClick: () 
           }
         </section>
 
-        <section className="py-3 px-1">
-          <h2 className="text-lg text-primary font-medium">{event.title}</h2>
-          <p className="text-sm text-text-secondary">{event.description}</p>
+        <section className="flex flex-col gap-2 p-1">
+          <header>
+            <h2 className="text-lg text-primary font-medium">{event.title}</h2>
+            <p className="text-sm text-text-secondary">{event.description}</p>
+          </header>
+
+          <section className="flex w-full items-center gap-2 px-1">
+            <>
+              {event.members?.filter(m => m.user.id === event.host_id).map((m) =>
+                m.user.image_url?.length ?
+                  <Image
+                    key={m.user.id}
+                    className="rounded-full w-6 h-6 object-cover"
+                    height={32}
+                    width={32}
+                    alt="user profile"
+                    src={m.user.image_url} />
+                  :
+                  <div key={m.user.id} className="h-8 w-8 rounded-full bg-bg-secondary flex items-center justify-center text-xs font-medium text-secondary">
+                    {m.user.first_name[0] + m.user.last_name[0]}
+                  </div>
+              )}
+
+              {event.members?.filter(m => m.user.id === event.host_id).map((m) =>
+                <p key={m.user.clerk_id} className="text-text-secondary text-sm">{m.user.first_name + " " + m.user.last_name}</p>
+              )}
+
+            </>
+          </section>
         </section>
 
-        <section className="flex w-full items-center gap-2 px-1">
-          <>
-            {event.members?.filter(m => m.user.id === event.host_id).map((m) =>
-              m.user.image_url?.length ?
-                <Image
-                  key={m.user.id}
-                  className="rounded-full w-7 h-7 object-cover"
-                  height={32}
-                  width={32}
-                  alt="user profile"
-                  src={m.user.image_url} />
-                :
-                <div key={m.user.id} className="h-8 w-8 rounded-full bg-bg-secondary flex items-center justify-center text-xs font-medium text-secondary">
-                  {m.user.first_name[0] + m.user.last_name[0]}
-                </div>
-            )}
 
-            {event.members?.filter(m => m.user.id === event.host_id).map((m) =>
-              <p key={m.user.clerk_id} className="text-text-secondary text-sm">{m.user.first_name + " " + m.user.last_name}</p>
-            )}
-
-          </>
-        </section>
 
         {/* Tag List */}
-        <section className="pt-6 px-1 flex justify-between">
+        <section className="px-1 flex justify-between">
           <span className="flex gap-2">
             <div className="bg-bg-secondary shadow-sm rounded-md w-fit py-1 px-2 flex items-center gap-1">
               <Calendar size={16} className="text-text-secondary" />
-              <p className="text-xs text-text-secondary">{new Date(event.date).toDateString()}</p>
+              <p className="text-xs text-text-secondary">{formatEventDate(event.date)}</p>
             </div>
 
             <div className="bg-bg-secondary shadow-sm rounded-md w-fit py-1 px-2 flex items-center gap-1">
