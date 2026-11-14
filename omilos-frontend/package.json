@@ -17,6 +17,7 @@
     "@headlessui/react": "^2.2.10",
     "@mapbox/search-js-react": "^1.6.0",
     "@tanstack/react-query": "^5.104.1",
+    "aws-amplify": "^6.22.2",
     "clsx": "^2.1.1",
     "jittered-fractional-indexing": "^1.0.1",
     "lucide": "^1.43.0",

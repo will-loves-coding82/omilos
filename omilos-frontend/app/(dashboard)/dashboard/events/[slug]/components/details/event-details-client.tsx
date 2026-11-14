@@ -21,56 +21,17 @@ import type { FillExtrusionLayerSpecification } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { Point } from 'geojson';
 
+import { useEventChannel } from '../../hooks/use-event-channel';
+import MemberLocationMarkers from './member-location-markers';
+
 import { UserButton, useUser } from '@clerk/nextjs';
-import { Check, ChevronDown, CircleCheck, Maximize2, Minimize2, PanelRightClose, PanelRightOpen, TriangleAlert, X } from 'lucide-react';
+import { Check, ChevronDown, CircleCheck, MapPin, MapPinOff, Maximize2, Minimize2, PanelRightClose, PanelRightOpen, TriangleAlert, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { eventKey, membersKey, stopsKey, userStopStatusMutationKey } from '@/app/providers/query-keys';
 import { AnimatePresence, motion } from 'motion/react';
 import { Can } from '@/app/providers/ability-provider';
 import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from '@headlessui/react';
 import clsx from 'clsx';
-
-
-const SearchBox = dynamic(
-  () => import("@mapbox/search-js-react").then((mod) => mod.SearchBox),
-  { ssr: false }
-);
-
-// Extrudes building footprints from Mapbox's built-in composite source into 3D shapes.
-// Requires the map's `pitch` to be > 0 to actually see the height.
-const buildingExtrusionLayer: FillExtrusionLayerSpecification = {
-  id: '3d-buildings',
-  source: 'composite',
-  'source-layer': 'building',
-  filter: ['==', 'extrude', 'true'],
-  type: 'fill-extrusion',
-  minzoom: 14,
-  paint: {
-    'fill-extrusion-color': '#aaa',
-    'fill-extrusion-height': ['get', 'height'],
-    'fill-extrusion-base': ['get', 'min_height'],
-    'fill-extrusion-opacity': 0.6,
-  },
-};
-
-
-export default function EventDetailsClient({ slug }: { slug: string }) {
-  const { data: event, isPending, isError } = useQuery({
-    queryKey: eventKey(slug),
-    queryFn: async (): Promise<ClientEvent> => {
-      const res = await getEventDetails(slug);
-      if (!res.success || !res.data.event) {
-        throw new Error(res.message ?? "Failed to load event");
-      }
-      return toClientEvent(res.data.event);
-    },
-  });
-
-  if (isPending) return <p>loading...</p>;   // only hit if hydration missed
-  if (isError || !event) return <p>Event not found</p>;
-
-  return <EventDetails event={event} slug={slug} />;
-}
 
 
 export type MoveStopVars = {
@@ -95,6 +56,46 @@ export type StopMove = {
   reordered: ClientEventStop[];   // the full list in its new order, used for the optimistic write
 };
 
+const SearchBox = dynamic(
+  () => import("@mapbox/search-js-react").then((mod) => mod.SearchBox),
+  { ssr: false }
+);
+
+// Extrudes building footprints from Mapbox's built-in composite source into 3D shapes.
+// Requires the map's `pitch` to be > 0 to actually see the height.
+const buildingExtrusionLayer: FillExtrusionLayerSpecification = {
+  id: '3d-buildings',
+  source: 'composite',
+  'source-layer': 'building',
+  filter: ['==', 'extrude', 'true'],
+  type: 'fill-extrusion',
+  minzoom: 14,
+  paint: {
+    'fill-extrusion-color': '#aaa',
+    'fill-extrusion-height': ['get', 'height'],
+    'fill-extrusion-base': ['get', 'min_height'],
+    'fill-extrusion-opacity': 0.6,
+  },
+};
+
+export default function EventDetailsClient({ slug }: { slug: string }) {
+  const { data: event, isPending, isError } = useQuery({
+    queryKey: eventKey(slug),
+    queryFn: async (): Promise<ClientEvent> => {
+      const res = await getEventDetails(slug);
+      if (!res.success || !res.data.event) {
+        throw new Error(res.message ?? "Failed to load event");
+      }
+      return toClientEvent(res.data.event);
+    },
+  });
+
+  if (isPending) return <p>loading...</p>;   // only hit if hydration missed
+  if (isError || !event) return <p>Event not found</p>;
+
+  return <EventDetails event={event} slug={slug} />;
+}
+
 function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
 
   const mapRef = useRef<MapRef>(null);
@@ -116,9 +117,15 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
 
   const { user: clerkUser } = useUser();
 
+  // Live location sharing is opt-in per session
+  const [isSharingLocation, setIsSharingLocation] = useState(false);
+
   // Tanstack Query functions
   const queryClient = useQueryClient();
   const eventId = event.id;
+
+  // Real-time updates: refetches stops/members/event when other members make changes
+  useEventChannel(eventId, slug);
 
   const { data: stopsData } = useQuery({
     queryKey: stopsKey(eventId),
@@ -377,8 +384,6 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
     };
   }, [mapInstanceReady]);
 
-
-
   function selectEventStop(stop: ClientEventStop) {
     setOpenStopId(stop.mapbox_id);
     setSelectedEventStop(stop);
@@ -401,6 +406,17 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
   usePageActions(
     <span className='flex items-center gap-4'>
       <UserButton />
+      <button
+        onClick={() => setIsSharingLocation(prev => !prev)}
+        aria-pressed={isSharingLocation}
+        className={clsx(
+          'flex items-center gap-1.5 hover:cursor-pointer text-sm rounded-lg px-3 py-1 transition-colors',
+          isSharingLocation ? 'bg-bg-active text-text-active' : 'bg-button-secondary hover:bg-button-tertiary text-text-secondary'
+        )}
+      >
+        {isSharingLocation ? <MapPin size={14} /> : <MapPinOff size={14} />}
+        {isSharingLocation ? 'Sharing location' : 'Share location'}
+      </button>
       <button onClick={() => setIsEventDetailsPanelOpen(true)} className='bg-button-primary hover:cursor-pointer border-1 border-border-transparent text-white text-sm rounded-lg px-4 py-1'>Info</button>
     </span>
   )
@@ -763,6 +779,8 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
               </div>
             ))
           }
+          <MemberLocationMarkers eventId={eventId} members={eventMembers} isSharing={isSharingLocation} />
+
           <NavigationControl position='bottom-right' />
         </Map>
       </div>
