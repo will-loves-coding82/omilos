@@ -42,14 +42,15 @@ export function useEventChannel(eventId: number, slug: string, options: EventCha
     let attempt = 0
     let hasConnected = false
 
-    // Map message types to the React Query key they affect
-    const keyFor = (type: EventChannelMessage["type"] | undefined) => {
+    // Map message types to the React Query keys they affect (one change can touch several caches)
+    const keysFor = (type: EventChannelMessage["type"] | undefined): QueryKey[] => {
       switch (type) {
-        case "event": return eventKey(slug)
-        case "stops": return stopsKey(eventId)
-        case "members": return membersKey(eventId)
-        case "role": return membersKey(eventId) // roles are shown in the member list
-        default: return null
+        case "event": return [eventKey(slug)]
+        case "stops": return [stopsKey(eventId)]
+        case "stop_deleted": return [stopsKey(eventId), eventKey(slug)] // may clear active_stop_id
+        case "members": return [membersKey(eventId)]
+        case "role": return [membersKey(eventId)] // roles are shown in the member list
+        default: return []
       }
     }
 
@@ -105,8 +106,7 @@ export function useEventChannel(eventId: number, slug: string, options: EventCha
 
         const subscription = ch.subscribe({
           next: ({ event }: { event: EventChannelMessage }) => {
-            const key = keyFor(event?.type)
-            if (key) invalidate(key)
+            for (const key of keysFor(event?.type)) invalidate(key)
             if (event?.type === "role") onRoleChangedRef.current?.(event)
           },
           error: (err) => {

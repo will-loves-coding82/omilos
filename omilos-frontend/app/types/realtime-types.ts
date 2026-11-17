@@ -10,8 +10,12 @@ export const eventChannelName = (eventId: number) => `/${EVENTS_NAMESPACE}/${eve
 export type RoleChangedMessage = { type: "role"; userId: number; newRole: MemberRole };
 
 // Contract for messages the server publishes after a successful write.
-// Messages are lightweight "something changed" signals; clients refetch the
-// affected query rather than trusting payload data from the channel.
+// Messages describe what changed; the client decides which caches that affects
+// and refetches them rather than trusting payload data from the channel.
+//   "event"        event details or active stop changed
+//   "stops"        stop list, order, or member statuses changed
+//   "stop_deleted" a stop was removed (may also clear the event's active stop)
+//   "members"      member list changed
 export type EventChannelMessage =
-  | { type: "event" | "stops" | "members" }
+  | { type: "event" | "stops" | "stop_deleted" | "members" }
   | RoleChangedMessage;

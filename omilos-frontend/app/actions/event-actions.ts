@@ -403,6 +403,7 @@ export async function addEventStop(
     }
 
     const { data } = await res.json();
+    await publishEventMessage(eventId, { type: "stops" });
     return { success: true, data: { newStop: data.new_stop } };
   } catch (err) {
     console.error("Error adding event stop:", err);
@@ -435,6 +436,7 @@ export async function reorderEventStop(eventId: number, stopId: number, fraction
     }
 
     const { data } = await res.json(); // httpio wraps the body in { data }
+    await publishEventMessage(eventId, { type: "stops" });
     return { success: true, data };
   } catch (err) {
     return {
@@ -466,6 +468,9 @@ export async function setActiveEventStop(eventId: number, stopId: number | null)
       }
     }
 
+    // active_stop_id lives on the event, not the stop list
+    await publishEventMessage(eventId, { type: "event" })
+
     return {
       success: true,
       data: null,
@@ -495,6 +500,8 @@ export async function deleteEventStop(eventId: number, stopId: number) : Promise
         message: "Failed to delete stop"
       }
     }
+
+    await publishEventMessage(eventId, { type: "stop_deleted" })
 
     return {
       success: true,
@@ -529,6 +536,9 @@ export async function updateStopMemberStatus(eventId: number, stopId: number, st
         message: "Failed to update stop status",
       }
     }
+
+    // Member statuses are stored on each stop (stop_member_status_arr)
+    await publishEventMessage(eventId, { type: "stops" })
 
     return {
       success: true,
