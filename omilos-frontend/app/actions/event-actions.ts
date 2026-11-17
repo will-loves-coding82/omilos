@@ -6,6 +6,7 @@ import { eventDetailsSchema } from "../(dashboard)/dashboard/events/schemas";
 import { API_ROUTES } from "../constants";
 import { ClientEventStop } from "../types/client-types";
 import { apiFetch } from "./utils";
+import { publishEventMessage } from "./realtime";
 import { ActionResponse } from "./action-types";
 import { Event, EventMember, EventStop, MemberRole, StopStatus } from "../types/api-types";
 import { da, fr } from "zod/v4/locales";
@@ -224,6 +225,9 @@ export async function updateEventMemberRole(eventId: number, memberId: number, n
         message: "Failed to update event member role",
       }
     }
+
+    // Tell the affected member (and everyone's member list) that the role changed
+    await publishEventMessage(eventId, { type: "role", userId: memberId, newRole: newRole as MemberRole })
 
     return {
       success: true,

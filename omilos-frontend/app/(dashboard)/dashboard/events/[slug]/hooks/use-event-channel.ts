@@ -5,23 +5,20 @@ import { useAuth } from "@clerk/nextjs";
 import { useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { events, type EventsChannel } from "aws-amplify/data";
 import { eventKey, membersKey, stopsKey } from "@/app/providers/query-keys";
-
-// Must match the channel namespace configured on the AppSync Events API.
-const NAMESPACE = "events";
-export const eventChannelName = (eventId: number) => `/${NAMESPACE}/${eventId}`;
-
-// Contract for messages the server publishes after a successful write.
-// Messages are lightweight "something changed" signals; clients refetch the
-// affected query rather than trusting payload data from the channel.
-export type EventChannelMessage = { type: "event" | "stops" | "members" };
+import { eventChannelName, type EventChannelMessage, type RoleChangedMessage } from "@/app/types/realtime-types";
 
 const MAX_RETRY_DELAY_MS = 30_000;
+
+type EventChannelOptions = {
+  // Called for every role change in this event; the caller decides if it's about them
+  onRoleChanged?: (message: RoleChangedMessage) => void;
+};
 
 /**
  * Subscribes to the real-time channel for an event and invalidates the
  * matching React Query caches when other members change something.
  */
-export function useEventChannel(eventId: number, slug: string) {
+export function useEventChannel(eventId: number, slug: string, options: EventChannelOptions = {}) {
   const { getToken, isSignedIn } = useAuth();
   const queryClient = useQueryClient();
 
@@ -30,6 +27,11 @@ export function useEventChannel(eventId: number, slug: string) {
   useEffect(() => {
     getTokenRef.current = getToken;
   }, [getToken]);
+
+  const onRoleChangedRef = useRef(options.onRoleChanged);
+  useEffect(() => {
+    onRoleChangedRef.current = options.onRoleChanged;
+  }, [options.onRoleChanged]);
 
   useEffect(() => {
     if (!isSignedIn || !process.env.NEXT_PUBLIC_APPSYNC_EVENTS_ENDPOINT) return
@@ -46,6 +48,7 @@ export function useEventChannel(eventId: number, slug: string) {
         case "event": return eventKey(slug)
         case "stops": return stopsKey(eventId)
         case "members": return membersKey(eventId)
+        case "role": return membersKey(eventId) // roles are shown in the member list
         default: return null
       }
     }
@@ -104,6 +107,7 @@ export function useEventChannel(eventId: number, slug: string) {
           next: ({ event }: { event: EventChannelMessage }) => {
             const key = keyFor(event?.type)
             if (key) invalidate(key)
+            if (event?.type === "role") onRoleChangedRef.current?.(event)
           },
           error: (err) => {
             console.error("events subscription error", err)

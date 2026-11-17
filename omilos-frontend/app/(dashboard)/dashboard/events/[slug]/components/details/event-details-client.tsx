@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { environment } from '../../environment';
 import Image from "next/image";
 
-import { ReorderStopResult, StopMemberStatus, StopStatus } from '@/app/types/api-types';
+import { MemberRole, ReorderStopResult, StopMemberStatus, StopStatus } from '@/app/types/api-types';
 import { Coordinates, ClientEventStop, ClientEvent, searchResultToClientEventStop, ClientStopMemberStatus, toClientEvent, toClientEventMember, toClientEventStop, ClientEventMember } from '@/app/types/client-types';
 
 import { usePageActions } from '../../../../components/context/header-actions-context';
@@ -25,7 +25,7 @@ import { useEventChannel } from '../../hooks/use-event-channel';
 import MemberLocationMarkers from './member-location-markers';
 
 import { UserButton, useUser } from '@clerk/nextjs';
-import { Check, ChevronDown, CircleCheck, MapPin, MapPinOff, Maximize2, Minimize2, PanelRightClose, PanelRightOpen, TriangleAlert, X } from 'lucide-react';
+import { Check, ChevronDown, CircleCheck, Info, MapPin, MapPinOff, Maximize2, RefreshCw, Minimize2, PanelRightClose, PanelRightOpen, TriangleAlert, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { eventKey, membersKey, stopsKey, userStopStatusMutationKey } from '@/app/providers/query-keys';
 import { AnimatePresence, motion } from 'motion/react';
@@ -124,9 +124,6 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
   const queryClient = useQueryClient();
   const eventId = event.id;
 
-  // Real-time updates: refetches stops/members/event when other members make changes
-  useEventChannel(eventId, slug);
-
   const { data: stopsData } = useQuery({
     queryKey: stopsKey(eventId),
     queryFn: async (): Promise<ClientEventStop[]> => {
@@ -147,6 +144,17 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
 
   const eventStops = stopsData ?? [];
   const eventMembers = membersData ?? [];
+
+  // Set when someone changes our role; our permissions are stale until the page reloads
+  const [roleChangedTo, setRoleChangedTo] = useState<MemberRole | null>(null);
+  const myUserId = eventMembers.find(m => m.user.clerk_id === clerkUser?.id)?.user.id;
+
+  // Real-time updates: refetches stops/members/event when other members make changes
+  useEventChannel(eventId, slug, {
+    onRoleChanged: (msg) => {
+      if (myUserId !== undefined && msg.userId === myUserId) setRoleChangedTo(msg.newRole);
+    },
+  });
   const activeStopId = event.active_stop_id ?? null;
 
   const setActiveStopMtn = useMutation({
@@ -423,6 +431,61 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
 
   return (
     <div ref={containerRef} className='absolute inset-0 z-0 w-full h-full'>
+
+      {/* Shown when another member changes our role; permissions only update after a reload */}
+      <AnimatePresence>
+        {roleChangedTo &&
+          <>
+            <motion.div
+              className="fixed inset-0 bg-black/60 z-50"
+              onClick={() => setRoleChangedTo(null)}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            />
+
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="role-changed-title"
+              className="fixed top-1/2 left-1/2 z-50 h-fit w-[400px] max-w-[calc(100vw-2rem)] bg-bg-primary border-1 border-border-primary rounded-xl shadow-md overflow-hidden p-4"
+              initial={{ opacity: 0, scale: 0.95, x: "-50%", y: "-50%" }}
+              animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
+              exit={{ opacity: 0, scale: 0.95, x: "-50%", y: "-50%" }}
+              transition={{ duration: 0.15 }}
+            >
+              <section className="flex flex-col gap-8 w-full justify-between">
+                <div className="flex w-full justify-between">
+                  <header>
+                    <h2 id="role-changed-title" className="text-xl font-medium">Your role has changed</h2>
+                    <p className="text-text-secondary text-md">Refresh the page to update your permissions</p>
+                  </header>
+
+                  <button onClick={() => setRoleChangedTo(null)} aria-label="Dismiss" className="hover:cursor-pointer hover:bg-bg-tertiary bg-bg-secondary rounded-md p-2 w-fit h-fit"><X strokeWidth={3} size={16} /></button>
+                </div>
+                <div className="flex w-full gap-4 p-3 bg-bg-secondary rounded-md">
+                  <Info size={24} className="text-text-secondary shrink-0" />
+                  <p className="text-text-primary">
+                    You are now {roleChangedTo === "editor" ? "an" : "a"} <span className="font-medium">{roleChangedTo}</span> for {event.title}
+                  </p>
+                </div>
+
+                <div className="flex gap-4">
+                  <button onClick={() => setRoleChangedTo(null)} className="bg-bg-secondary hover:bg-bg-tertiary hover:cursor-pointer w-full py-2 px-4 rounded-lg">Later</button>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="flex items-center justify-center gap-2 bg-button-primary text-white hover:cursor-pointer w-full py-2 px-4 rounded-lg"
+                  >
+                    <RefreshCw size={16} />
+                    Refresh
+                  </button>
+                </div>
+              </section>
+            </motion.div>
+          </>
+        }
+      </AnimatePresence>
 
       <AnimatePresence>
         {isDeleteStopModalOpen &&
