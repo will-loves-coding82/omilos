@@ -22,10 +22,10 @@ export function BreadCrumbHeader() {
           <Menu size={20} className="text-text-secondary" />
         </button>
 
-        <nav className="flex gap-1 items-center text-sm text-text-secondary">
+        <nav className="hidden lg:flex gap-1 items-center text-sm text-text-secondary">
           {segments.map((seg, i) => (
             <div key={i} className='flex items-center'>
-              {i > 0 && <ChevronRight size={16}/>} { i < segments.length - 1 ? <Link href={`/dashboard/${seg}`}>{seg}</Link> : <p>{seg}</p>}
+              {i > 0 && <ChevronRight size={16} />} {i < segments.length - 1 ? <Link href={`/dashboard/${seg}`}>{seg}</Link> : <p>{seg}</p>}
             </div>
           ))}
         </nav>

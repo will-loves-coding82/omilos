@@ -26,7 +26,7 @@ const STOP_STATUS_CONFIG: Record<StopStatus, { label: string, icon: typeof Clock
 export default function EventStopSidePanel({ stop, members, isOpen, isActive, onDismiss, onDeleteStop, onToggleActive }: EventStopSidePanelProps) {
   return (
     <div
-      className={`absolute inset-y-0 right-0 z-10 w-full bg-bg-primary md:w-[380px] shadow-md transition-transform duration-300 ${isOpen ? 'translate-x-0' : 'translate-x-full'
+      className={`absolute inset-y-0 right-0 z-20 w-full bg-bg-primary md:w-[380px] shadow-md transition-transform duration-300 ${isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
     >
       <div className="flex justify-between w-full border-b-1 p-3 border-border-primary">

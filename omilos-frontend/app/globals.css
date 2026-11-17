@@ -3,6 +3,8 @@
 :root {
   --sidebar-width: 0px;
   --panel-width: 0px;
+  /* Height of the mobile bottom sheet's header, visible when the sheet is collapsed */
+  --sheet-peek: 3.5rem;
 
   --background: #ffffff;
   --foreground: #171717;
@@ -205,4 +207,13 @@ body {
 .event-popup .mapboxgl-popup-close-button:hover {
   background: var(--color-bg-tertiary);
   border-radius: 8px;
+}
+
+/* Mobile: lift the map's bottom controls (zoom, compass, geolocate, attribution)
+   above the docked bottom sheet header so they don't touch its edge. */
+@media (max-width: 767px) {
+  .event-map .mapboxgl-ctrl-bottom-left,
+  .event-map .mapboxgl-ctrl-bottom-right {
+    bottom: calc(var(--sheet-peek) + 0.5rem);
+  }
 }

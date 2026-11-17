@@ -430,7 +430,10 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
   )
 
   return (
-    <div ref={containerRef} className='absolute inset-0 z-0 w-full h-full'>
+    // overflow-clip: the closed side panels sit off-screen (translate-x-full). With `hidden`,
+    // dnd-kit's auto-scroller could still scroll the page sideways while dragging a stop near
+    // the edge, revealing them. `clip` removes the scrollable overflow entirely.
+    <div ref={containerRef} className='absolute inset-0 z-0 w-full h-full overflow-clip'>
 
       {/* Shown when another member changes our role; permissions only update after a reload */}
       <AnimatePresence>
@@ -567,7 +570,7 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
 
       {/* Map overlays elements that need to respond to sidebar and panel resizing  */}
       <Can I="create" a="Stop">
-        <div className='max-w-md absolute top-4 z-10 w-full md:left-[calc(var(--panel-width)+1rem)] md:translate-x-0 md:w-88 transition-[left] duration-300'>
+        <div className='max-w-md absolute top-4 left-4 right-4 z-10 md:right-auto md:left-[calc(var(--panel-width)+1rem)] md:translate-x-0 md:w-88 transition-[left] duration-300'>
           {mapInstanceReady && (
             <SearchBox
               placeholder='Add a stop'
@@ -608,7 +611,7 @@ function EventDetails({ event, slug }: { event: ClientEvent, slug: string }) {
       </Can>
       {/* Fixed to the viewport so the map itself never shifts or resizes when
           the dashboard sidebar or these overlay panels expand/collapse. */}
-      <div className='fixed z-0 top-[var(--header-height)] right-0 bottom-0 left-0'>
+      <div className='event-map fixed z-0 top-[var(--header-height)] right-0 bottom-0 left-0'>
         <Map
           ref={mapRef}
           {...viewState}

@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { DragDropProvider } from '@dnd-kit/react';
 import { useSortable } from '@dnd-kit/react/sortable';
 import { move } from '@dnd-kit/helpers';
-import { CheckIcon, ChevronDownIcon, EllipsisVertical, FilterIcon, GripVertical, Trash2, UserCircle, UserRoundPlus } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, EllipsisVertical, FilterIcon, GripVertical, PanelBottomClose, PanelBottomOpen, PanelLeftClose, PanelLeftOpen, Trash2, UserCircle, UserRoundPlus } from "lucide-react";
 import { ClientEventMember, ClientEventStop } from "@/app/types/client-types";
 import TabButton from "../../../components/tab-button";
 import Image from "next/image";
@@ -22,6 +22,26 @@ import { MoveStopVars } from "../details/event-details-client";
 import { InviteMembersModal } from "./invite-members-modal";
 
 const PANEL_WIDTH_DESKTOP = "374px";
+// Space reserved for the floating "expand" button while the desktop drawer is collapsed,
+// so overlays positioned with --panel-width (e.g. the map search box) sit beside it.
+const COLLAPSED_OFFSET_DESKTOP = "3.5rem";
+const PANEL_ID = "event-management-panel";
+
+// Tracks the md breakpoint (Tailwind's 768px). Server snapshot is false (mobile-first);
+// it only drives the --panel-width offset and `inert`, never layout classes.
+const DESKTOP_QUERY = "(min-width: 768px)";
+function subscribeToDesktop(onChange: () => void) {
+  const mediaQuery = window.matchMedia(DESKTOP_QUERY);
+  mediaQuery.addEventListener("change", onChange);
+  return () => mediaQuery.removeEventListener("change", onChange);
+}
+function useIsDesktop() {
+  return useSyncExternalStore(
+    subscribeToDesktop,
+    () => window.matchMedia(DESKTOP_QUERY).matches,
+    () => false,
+  );
+}
 
 type RoleFilter = "all" | "editor" | "viewer";
 
@@ -51,6 +71,8 @@ export default function EventManagementSidePanelClient({ eventId, members, event
   const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<string>("Stops");
+  const [isOpen, setIsOpen] = useState(true);
+  const isDesktop = useIsDesktop();
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [participantQuery, setParticipantQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
@@ -69,168 +91,215 @@ export default function EventManagementSidePanelClient({ eventId, members, event
     })
     .sort((a, b) => a.rsvp_status.localeCompare(b.rsvp_status));
 
-  // Expose this panel's width as a CSS variable (desktop only, since on
-  // mobile it's a full-screen overlay and doesn't need to offset anything)
-  // so other overlays (e.g. the map's search box) can position around it.
+  // Expose how much horizontal space this panel takes as a CSS variable so other
+  // overlays (e.g. the map's search box) can position around it. On mobile the panel
+  // is a bottom sheet and doesn't offset anything horizontally.
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(min-width: 768px)');
+    const width = !isDesktop ? '0px' : isOpen ? PANEL_WIDTH_DESKTOP : COLLAPSED_OFFSET_DESKTOP;
+    document.documentElement.style.setProperty('--panel-width', width);
+  }, [isDesktop, isOpen]);
 
-    const updatePanelWidth = () => {
-      document.documentElement.style.setProperty(
-        '--panel-width',
-        mediaQuery.matches ? PANEL_WIDTH_DESKTOP : '0px'
-      );
-    };
-
-    updatePanelWidth();
-    mediaQuery.addEventListener('change', updatePanelWidth);
-
-    return () => {
-      mediaQuery.removeEventListener('change', updatePanelWidth);
-      document.documentElement.style.setProperty('--panel-width', '0px');
-    };
+  useEffect(() => {
+    return () => document.documentElement.style.setProperty('--panel-width', '0px');
   }, []);
 
+  // Tapping a tab on the collapsed mobile sheet also slides it back up
+  function onSelectTab(tab: string) {
+    setActiveTab(tab);
+    setIsOpen(true);
+  }
+
   return (
-    <div className="absolute inset-0 z-10 bg-bg-primary md:inset-auto md:top-0 md:h-full md:w-[var(--panel-width)] md:shadow-md transition-[left] duration-300 overflow-y-scroll">
+    <>
+      <div
+        id={PANEL_ID}
+        // Fully off-screen on collapsed desktop, so keep its controls out of the tab order.
+        // On mobile the header stays visible, so only the content section is made inert.
+        inert={!isOpen && isDesktop}
+        className={clsx(
+          "absolute z-10 flex flex-col bg-bg-primary transition-transform duration-300 ease-out",
+          // Mobile: bottom sheet; collapsed leaves only the header (--sheet-peek) visible
+          "inset-x-0 bottom-0 h-[50%] rounded-t-2xl shadow-[0_-4px_12px_rgba(0,0,0,0.12)]",
+          isOpen ? "translate-y-0" : "translate-y-[calc(100%-var(--sheet-peek))]",
+          // Desktop: left drawer that slides fully out to the left
+          "md:inset-auto md:top-0 md:left-0 md:h-full md:w-[374px] md:rounded-none md:shadow-md md:translate-y-0",
+          isOpen ? "md:translate-x-0" : "md:-translate-x-full",
+        )}
+      >
 
-      <section className="flex items-center gap-4 p-4 border-b border-border-primary bg-bg-primary">
-        <TabButton label="Stops" activeTab={activeTab} onClick={setActiveTab} />
-        <TabButton label="Participants" activeTab={activeTab} onClick={setActiveTab} />
-      </section>
+        <section className="flex items-center gap-4 h-[var(--sheet-peek)] px-4 shrink-0 border-b border-border-primary bg-bg-primary rounded-t-2xl md:rounded-none">
+          <TabButton label="Stops" activeTab={activeTab} onClick={onSelectTab} />
+          <TabButton label="Participants" activeTab={activeTab} onClick={onSelectTab} />
 
-      <section className="p-3">
-        {
-          activeTab === "Stops" &&
-          <DragDropProvider
-            onDragEnd={(event) => {
-              if (event.canceled) return;
-              const sourceId = event.operation.source?.id;
-              if (sourceId == null) return;
-
-              const byId = new Map(eventStops.map((s) => [s.mapbox_id, s]));
-              const ids = move(eventStops.map((s) => s.mapbox_id), event);
-              const reordered = ids.map((id) => byId.get(id)!);
-
-              const i = reordered.findIndex((s) => s.mapbox_id === sourceId);
-              if (i === -1) return;
-              if (reordered.every((s, idx) => s.mapbox_id === eventStops[idx].mapbox_id)) return;
-
-              const moved = reordered[i];
-              const prev = reordered[i - 1];
-              const next = reordered[i + 1];
-
-              // Narrows `moved` to PersistedStop. Neighbors must have keys to compute a key between them.
-              if (!isPersisted(moved) || (prev && !prev.fractional_index) || (next && !next.fractional_index)) {
-                return;
-              }
-
-              let key: string;
-              try {
-                key = generateKeyBetween(prev?.fractional_index ?? null, next?.fractional_index ?? null);
-              } catch {
-                // Cached keys are out of order. Resync from the server.
-                queryClient.invalidateQueries({ queryKey: stopsKey(eventId) });
-                return;
-              }
-
-              onMoveStop({ stopId: moved.id, fractionalIndex: key, reordered });
-            }}
+          <button
+            onClick={() => setIsOpen(prev => !prev)}
+            aria-expanded={isOpen}
+            aria-controls={PANEL_ID}
+            aria-label={isOpen ? "Collapse panel" : "Expand panel"}
+            className="ml-auto p-1.5 rounded-md text-text-secondary hover:bg-bg-tertiary hover:cursor-pointer"
           >
-            <ul ref={ref} className="flex flex-col gap-2">
-              {eventStops.map((stop, index) => (
-                <SortableStop
-                  key={stop.mapbox_id}
-                  stop={stop}
-                  index={index}
-                  onSelectStop={onSelectStop}
-                  isSelected={activeStopId === stop.mapbox_id}
-                  isActive={stop.id !== undefined && stop.id === activeEventStopId}
-                />
-              ))}
-            </ul>
-          </DragDropProvider>
-        }
-        {
-          activeTab === "Participants" &&
-
-          <div className="flex flex-col gap-8">
-            <span className="flex gap-2 justify-evenly items-center">
-              <input
-                autoFocus
-                placeholder="Search participants"
-                value={participantQuery}
-                onChange={(e) => setParticipantQuery(e.target.value)}
-                className="bg-bg-secondary w-full rounded-lg py-2 px-3"
-                autoComplete="off"
-              />
-
-              <Can I='create' a='Member'>
-                <button
-                  onClick={() => setIsInviteModalOpen(true)}
-                  aria-label="Invite members"
-                  className="flex items-center gap-1 p-2 rounded-lg bg-bg-secondary hover:cursor-pointer"
-                >
-                  <UserRoundPlus size={20} />
-                </button>
-
-                <Listbox value={roleFilter} onChange={setRoleFilter}>
-                  <ListboxButton
-                    aria-label="Filter participants by role"
-                    className={clsx(
-                      "relative flex items-center gap-1 p-2 rounded-lg hover:cursor-pointer hover:bg-bg-tertiary",
-                      "focus:not-data-focus:outline-none data-focus:outline-2 data-focus:-outline-offset-2 data-focus:outline-white/25",
-                      roleFilter === "all" ? "bg-bg-secondary" : "bg-bg-tertiary"
-                    )}
-                  >
-                    <FilterIcon size={20} />
-                    {roleFilter !== "all" && (
-                      <span className="absolute top-1 right-1 size-2 rounded-full bg-bg-info" aria-hidden="true" />
-                    )}
-                  </ListboxButton>
-                  <ListboxOptions
-                    anchor="bottom end"
-                    transition
-                    className={clsx(
-                      "w-36 rounded-lg bg-bg-secondary border-1 border-border-primary [--anchor-gap:--spacing(1)] focus:outline-none z-20",
-                      "transition duration-100 ease-in data-leave:data-closed:opacity-0"
-                    )}
-                  >
-                    {ROLE_FILTER_OPTIONS.map((option) => (
-                      <ListboxOption
-                        key={option.value}
-                        value={option.value}
-                        className="group flex cursor-default items-center gap-2 px-3 py-1.5 select-none data-focus:bg-bg-tertiary"
-                      >
-                        <CheckIcon className="invisible size-4 group-data-selected:visible" />
-                        {option.label}
-                      </ListboxOption>
-                    ))}
-                  </ListboxOptions>
-                </Listbox>
-              </Can>
+            {/* Mobile: bottom sheet icons */}
+            <span className="md:hidden">
+              {isOpen ? <PanelBottomClose size={20} /> : <PanelBottomOpen size={20} />}
             </span>
-            <InviteMembersModal
-              eventId={eventId}
-              members={members}
-              isOpen={isInviteModalOpen}
-              onClose={() => setIsInviteModalOpen(false)}
-            />
+            {/* Desktop: the header is off-screen when collapsed, so it only needs "close" */}
+            <PanelLeftClose size={20} className="hidden md:block" />
+          </button>
+        </section>
 
-            <ul className="flex flex-col gap-4">
-              {
-                filteredMembers.map((member) => (
-                  <MemberCard eventId={eventId} key={member.user.clerk_id} member={member} />
-                ))
-              }
-              {(normalizedQuery || roleFilter !== "all") && filteredMembers.length === 0 && (
-                <p className="text-sm text-text-secondary text-center mt-4">No participants match your filters</p>
-              )}
-            </ul>
-          </div>
-        }
-      </section>
-    </div>
+        <section inert={!isOpen} className="flex-1 overflow-y-auto p-3">
+          {
+            activeTab === "Stops" &&
+            <DragDropProvider
+              onDragEnd={(event) => {
+                if (event.canceled) return;
+                const sourceId = event.operation.source?.id;
+                if (sourceId == null) return;
+
+                const byId = new Map(eventStops.map((s) => [s.mapbox_id, s]));
+                const ids = move(eventStops.map((s) => s.mapbox_id), event);
+                const reordered = ids.map((id) => byId.get(id)!);
+
+                const i = reordered.findIndex((s) => s.mapbox_id === sourceId);
+                if (i === -1) return;
+                if (reordered.every((s, idx) => s.mapbox_id === eventStops[idx].mapbox_id)) return;
+
+                const moved = reordered[i];
+                const prev = reordered[i - 1];
+                const next = reordered[i + 1];
+
+                // Narrows `moved` to PersistedStop. Neighbors must have keys to compute a key between them.
+                if (!isPersisted(moved) || (prev && !prev.fractional_index) || (next && !next.fractional_index)) {
+                  return;
+                }
+
+                let key: string;
+                try {
+                  key = generateKeyBetween(prev?.fractional_index ?? null, next?.fractional_index ?? null);
+                } catch {
+                  // Cached keys are out of order. Resync from the server.
+                  queryClient.invalidateQueries({ queryKey: stopsKey(eventId) });
+                  return;
+                }
+
+                onMoveStop({ stopId: moved.id, fractionalIndex: key, reordered });
+              }}
+            >
+              <ul ref={ref} className="flex flex-col gap-2">
+                {eventStops.map((stop, index) => (
+                  <SortableStop
+                    key={stop.mapbox_id}
+                    stop={stop}
+                    index={index}
+                    onSelectStop={onSelectStop}
+                    isSelected={activeStopId === stop.mapbox_id}
+                    isActive={stop.id !== undefined && stop.id === activeEventStopId}
+                  />
+                ))}
+              </ul>
+            </DragDropProvider>
+          }
+          {
+            activeTab === "Participants" &&
+
+            <div className="flex flex-col gap-8">
+              <span className="flex gap-2 justify-evenly items-center">
+                <input
+                  autoFocus
+                  placeholder="Search participants"
+                  value={participantQuery}
+                  onChange={(e) => setParticipantQuery(e.target.value)}
+                  className="bg-bg-secondary w-full rounded-lg py-2 px-3"
+                  autoComplete="off"
+                />
+
+                <Can I='create' a='Member'>
+                  <button
+                    onClick={() => setIsInviteModalOpen(true)}
+                    aria-label="Invite members"
+                    className="flex items-center gap-1 p-2 rounded-lg bg-bg-secondary hover:cursor-pointer"
+                  >
+                    <UserRoundPlus size={20} />
+                  </button>
+
+                  <Listbox value={roleFilter} onChange={setRoleFilter}>
+                    <ListboxButton
+                      aria-label="Filter participants by role"
+                      className={clsx(
+                        "relative flex items-center gap-1 p-2 rounded-lg hover:cursor-pointer hover:bg-bg-tertiary",
+                        "focus:not-data-focus:outline-none data-focus:outline-2 data-focus:-outline-offset-2 data-focus:outline-white/25",
+                        roleFilter === "all" ? "bg-bg-secondary" : "bg-bg-tertiary"
+                      )}
+                    >
+                      <FilterIcon size={20} />
+                      {roleFilter !== "all" && (
+                        <span className="absolute top-1 right-1 size-2 rounded-full bg-bg-info" aria-hidden="true" />
+                      )}
+                    </ListboxButton>
+                    <ListboxOptions
+                      anchor="bottom end"
+                      transition
+                      className={clsx(
+                        "w-36 rounded-lg bg-bg-secondary border-1 border-border-primary [--anchor-gap:--spacing(1)] focus:outline-none z-20",
+                        "transition duration-100 ease-in data-leave:data-closed:opacity-0"
+                      )}
+                    >
+                      {ROLE_FILTER_OPTIONS.map((option) => (
+                        <ListboxOption
+                          key={option.value}
+                          value={option.value}
+                          className="group flex cursor-default items-center gap-2 px-3 py-1.5 select-none data-focus:bg-bg-tertiary"
+                        >
+                          <CheckIcon className="invisible size-4 group-data-selected:visible" />
+                          {option.label}
+                        </ListboxOption>
+                      ))}
+                    </ListboxOptions>
+                  </Listbox>
+                </Can>
+              </span>
+
+              <ul className="flex flex-col gap-4">
+                {
+                  filteredMembers.map((member) => (
+                    <MemberCard eventId={eventId} key={member.user.clerk_id} member={member} />
+                  ))
+                }
+                {(normalizedQuery || roleFilter !== "all") && filteredMembers.length === 0 && (
+                  <p className="text-sm text-text-secondary text-center mt-4">No participants match your filters</p>
+                )}
+              </ul>
+            </div>
+          }
+        </section>
+      </div>
+
+      {/* Desktop only: reopens the collapsed drawer. Sits in the 3.5rem reserved by --panel-width. */}
+      <button
+        onClick={() => setIsOpen(true)}
+        aria-expanded={isOpen}
+        aria-controls={PANEL_ID}
+        aria-label="Expand panel"
+        tabIndex={isOpen ? -1 : 0}
+        className={clsx(
+          "hidden md:flex absolute top-4 left-4 z-10 h-10 w-10 items-center justify-center rounded-lg",
+          "bg-bg-primary border-1 border-border-primary shadow-md text-text-secondary hover:bg-bg-tertiary hover:cursor-pointer",
+          "transition-opacity duration-300",
+          isOpen ? "opacity-0 pointer-events-none" : "opacity-100",
+        )}
+      >
+        <PanelLeftOpen size={20} />
+      </button>
+
+      {/* Rendered outside the panel: the panel's slide transform would otherwise become the
+          containing block for the modal's `position: fixed`, trapping it inside the panel. */}
+      <InviteMembersModal
+        eventId={eventId}
+        members={members}
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+      />
+    </>
   );
 }
 
